@@ -1,0 +1,7 @@
+{
+  "name": "mobile-terminal",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}
