@@ -42,5 +42,23 @@
       </div>
     </div>
 
+    <div *ngIf="gamePhase === 'ELIMINATED'" 
+         class="absolute inset-0 z-50 bg-red-950 flex flex-col items-center justify-center p-6 text-center border-4 border-red-600 animate-pulse">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      
+      <h1 class="text-4xl font-bold text-red-500 tracking-widest mb-2">SISTEMA CAÍDO</h1>
+      <p class="text-red-300 uppercase tracking-widest text-sm mb-8">Conexión terminada por el servidor</p>
+      
+      <div class="bg-red-900/50 border border-red-500 p-4 rounded text-left w-full max-w-xs">
+        <p class="text-xs text-red-200 font-mono">> ERR_CONNECTION_REFUSED</p>
+        <p class="text-xs text-red-200 font-mono">> Nodo comprometido.</p>
+        <p class="text-xs text-red-200 font-mono mt-2 animate-bounce">_ Esperando reinicio de red...</p>
+      </div>
+
+    </div>
+    
   </div>
 </ion-content>

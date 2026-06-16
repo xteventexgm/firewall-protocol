@@ -1,39 +1,48 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
+import { Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SocketService {
   private socket!: Socket;
-  // Esta URL la cambiarán luego por la IP del Integrante 3
-  private readonly SERVER_URL = 'http://localhost:3000'; 
+  private readonly SERVER_URL = 'http://localhost:3000';
+
+  // Transmisores reactivos para que el Dashboard los escuche
+  public gameState$ = new Subject<any>();
+  public playerState$ = new Subject<any>();
 
   constructor() {
     this.initSocket();
   }
 
   private initSocket() {
-    // Recuperar el ID de sesión del jugador de la memoria del teléfono
     const savedSession = localStorage.getItem('playerSession');
 
     this.socket = io(this.SERVER_URL, {
-      auth: {
-        session: savedSession
-      }
+      auth: { session: savedSession }
     });
 
     this.socket.on('connect', () => {
-      console.log('🔗 Conectado al servidor central de Firewall Protocol');
+      console.log('🔗 Conectado al servidor central');
     });
 
-    // Guardar la nueva sesión cuando el servidor la asigne por primera vez
     this.socket.on('session-assigned', (sessionData: any) => {
       localStorage.setItem('playerSession', sessionData.token);
     });
+
+    // 1. Escucha cambios generales (Noche, Día, lista de vivos)
+    this.socket.on('game-state-update', (data: any) => {
+      this.gameState$.next(data);
+    });
+
+    // 2. Escucha cambios personales (Qué rol te tocó, si fuiste eliminado)
+    this.socket.on('player-state-update', (data: any) => {
+      this.playerState$.next(data);
+    });
   }
 
-  // Método general para emitir acciones (votos, poderes, etc.)
   public emitAction(action: string, payload: any) {
     if (this.socket.connected) {
       this.socket.emit(action, payload);
