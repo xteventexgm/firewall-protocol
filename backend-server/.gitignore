@@ -12,3 +12,4 @@ coverage/
 logs/
 backend-server/data/*.json
 *.local
+.data/
