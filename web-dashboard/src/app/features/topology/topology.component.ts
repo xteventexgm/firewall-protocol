@@ -8,7 +8,8 @@ import {
   AfterViewInit,
   HostListener,
 } from '@angular/core';
-import { GamePhase, PublicGameState } from '../../core/models/game-state.model';
+import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
+import { isNodeCritical } from '../../core/utils/game.utils';
 import { computeCircularLayout, NodePosition } from '../../core/utils/layout.utils';
 
 @Component({
@@ -51,10 +52,20 @@ export class TopologyComponent implements OnChanges, AfterViewInit {
     return this.phase === 'NOCHE';
   }
 
-  nodeClass(player: { isAlive: boolean }): string {
-    if (!player.isAlive) return 'node-dead';
+  nodeClass(player: PublicPlayer): string {
+    if (isNodeCritical(player)) return 'node-dead';
     if (this.phase === 'VOTACION' || this.phase === 'DIA') return 'node-active';
     return 'node-online';
+  }
+
+  nodeStatusLabel(player: PublicPlayer): string | null {
+    if (!player.isAlive) return 'BANEADO';
+    if (!player.isConnected) return 'DESCONECTADO';
+    return null;
+  }
+
+  isNodeHealthy(player: PublicPlayer): boolean {
+    return player.isAlive && player.isConnected;
   }
 
   private updateLayout(): void {

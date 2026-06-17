@@ -23,6 +23,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
       id: p.id,
       name: p.name,
       isAlive: p.isAlive !== false,
+      isConnected: p.isConnected !== false,
       joinedAt: p.joinedAt ?? Date.now(),
     }));
 
@@ -81,4 +82,8 @@ export function phaseLabel(phase: GamePhase): string {
     VERIFICACION: 'VERIFICACIÓN — Conteo de votos',
   };
   return labels[phase] ?? phase;
+}
+
+export function isNodeCritical(player: PublicPlayer): boolean {
+  return !player.isAlive || !player.isConnected;
 }

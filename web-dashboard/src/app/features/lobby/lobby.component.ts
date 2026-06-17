@@ -37,6 +37,14 @@ export class LobbyComponent implements OnChanges {
     return this.state?.players.length ?? 0;
   }
 
+  get connectedCount(): number {
+    return this.state?.players.filter((p) => p.isConnected).length ?? 0;
+  }
+
+  get aliveCount(): number {
+    return this.state?.players.filter((p) => p.isAlive).length ?? 0;
+  }
+
   get canStart(): boolean {
     return this.playerCount >= this.minPlayers && this.state?.phase === 'LOBBY';
   }

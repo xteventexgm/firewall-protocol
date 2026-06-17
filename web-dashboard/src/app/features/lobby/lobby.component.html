@@ -43,6 +43,14 @@
         <span class="label">Mínimo</span>
         <span class="value">{{ minPlayers }}</span>
       </div>
+      <div class="stat-box">
+        <span class="label">Conectados</span>
+        <span class="value">{{ connectedCount }}</span>
+      </div>
+      <div class="stat-box">
+        <span class="label">Vivos</span>
+        <span class="value">{{ aliveCount }}</span>
+      </div>
     </section>
 
     <section class="phase-indicator text-xs text-cyber-muted border-t border-cyber-border pt-3">
@@ -76,8 +84,14 @@
         @for (player of state.players; track player.id) {
           <li class="flex justify-between py-1 border-b border-cyber-border/50">
             <span>{{ player.name }}</span>
-            <span [class.text-cyber-danger]="!player.isAlive">
-              {{ player.isAlive ? 'ONLINE' : 'OFFLINE' }}
+            <span class="player-status">
+              <span [class.text-cyber-danger]="!player.isAlive">
+                {{ player.isAlive ? 'VIVO' : 'MUERTO' }}
+              </span>
+              ·
+              <span [class.text-cyber-danger]="!player.isConnected">
+                {{ player.isConnected ? 'CONECTADO' : 'DESCONECTADO' }}
+              </span>
             </span>
           </li>
         }

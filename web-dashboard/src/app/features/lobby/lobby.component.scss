@@ -100,3 +100,9 @@
   scrollbar-width: thin;
   scrollbar-color: #1a3a4a transparent;
 }
+
+.player-status {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
