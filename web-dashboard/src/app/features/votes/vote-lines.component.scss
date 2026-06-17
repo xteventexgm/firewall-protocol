@@ -1,0 +1,24 @@
+:host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.vote-lines-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.vote-lines-svg.hidden {
+  opacity: 0;
+}
+
+.vote-line {
+  stroke: #00ff88;
+  stroke-opacity: 0.75;
+  fill: none;
+  stroke-dasharray: 8 4;
+  animation: fade-in-line 0.4s ease-out forwards;
+}

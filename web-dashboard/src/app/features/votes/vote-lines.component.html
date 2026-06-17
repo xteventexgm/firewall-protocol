@@ -1,0 +1,18 @@
+<svg #container class="vote-lines-svg" [attr.width]="width" [attr.height]="height" [class.hidden]="!visible">
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#00ff88" opacity="0.8" />
+    </marker>
+  </defs>
+  @for (line of lines; track $index) {
+    <line
+      class="vote-line"
+      [attr.x1]="line.x1"
+      [attr.y1]="line.y1"
+      [attr.x2]="line.x2"
+      [attr.y2]="line.y2"
+      [attr.stroke-width]="line.strokeWidth"
+      marker-end="url(#arrowhead)"
+    />
+  }
+</svg>
