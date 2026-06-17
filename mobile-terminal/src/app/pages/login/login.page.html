@@ -1,0 +1,51 @@
+<ion-content class="bg-slate-900">
+  <div class="flex flex-col items-center justify-center h-full p-6 font-mono bg-slate-900 text-slate-200">
+    
+    <!-- Cabecera de la Terminal -->
+    <div class="mb-10 text-center">
+      <h1 class="text-4xl font-bold text-emerald-500 tracking-widest mb-2 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">FW_PROTO</h1>
+      <p class="text-xs text-slate-400 uppercase tracking-widest">Terminal de Acceso Cliente</p>
+    </div>
+
+    <!-- Panel de Autenticación -->
+    <div class="w-full max-w-sm space-y-6 bg-slate-800 p-6 border border-slate-700 rounded-md shadow-2xl">
+      
+      <!-- Input Código de Sala -->
+      <div class="space-y-2">
+        <label class="text-xs text-emerald-400 uppercase font-bold">> Cód. de Red [SALA]:</label>
+        <input 
+          type="text" 
+          [(ngModel)]="roomCode"
+          (keyup.enter)="joinNetwork()"
+          class="w-full bg-slate-900 border border-slate-600 text-emerald-500 px-4 py-3 rounded-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 uppercase tracking-widest placeholder-slate-600"
+          placeholder="Ej. SALA-192">
+      </div>
+
+      <!-- Input Nombre de Jugador -->
+      <div class="space-y-2">
+        <label class="text-xs text-emerald-400 uppercase font-bold">> Hostname [Jugador]:</label>
+        <input 
+          type="text" 
+          [(ngModel)]="playerName"
+          (keyup.enter)="joinNetwork()"
+          class="w-full bg-slate-900 border border-slate-600 text-emerald-500 px-4 py-3 rounded-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 placeholder-slate-600"
+          placeholder="Tu alias / Nickname">
+      </div>
+
+      <!-- Botón de Ejecución -->
+      <button 
+        (click)="joinNetwork()"
+        class="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-bold uppercase tracking-widest py-3 rounded-sm transition-colors duration-200 active:scale-95">
+        Ejecutar Conexión
+      </button>
+
+    </div>
+
+    <!-- Footer decorativo -->
+    <div class="mt-12 text-xs text-slate-600 text-center animate-pulse">
+      <p>A la espera de un apretón de manos TCP...</p>
+      <p>Sistema Operativo: Seguro</p>
+    </div>
+
+  </div>
+</ion-content>

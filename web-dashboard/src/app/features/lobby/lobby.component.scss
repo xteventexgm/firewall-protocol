@@ -1,0 +1,102 @@
+:host {
+  display: block;
+  width: 300px;
+  min-width: 280px;
+}
+
+.lobby-panel {
+  height: 100%;
+  border-radius: 4px;
+  box-shadow: 0 0 24px #00f0ff11;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+
+  &.online {
+    background: #00ff88;
+    box-shadow: 0 0 8px #00ff88;
+  }
+
+  &.offline {
+    background: #ff2d55;
+    box-shadow: 0 0 8px #ff2d55;
+  }
+}
+
+.room-code {
+  text-shadow: 0 0 20px #00f0ff66;
+  letter-spacing: 0.15em;
+}
+
+.qr-image {
+  background: #050a12;
+  padding: 8px;
+}
+
+.stat-box {
+  background: #0a121c;
+  border: 1px solid #1a3a4a;
+  padding: 8px 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #4a6a7a;
+  }
+
+  .value {
+    font-weight: 700;
+    color: #00f0ff;
+  }
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #003344, #006677);
+  border: 1px solid #00f0ff;
+  color: #00f0ff;
+
+  &:not(:disabled):hover {
+    background: linear-gradient(135deg, #004455, #007788);
+    box-shadow: 0 0 16px #00f0ff44;
+  }
+}
+
+.btn-secondary {
+  background: #0a121c;
+  border: 1px solid #4a6a7a;
+  color: #c8e6f0;
+
+  &:not(:disabled):hover {
+    border-color: #00f0ff;
+    color: #00f0ff;
+  }
+}
+
+.player-list {
+  scrollbar-width: thin;
+  scrollbar-color: #1a3a4a transparent;
+}
