@@ -1,0 +1,20 @@
+{
+  "roomId": "FIRE-CCNL",
+  "phase": "LOBBY",
+  "phaseStartedAt": 1781659200550,
+  "players": [
+    {
+      "id": "__dashboard__",
+      "name": "Centro de Mando",
+      "socketId": "OujWge9zLPJ9tgVhAAAD",
+      "isAlive": true,
+      "joinedAt": 1781659200554,
+      "pendingActions": []
+    }
+  ],
+  "dayNumber": 0,
+  "nightNumber": 0,
+  "actionQueue": [],
+  "votes": {},
+  "logs": []
+}
