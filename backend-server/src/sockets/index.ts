@@ -15,6 +15,11 @@ export function initSockets(server: http.Server) {
 
     socket.on('disconnect', () => {
       ns.emit('debug', `socket disconnected ${socket.id}`);
+      const found = RoomManager.findPlayerBySocketId(socket.id);
+      if (found) {
+        found.room.markPlayerDisconnected(socket.id);
+        ns.to(found.room.id).emit('roomState', found.room.id, found.room.state.toPlain());
+      }
     });
   });
 

@@ -26,14 +26,14 @@
         [class.glitch]="isGlitching(node.id)"
         [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
       >
-        <circle r="28" class="node-ring animate-pulse-glow" />
+        <circle r="28" class="node-ring" [class.animate-pulse-glow]="isNodeHealthy(node.player)" />
         <circle r="20" class="node-core" />
         <text y="4" text-anchor="middle" class="node-initial">
           {{ node.player.name.charAt(0).toUpperCase() }}
         </text>
         <text y="42" text-anchor="middle" class="node-name">{{ node.player.name }}</text>
-        @if (!node.player.isAlive) {
-          <text y="-36" text-anchor="middle" class="node-status dead">BANEADO</text>
+        @if (nodeStatusLabel(node.player); as label) {
+          <text y="-36" text-anchor="middle" class="node-status dead">{{ label }}</text>
         }
       </g>
     }

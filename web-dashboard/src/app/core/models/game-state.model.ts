@@ -10,6 +10,7 @@ export interface PublicPlayer {
   id: string;
   name: string;
   isAlive: boolean;
+  isConnected: boolean;
   joinedAt: number;
 }
 
