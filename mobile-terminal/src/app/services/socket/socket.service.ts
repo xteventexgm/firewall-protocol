@@ -16,7 +16,11 @@ export type GamePhase =
 export interface PlayerView {
   name: string;
   role: string;
+  roleId?: string;
   team?: string;
+  teamLabel?: string;
+  roleDescription?: string;
+  nightActionHint?: string;
   isDead: boolean;
   silenced?: boolean;
 }
@@ -96,6 +100,10 @@ export class SocketService {
     return true;
   }
 
+  getMyRole(): string | undefined {
+    return this.myRole;
+  }
+
   private attachListeners(): void {
     if (!this.socket || this.listenersAttached) return;
     this.listenersAttached = true;
@@ -131,8 +139,12 @@ export class SocketService {
         const name = localStorage.getItem('playerName') ?? '';
         this.playerState$.next({
           name,
-          role: payload.role,
+          role: payload.displayName ?? payload.role,
+          roleId: payload.role,
           team: payload.team,
+          teamLabel: payload.teamLabel,
+          roleDescription: payload.description,
+          nightActionHint: payload.nightActionHint,
           isDead: false,
         });
       }

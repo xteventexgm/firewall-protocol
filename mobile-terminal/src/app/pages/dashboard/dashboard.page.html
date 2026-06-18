@@ -21,6 +21,11 @@
     <div class="bg-slate-800 border border-slate-600 p-4 rounded-md mb-4 shadow-lg">
       <h2 class="text-xs text-slate-400 uppercase mb-1">Nivel de Acceso (Rol):</h2>
       <p class="text-2xl font-bold text-white tracking-widest">{{ playerRole }}</p>
+      <p *ngIf="playerTeamLabel" class="text-xs text-slate-400 mt-2 uppercase tracking-wide">{{ playerTeamLabel }}</p>
+      <p *ngIf="roleDescription" class="text-sm text-slate-300 mt-3 leading-relaxed">{{ roleDescription }}</p>
+      <p *ngIf="nightActionHint" class="text-xs text-emerald-400 mt-3 border-t border-slate-700 pt-3 leading-relaxed">
+        {{ nightActionHint }}
+      </p>
     </div>
 
     <p *ngIf="statusMessage" class="text-xs text-cyan-400 mb-4">{{ statusMessage }}</p>

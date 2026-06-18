@@ -3,6 +3,7 @@ import { GameStateModel } from '../models/GameState';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { getMeta } from './playerMetadata';
 import { applyZeroDayAssume } from './VictoryChecker';
+import { buildRoleAssignedPayload } from './roleInfo';
 
 export type NightResolution = {
   kills: string[];
@@ -209,14 +210,16 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       recordVisit(a.actor, finalTarget);
     } else if (type === 'zero_day_assume' && a.target) {
       applyZeroDayAssume(state, a.actor, a.target);
-      res.privateResults.push({
-        playerId: a.actor,
-        payload: {
-          type: 'role_assigned',
-          role: playersById.get(a.actor)?.role,
-          team: playersById.get(a.actor)?.team as Team,
-        },
-      });
+      const assumedRole = playersById.get(a.actor)?.role as RoleName | undefined;
+      if (assumedRole) {
+        res.privateResults.push({
+          playerId: a.actor,
+          payload: buildRoleAssignedPayload(
+            assumedRole,
+            playersById.get(a.actor)?.team as Team,
+          ),
+        });
+      }
     }
   }
 

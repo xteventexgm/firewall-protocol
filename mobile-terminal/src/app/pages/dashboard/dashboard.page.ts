@@ -20,6 +20,9 @@ import { Subscription } from 'rxjs';
 export class DashboardPage implements OnInit, OnDestroy {
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
+  playerTeamLabel = '';
+  roleDescription = '';
+  nightActionHint = '';
   gamePhase: GamePhase | 'ELIMINATED' = 'LOBBY';
   aliveTargets: TargetOption[] = [];
   deadTargets: TargetOption[] = [];
@@ -61,8 +64,11 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.name) this.playerName = player.name;
         if (player.role) {
           this.playerRole = player.role;
-          this.canActAtNight = !!getNightActionType(player.role);
+          this.canActAtNight = !!getNightActionType(player.roleId ?? player.role);
         }
+        if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
+        if (player.roleDescription) this.roleDescription = player.roleDescription;
+        if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead) this.gamePhase = 'ELIMINATED';
       }),
     );
@@ -119,7 +125,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get targetOptions(): TargetOption[] {
-    return this.playerRole === 'Zero-Day' ? this.deadTargets : this.aliveTargets;
+    const roleKey = this.socketService.getMyRole();
+    return roleKey === 'Zero-Day' ? this.deadTargets : this.aliveTargets;
   }
 
   executeNightAction(): void {

@@ -77,6 +77,11 @@ export interface PrivateResultPayload {
   members?: PlayerId[];
   role?: RoleId;
   team?: Team;
+  displayName?: string;
+  description?: string;
+  teamLabel?: string;
+  nightAction?: string | null;
+  nightActionHint?: string;
 }
 
 export interface VoteTrace {

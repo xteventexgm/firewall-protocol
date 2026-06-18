@@ -13,11 +13,21 @@ import { MIN_PLAYERS, MAX_PLAYERS } from '../utils/constants';
 import { validateNightAction, markActionSubmitted, getHackerTeam } from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
 import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
+import { buildRoleAssignedPayload } from './roleInfo';
+
+export class RoomJoinDeniedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoomJoinDeniedError';
+  }
+}
 
 export interface RoomOptions {
   nightDurationMs?: number;
   dayDurationMs?: number;
   autoAdvance?: boolean;
+  /** Si false, no carga JSON al crear (solo salas nuevas desde dashboard). */
+  restore?: boolean;
 }
 
 export class Room extends EventEmitter {
@@ -36,11 +46,13 @@ export class Room extends EventEmitter {
     this.options = Object.assign({ nightDurationMs: 60_000, dayDurationMs: 60_000, autoAdvance: false }, options);
 
     try {
-      const persisted = database.load(this.id);
-      if (persisted) {
-        this.state = GameStateModel.fromObject(persisted);
-        this.sm.restorePhase(this.state.phase, this.state.phaseStartedAt);
-        logger.info('Restored game state for room', this.id, 'phase=', this.state.phase);
+      if (options.restore !== false) {
+        const persisted = database.load(this.id);
+        if (persisted) {
+          this.state = GameStateModel.fromObject(persisted);
+          this.sm.restorePhase(this.state.phase, this.state.phaseStartedAt);
+          logger.info('Restored game state for room', this.id, 'phase=', this.state.phase);
+        }
       }
     } catch (err: any) {
       logger.error('Error restoring state for room', this.id, err.message || err);
@@ -62,6 +74,11 @@ export class Room extends EventEmitter {
   }
 
   addPlayer(p: Player) {
+    if (this.sm.getPhase() !== GamePhase.LOBBY) {
+      throw new RoomJoinDeniedError(
+        `Game already started. New players cannot join room ${this.id}.`,
+      );
+    }
     if (this.state.players.length >= MAX_PLAYERS) {
       throw new Error(`Room is full (max ${MAX_PLAYERS} players)`);
     }
@@ -146,11 +163,7 @@ export class Room extends EventEmitter {
     this.emit('privateResult', {
       roomId: this.id,
       playerId: player.id,
-      payload: {
-        type: 'role_assigned',
-        role: player.role,
-        team: player.team as Team,
-      },
+      payload: buildRoleAssignedPayload(player.role, player.team as Team),
     });
   }
 
