@@ -4,14 +4,16 @@ export type GamePhase =
   | 'NOCHE'
   | 'DIA'
   | 'VOTACION'
-  | 'VERIFICACION';
+  | 'VERIFICACION'
+  | 'FIN';
 
 export interface PublicPlayer {
   id: string;
   name: string;
   isAlive: boolean;
   isConnected: boolean;
-  joinedAt: number;
+  silenced?: boolean;
+  joinedAt?: number;
 }
 
 export interface PublicGameState {
@@ -22,7 +24,8 @@ export interface PublicGameState {
   dayNumber: number;
   nightNumber: number;
   votes: Record<string, string[]>;
-  logs: string[];
+  winner?: string | null;
+  soloWinner?: { playerId: string; role: string; reason: string } | null;
 }
 
 export interface VoteEdge {
@@ -35,6 +38,5 @@ export interface IncidentReport {
   playerName: string;
 }
 
-export const DASHBOARD_PLAYER_ID = '__dashboard__';
 export const MIN_PLAYERS_TO_START = 5;
-export const MAX_MOBILE_PLAYERS_WITH_HOST = 14;
+export const MAX_PLAYERS = 15;

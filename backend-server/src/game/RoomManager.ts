@@ -1,17 +1,21 @@
-import { Namespace } from 'socket.io';
 import Room from './Room';
 import { Player } from '../models/PlayerProfile';
 import { attachRoomBridge } from '../sockets/roomBridge';
+import { Namespace } from 'socket.io';
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
 
-  createRoom(id: string, options?: any, ns?: Namespace) {
+  createRoom(id: string, options?: any, gameNs?: Namespace, dashboardNs?: Namespace) {
     if (this.rooms.has(id)) throw new Error('Room already exists');
     const r = new Room(id, options);
-    if (ns) attachRoomBridge(r, ns);
+    if (gameNs) attachRoomBridge(r, gameNs, dashboardNs);
     this.rooms.set(id, r);
     return r;
+  }
+
+  ensureBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
+    attachRoomBridge(room, gameNs, dashboardNs);
   }
 
   getRoom(id: string) {
