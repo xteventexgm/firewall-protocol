@@ -6,9 +6,8 @@
     {
       "id": "usr_1omnxs0ea",
       "name": "Holamundo",
-      "socketId": "F-vkS30QtriZorbqAAAJ",
       "isAlive": true,
-      "isConnected": true,
+      "isConnected": false,
       "joinedAt": 1781753516159,
       "metadata": {},
       "pendingActions": []
