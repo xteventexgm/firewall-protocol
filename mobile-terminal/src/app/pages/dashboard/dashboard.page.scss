@@ -162,6 +162,36 @@
   color: #fff;
 }
 
+.role-description {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0.5rem 0 0;
+  line-height: 1.5;
+}
+
+.night-hint {
+  font-size: 0.75rem;
+  color: var(--color-cyber-accent, #00f0ff);
+  margin: 0.75rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-cyber-border, #1a3a4a);
+  line-height: 1.5;
+}
+
+.phase-banner {
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-cyber-accent, #00f0ff);
+  background: #00f0ff11;
+  border: 1px solid #00f0ff33;
+  border-radius: 6px;
+  animation: pulse-text 1.5s ease-in-out infinite;
+}
+
 .team-badge {
   font-size: 0.6rem;
   padding: 0.15rem 0.5rem;
@@ -328,6 +358,14 @@
     color: #fff;
     &:not(:disabled):active { background: #2563eb; }
   }
+
+  &.secondary {
+    background: transparent;
+    color: #94a3b8;
+    border: 1px solid var(--color-cyber-border, #1a3a4a);
+    margin-top: 0.5rem;
+    &:not(:disabled):active { background: #1a3a4a33; }
+  }
 }
 
 .vote-confirmed {
@@ -363,6 +401,14 @@
   &.self .node-name {
     color: var(--color-cyber-accent, #00f0ff);
   }
+
+  &.critical:not(.dead) .node-name {
+    opacity: 0.7;
+  }
+
+  &.glitch {
+    animation: glitch 0.3s ease infinite;
+  }
 }
 
 .node-status {
@@ -389,6 +435,16 @@
   &.dead {
     color: var(--color-cyber-danger, #ff2d55);
     border-color: #ff2d5533;
+  }
+
+  &.silenced {
+    color: var(--color-cyber-warn, #ffb800);
+    border-color: #ffb80033;
+  }
+
+  &.offline {
+    color: #64748b;
+    border-color: #64748b33;
   }
 }
 
@@ -460,6 +516,11 @@
 @keyframes phase-flash {
   0% { background: #00f0ff22; }
   100% { background: transparent; }
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 @keyframes pulse-overlay {

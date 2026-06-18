@@ -4,7 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
-import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
+import { Subscription, filter, take, timeout, catchError, of, race } from 'rxjs';
 
 @Component({
   selector: 'app-login',
@@ -72,17 +72,23 @@ export class LoginPage implements OnInit, OnDestroy {
       .subscribe((ok) => {
         if (!ok) return;
 
-        this.socketService.joinRoom(
-          this.roomCode.toUpperCase(),
-          myPlayerId,
-          this.playerName.trim(),
-        );
+        const code = this.roomCode.toUpperCase().trim();
 
-        const stateSub = this.socketService.gameState$
-          .pipe(take(1), timeout(6000))
+        const resultSub = race(
+          this.socketService.gameState$.pipe(
+            filter((s) => !!s && s.roomId === code),
+            take(1),
+          ),
+          this.socketService.error$.pipe(take(1)),
+        )
+          .pipe(timeout(6000))
           .subscribe({
-            next: () => {
+            next: (result) => {
               this.connecting = false;
+              if (typeof result === 'string') {
+                this.errorMessage = result;
+                return;
+              }
               this.router.navigate(['/dashboard']);
             },
             error: () => {
@@ -91,15 +97,9 @@ export class LoginPage implements OnInit, OnDestroy {
             },
           });
 
-        const errSub = this.socketService.error$
-          .pipe(take(1), timeout(6000))
-          .subscribe((msg) => {
-            this.connecting = false;
-            this.errorMessage = msg;
-          });
+        this.subs.add(resultSub);
 
-        this.subs.add(stateSub);
-        this.subs.add(errSub);
+        this.socketService.joinRoom(code, myPlayerId, this.playerName.trim());
       });
 
     this.subs.add(joinSub);
