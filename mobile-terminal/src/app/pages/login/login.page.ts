@@ -1,40 +1,107 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
+import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule],
+  imports: [IonicModule, FormsModule, CommonModule],
 })
-export class LoginPage {
+export class LoginPage implements OnInit, OnDestroy {
   roomCode = '';
   playerName = '';
+  connecting = false;
+  connected = false;
+  errorMessage = '';
+
+  private subs = new Subscription();
 
   constructor(
     private socketService: SocketService,
     private router: Router,
-  ) {}
+  ) {
+    this.subs.add(
+      this.socketService.connected$.subscribe((c) => {
+        this.connected = c;
+      }),
+    );
+  }
+
+  ngOnInit(): void {
+    this.socketService.connect();
+  }
+
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
+  }
 
   joinNetwork(): void {
     if (!this.roomCode.trim() || !this.playerName.trim()) {
-      console.warn('[WARN] Faltan credenciales.');
+      this.errorMessage = 'Completa el código de sala y tu nombre.';
       return;
     }
 
+    this.connecting = true;
+    this.errorMessage = '';
+
     const existingId = localStorage.getItem('myPlayerId');
     const myPlayerId = existingId ?? `usr_${Math.random().toString(36).slice(2, 11)}`;
+    if (!existingId) {
+      localStorage.setItem('myPlayerId', myPlayerId);
+    }
 
-    this.socketService.joinRoom(
-      this.roomCode.toUpperCase(),
-      myPlayerId,
-      this.playerName.trim(),
-    );
+    this.socketService.connect();
 
-    this.router.navigate(['/dashboard']);
+    const joinSub = this.socketService.connected$
+      .pipe(
+        filter((c) => c),
+        take(1),
+        timeout(8000),
+        catchError(() => {
+          this.connecting = false;
+          this.errorMessage = 'No se pudo conectar al servidor. Verifica la red.';
+          return of(false);
+        }),
+      )
+      .subscribe((ok) => {
+        if (!ok) return;
+
+        this.socketService.joinRoom(
+          this.roomCode.toUpperCase(),
+          myPlayerId,
+          this.playerName.trim(),
+        );
+
+        const stateSub = this.socketService.gameState$
+          .pipe(take(1), timeout(6000))
+          .subscribe({
+            next: () => {
+              this.connecting = false;
+              this.router.navigate(['/dashboard']);
+            },
+            error: () => {
+              this.connecting = false;
+              this.errorMessage = 'Sala no encontrada o sin respuesta del servidor.';
+            },
+          });
+
+        const errSub = this.socketService.error$
+          .pipe(take(1), timeout(6000))
+          .subscribe((msg) => {
+            this.connecting = false;
+            this.errorMessage = msg;
+          });
+
+        this.subs.add(stateSub);
+        this.subs.add(errSub);
+      });
+
+    this.subs.add(joinSub);
   }
 }
