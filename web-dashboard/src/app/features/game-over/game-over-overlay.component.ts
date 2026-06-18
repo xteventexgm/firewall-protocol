@@ -8,8 +8,7 @@ import { GameOverSummary } from '../../core/models/game-state.model';
   styleUrl: './game-over-overlay.component.scss',
 })
 export class GameOverOverlayComponent {
-  @Input() summary: GameOverSummary | null = null;
-  @Input() visible = false;
+  @Input({ required: true }) summary!: GameOverSummary;
 
   @Output() exitRoom = new EventEmitter<void>();
 

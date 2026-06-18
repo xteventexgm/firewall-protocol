@@ -32,11 +32,12 @@
       [incidentNightNumber]="incidentNightNumber"
     />
 
-    <app-game-over-overlay
-      [visible]="showGameOver"
-      [summary]="gameOverSummary"
-      (exitRoom)="onExitRoom()"
-    />
+    @if (showGameOver && gameOverSummary) {
+      <app-game-over-overlay
+        [summary]="gameOverSummary"
+        (exitRoom)="onExitRoom()"
+      ></app-game-over-overlay>
+    }
 
     @if (errorMessage) {
       <div class="error-toast">{{ errorMessage }}</div>
