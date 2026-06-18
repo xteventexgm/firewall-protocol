@@ -5,6 +5,7 @@ import { Namespace } from 'socket.io';
 import database from '../config/database';
 import { logRoom } from '../utils/socketLog';
 import { GamePhase } from '../types';
+import { normalizeRoomMaxPlayers } from '../utils/roomCapacity';
 
 export class RoomClosedError extends Error {
   constructor(message = 'Room has ended') {
@@ -27,7 +28,7 @@ export class RoomManager {
   }
 
   /** Solo dashboard: sala nueva, sin JSON previo ni sala en memoria. */
-  createRoom(id: string, options?: any, gameNs?: Namespace, dashboardNs?: Namespace) {
+  createRoom(id: string, options?: { maxPlayers?: number; [key: string]: unknown }, gameNs?: Namespace, dashboardNs?: Namespace) {
     const roomId = this.normalizeId(id);
     if (this.rooms.has(roomId)) throw new Error('Room already exists');
 
@@ -39,7 +40,8 @@ export class RoomManager {
       throw new Error('Room code already in use. Create a new lobby.');
     }
 
-    const r = new Room(roomId, { ...options, restore: false });
+    const maxPlayers = normalizeRoomMaxPlayers(options?.maxPlayers);
+    const r = new Room(roomId, { ...options, maxPlayers, restore: false });
     if (gameNs) attachRoomBridge(r, gameNs, dashboardNs);
     this.rooms.set(roomId, r);
 
@@ -47,6 +49,7 @@ export class RoomManager {
     logRoom('created', roomId, {
       phase: r.state.phase,
       players: r.state.players.length,
+      maxPlayers: r.state.maxPlayers,
       persisted: saved,
     });
 

@@ -55,10 +55,18 @@ export interface PublicGameState {
   phaseStartedAt: number;
   dayNumber: number;
   nightNumber: number;
+  maxPlayers: number;
+  playerCount: number;
   players: PublicPlayerState[];
   votes: Record<string, PlayerId[]>;
   winner: Team | null;
   soloWinner: SoloWinner | null;
+}
+
+export interface VoteTiedPayload {
+  roomId: RoomId;
+  voteCount: number;
+  candidates: PlayerId[];
 }
 
 export interface SoloWinner {
@@ -111,6 +119,9 @@ export interface ClientToServerEvents {
 export interface DashboardClientEvents {
   joinDashboard: (roomId: RoomId) => void;
   leaveDashboard: (roomId: RoomId) => void;
+  createRoom: (roomId: RoomId, maxPlayers: number) => void;
+  startGame: (roomId: RoomId) => void;
+  advancePhase: (roomId: RoomId) => void;
 }
 
 export interface ServerToClientEvents {
@@ -122,6 +133,7 @@ export interface ServerToClientEvents {
   incidentReport: (report: IncidentReport) => void;
   publicState: (state: PublicGameState) => void;
   voteTrace: (trace: VoteTrace) => void;
+  voteTied: (payload: VoteTiedPayload) => void;
   nightResolved: (roomId: RoomId, resolution: any) => void;
   playerReconnected: (roomId: RoomId, playerId: PlayerId) => void;
   playerDisconnected: (roomId: RoomId, playerId: PlayerId) => void;

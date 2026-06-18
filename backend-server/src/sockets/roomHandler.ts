@@ -2,7 +2,6 @@ import { Socket, Namespace } from 'socket.io';
 import RoomManager, { RoomClosedError } from '../game/RoomManager';
 import Room, { RoomJoinDeniedError } from '../game/Room';
 import { Player } from '../models/PlayerProfile';
-import { MAX_PLAYERS } from '../utils/constants';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
@@ -32,9 +31,14 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
         return;
       }
 
-      if (!room.state.getPlayer(playerId) && room.state.players.length >= MAX_PLAYERS) {
-        logger.warn('[mobile] joinRoom — sala llena', { roomId: code, playerId });
-        socket.emit('error', `Room is full (max ${MAX_PLAYERS} players)`);
+      if (!room.state.getPlayer(playerId) && room.state.players.length >= room.state.maxPlayers) {
+        logger.warn('[mobile] joinRoom — sala llena', {
+          roomId: code,
+          playerId,
+          players: room.state.players.length,
+          maxPlayers: room.state.maxPlayers,
+        });
+        socket.emit('error', `Room is full (${room.state.players.length}/${room.state.maxPlayers} players)`);
         return;
       }
 
