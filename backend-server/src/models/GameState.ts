@@ -42,6 +42,7 @@ export class GameStateModel implements GameState {
       pl.role = p.role;
       pl.team = p.team;
       pl.isAlive = p.isAlive !== false;
+      pl.isConnected = false;
       pl.joinedAt = p.joinedAt || Date.now();
       pl.metadata = p.metadata || {};
       pl.pendingActions = p.pendingActions || [];
@@ -55,7 +56,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
-      players: this.players.map(p => ({ id: p.id, name: p.name, socketId: p.socketId, role: p.role, team: p.team, isAlive: p.isAlive, joinedAt: p.joinedAt, metadata: p.metadata, pendingActions: p.pendingActions })),
+      players: this.players.map(p => ({ id: p.id, name: p.name, socketId: p.socketId, role: p.role, team: p.team, isAlive: p.isAlive, isConnected: p.isConnected, joinedAt: p.joinedAt, metadata: p.metadata, pendingActions: p.pendingActions })),
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
       actionQueue: this.actionQueue,

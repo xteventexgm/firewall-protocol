@@ -7,6 +7,7 @@ export interface PlayerProfile {
   role?: RoleId;
   team?: string;
   isAlive: boolean;
+  isConnected: boolean;
   joinedAt: number; // epoch ms
   metadata?: Record<string, any>;
   pendingActions?: PlayerAction[];
@@ -19,6 +20,7 @@ export class Player implements PlayerProfile {
   role?: RoleId;
   team?: string;
   isAlive = true;
+  isConnected = true;
   joinedAt: number;
   metadata?: Record<string, any>;
   pendingActions: PlayerAction[] = [];

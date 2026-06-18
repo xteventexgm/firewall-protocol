@@ -7,10 +7,14 @@ export default function registerRoomHandlers(socket: Socket, ns: Namespace) {
     try {
       let room = RoomManager.getRoom(roomId);
       if (!room) room = RoomManager.createRoom(roomId, { autoAdvance: false });
-      const p = new Player(playerId, name || `Player-${playerId}`, socket.id);
-      room.addPlayer(p);
+      const existing = room.state.getPlayer(playerId);
+      if (existing) {
+        room.reconnectPlayer(playerId, socket.id, name);
+      } else {
+        const p = new Player(playerId, name || `Player-${playerId}`, socket.id);
+        room.addPlayer(p);
+      }
       socket.join(roomId);
-      // emit the (possibly restored) room state to the joining socket/room
       ns.to(roomId).emit('roomState', roomId, room.state.toPlain ? room.state.toPlain() : room.state);
     } catch (err: any) {
       socket.emit('error', err.message || String(err));

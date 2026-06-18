@@ -1,4 +1,5 @@
 import Room from './Room';
+import { Player } from '../models/PlayerProfile';
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
@@ -24,6 +25,14 @@ export class RoomManager {
 
   listRooms() {
     return Array.from(this.rooms.keys());
+  }
+
+  findPlayerBySocketId(socketId: string): { room: Room; player: Player } | null {
+    for (const room of this.rooms.values()) {
+      const player = room.state.players.find(p => p.socketId === socketId);
+      if (player) return { room, player };
+    }
+    return null;
   }
 }
 

@@ -56,6 +56,27 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on addPlayer', e); }
   }
 
+  reconnectPlayer(playerId: string, socketId: string, name?: string) {
+    const existing = this.state.getPlayer(playerId);
+    if (!existing) return false;
+    existing.socketId = socketId;
+    existing.isConnected = true;
+    if (name) existing.name = name;
+    this.emit('playerReconnected', { roomId: this.id, playerId });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on reconnectPlayer', e); }
+    return true;
+  }
+
+  markPlayerDisconnected(socketId: string): boolean {
+    const player = this.state.players.find(p => p.socketId === socketId);
+    if (!player) return false;
+    player.isConnected = false;
+    player.socketId = undefined;
+    this.emit('playerDisconnected', { roomId: this.id, playerId: player.id });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on markPlayerDisconnected', e); }
+    return true;
+  }
+
   removePlayer(playerId: string) {
     this.state.removePlayer(playerId);
     this.emit('playerLeft', { roomId: this.id, playerId });
