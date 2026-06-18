@@ -12,7 +12,7 @@ export function saveGameState(roomId: string, state: any) {
     ensureGamesDir();
     const file = path.join(GAMES_DIR, `${roomId}.json`);
     fs.writeFileSync(file, JSON.stringify(state, null, 2), { encoding: 'utf8' });
-    logger.info('Saved game state', roomId, file);
+    logger.info('[db] wrote file', { roomId, file, bytes: JSON.stringify(state).length });
     return true;
   } catch (err: any) {
     logger.error('Failed to save game state', err.message || err);
@@ -24,10 +24,12 @@ export function loadGameState(roomId: string): any | null {
   try {
     ensureGamesDir();
     const file = path.join(GAMES_DIR, `${roomId}.json`);
-    if (!fs.existsSync(file)) return null;
+    if (!fs.existsSync(file)) {
+      logger.debug('[db] file not found', { roomId, file });
+      return null;
+    }
     const raw = fs.readFileSync(file, 'utf8');
     const obj = JSON.parse(raw);
-    logger.info('Loaded game state', roomId);
     return obj;
   } catch (err: any) {
     logger.error('Failed to load game state', err.message || err);

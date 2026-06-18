@@ -12,6 +12,18 @@
 /* Core CSS required for Ionic components to work properly */
 
 @use "tailwindcss";
+
+@theme {
+  --color-cyber-bg: #050a12;
+  --color-cyber-panel: #0d1520;
+  --color-cyber-border: #1a3a4a;
+  --color-cyber-accent: #00f0ff;
+  --color-cyber-danger: #ff2d55;
+  --color-cyber-warn: #ffb800;
+  --color-cyber-muted: #4a6a7a;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
 @import "@ionic/angular/css/core.css";
 
 /* Basic CSS for apps built with Ionic */
@@ -37,4 +49,10 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
+
+html,
+body {
+  font-family: var(--font-mono);
+  background: var(--color-cyber-bg);
+}
 

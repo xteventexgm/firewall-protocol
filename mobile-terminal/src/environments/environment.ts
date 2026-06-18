@@ -1,4 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://192.168.137.1:3000',
+  apiUrl: 'http://26.156.134.72:3000',
+  socketNamespace: '/game',
 };

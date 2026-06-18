@@ -3,5 +3,9 @@
   "integrations": {
     "capacitor": {}
   },
-  "type": "angular-standalone"
+  "type": "angular-standalone",
+  "serve": {
+    "host": "0.0.0.0",
+    "port": 4200
+  }
 }

@@ -9,15 +9,27 @@ import { NightActionBatch } from '../types/events.types';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import database from '../config/database';
 import { logger } from '../utils/logger';
-import { MIN_PLAYERS, MAX_PLAYERS } from '../utils/constants';
+import { MIN_PLAYERS } from '../utils/constants';
 import { validateNightAction, markActionSubmitted, getHackerTeam } from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
 import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
+import { buildRoleAssignedPayload } from './roleInfo';
+
+export class RoomJoinDeniedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoomJoinDeniedError';
+  }
+}
 
 export interface RoomOptions {
   nightDurationMs?: number;
   dayDurationMs?: number;
   autoAdvance?: boolean;
+  /** Cupo máximo de jugadores (obligatorio al crear desde dashboard). */
+  maxPlayers?: number;
+  /** Si false, no carga JSON al crear (solo salas nuevas desde dashboard). */
+  restore?: boolean;
 }
 
 export class Room extends EventEmitter {
@@ -32,15 +44,20 @@ export class Room extends EventEmitter {
     super();
     this.id = id;
     this.state = new GameStateModel(id);
+    if (options.maxPlayers !== undefined) {
+      this.state.maxPlayers = options.maxPlayers;
+    }
     this.sm = new StateMachine();
     this.options = Object.assign({ nightDurationMs: 60_000, dayDurationMs: 60_000, autoAdvance: false }, options);
 
     try {
-      const persisted = database.load(this.id);
-      if (persisted) {
-        this.state = GameStateModel.fromObject(persisted);
-        this.sm.restorePhase(this.state.phase, this.state.phaseStartedAt);
-        logger.info('Restored game state for room', this.id, 'phase=', this.state.phase);
+      if (options.restore !== false) {
+        const persisted = database.load(this.id);
+        if (persisted) {
+          this.state = GameStateModel.fromObject(persisted);
+          this.sm.restorePhase(this.state.phase, this.state.phaseStartedAt);
+          logger.info('Restored game state for room', this.id, 'phase=', this.state.phase);
+        }
       }
     } catch (err: any) {
       logger.error('Error restoring state for room', this.id, err.message || err);
@@ -62,8 +79,13 @@ export class Room extends EventEmitter {
   }
 
   addPlayer(p: Player) {
-    if (this.state.players.length >= MAX_PLAYERS) {
-      throw new Error(`Room is full (max ${MAX_PLAYERS} players)`);
+    if (this.sm.getPhase() !== GamePhase.LOBBY) {
+      throw new RoomJoinDeniedError(
+        `Game already started. New players cannot join room ${this.id}.`,
+      );
+    }
+    if (this.state.players.length >= this.state.maxPlayers) {
+      throw new Error(`Room is full (max ${this.state.maxPlayers} players)`);
     }
     this.state.addPlayer(p);
     this.emit('playerJoined', { roomId: this.id, player: p });
@@ -138,7 +160,7 @@ export class Room extends EventEmitter {
       }
     }
 
-    this.sm.transitionTo(GamePhase.NOCHE);
+    this.sm.transitionTo(GamePhase.DIA);
   }
 
   private emitPrivateRoleInfo(player: Player) {
@@ -146,11 +168,7 @@ export class Room extends EventEmitter {
     this.emit('privateResult', {
       roomId: this.id,
       playerId: player.id,
-      payload: {
-        type: 'role_assigned',
-        role: player.role,
-        team: player.team as Team,
-      },
+      payload: buildRoleAssignedPayload(player.role, player.team as Team),
     });
   }
 
@@ -218,35 +236,42 @@ export class Room extends EventEmitter {
 
   private resolveVotes(): string | null {
     const aliveIds = new Set(this.state.getAlivePlayers().map(p => p.id));
-    let bestTarget: string | null = null;
-    let bestCount = 0;
-    let tie = false;
+    const tallies = new Map<string, number>();
 
     for (const [target, voters] of Object.entries(this.state.votes)) {
       if (target === 'null') continue;
       const validVotes = voters.filter(v => aliveIds.has(v));
-      if (validVotes.length > bestCount) {
-        bestCount = validVotes.length;
-        bestTarget = target;
-        tie = false;
-      } else if (validVotes.length === bestCount && validVotes.length > 0) {
-        tie = true;
+      if (validVotes.length > 0) {
+        tallies.set(target, validVotes.length);
       }
     }
 
     let eliminated: string | null = null;
 
-    if (bestTarget && !tie && bestCount > 0) {
-      const player = this.state.getPlayer(bestTarget);
-      if (player?.isAlive) {
-        player.isAlive = false;
-        eliminated = bestTarget;
-        this.state.log(`Voted out: ${bestTarget} (${bestCount} votes)`);
-        this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
-        this.applyHoneypotBanDrag(bestTarget);
+    if (tallies.size === 0) {
+      this.state.log('No votes cast — no elimination');
+    } else {
+      const maxVotes = Math.max(...tallies.values());
+      const leaders = [...tallies.entries()].filter(([, count]) => count === maxVotes);
+
+      if (leaders.length > 1) {
+        this.state.log(`Vote tied at ${maxVotes} votes — no elimination`);
+        this.emit('voteTied', {
+          roomId: this.id,
+          voteCount: maxVotes,
+          candidates: leaders.map(([target]) => target),
+        });
+      } else {
+        const [bestTarget, bestCount] = leaders[0];
+        const player = this.state.getPlayer(bestTarget);
+        if (player?.isAlive) {
+          player.isAlive = false;
+          eliminated = bestTarget;
+          this.state.log(`Voted out: ${bestTarget} (${bestCount} votes)`);
+          this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
+          this.applyHoneypotBanDrag(bestTarget);
+        }
       }
-    } else if (tie) {
-      this.state.log('Vote tied — no elimination');
     }
 
     this.state.votes = {};
