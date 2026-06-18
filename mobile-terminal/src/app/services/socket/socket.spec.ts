@@ -1,4 +1,6 @@
+/// <reference types="jest" />
 import { TestBed } from '@angular/core/testing';
+// Using test globals provided by the test runner (Jest) — no explicit import needed
 
 import { Socket } from './socket';
 
