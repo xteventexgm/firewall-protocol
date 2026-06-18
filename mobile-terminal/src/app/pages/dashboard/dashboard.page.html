@@ -54,6 +54,24 @@
       <span class="status-prefix">></span> {{ statusMessage }}
     </div>
 
+    <!-- Registro persistente de acción nocturna / resultado por rol -->
+    <section
+      *ngIf="nightActionReport"
+      class="panel action-report-panel"
+      [attr.data-status]="nightActionReport.status">
+      <div class="panel-header">
+        <span class="panel-tag">Registro nocturno</span>
+        <span class="report-night">N{{ nightActionReport.nightNumber }}</span>
+      </div>
+      <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
+      <ul class="report-details">
+        <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
+      </ul>
+      <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
+        ⏳ Pendiente de resolución al amanecer
+      </p>
+    </section>
+
     <section *ngIf="showIncidentReport" class="panel incident-panel animate-fade-in">
       <h3 class="panel-title danger">Reporte de incidentes</h3>
       <p class="panel-sub">Nodos caídos durante la noche:</p>
@@ -189,8 +207,13 @@
 
   <div *ngIf="showGameOver" class="fullscreen-overlay gameover">
     <div class="overlay-content">
-      <h1 class="overlay-title accent">PARTIDA TERMINADA</h1>
+      <p class="winner-label">GANADOR</p>
+      <div class="winner-divider"></div>
+      <h1 class="winner-team">{{ winnerTeam }}</h1>
       <p class="overlay-sub">{{ gameOverMessage }}</p>
+      <button class="terminal-btn return-btn" (click)="returnToLogin()">
+        Volver al login
+      </button>
     </div>
   </div>
 

@@ -26,6 +26,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     maxPlayers: raw?.maxPlayers ?? 15,
     playerCount: raw?.playerCount ?? players.length,
     votes: raw?.votes ?? {},
+    logs: raw?.logs ?? [],
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
     lastNightKills: raw?.lastNightKills ?? [],
@@ -82,4 +83,22 @@ export function winnerLabel(winner: string | null | undefined): string {
     chaotic: 'El caos ha prevalecido',
   };
   return winner ? (labels[winner] ?? `Ganador: ${winner}`) : 'Partida terminada';
+}
+
+export function winnerTeamName(winner: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    system: 'SISTEMA',
+    black_hat: 'BLACK HAT',
+    chaotic: 'CAÓTICO',
+  };
+  return winner ? (labels[winner] ?? winner.toUpperCase()) : '—';
+}
+
+export function teamLabelFromKey(team: string | undefined): string {
+  const labels: Record<string, string> = {
+    system: 'Equipo Sistema',
+    black_hat: 'Equipo Black Hat',
+    chaotic: 'Equipo Caótico',
+  };
+  return team ? (labels[team] ?? team) : '';
 }

@@ -26,6 +26,7 @@ export interface PlayerRoomState {
   maxPlayers: number;
   playerCount: number;
   votes: Record<string, string[]>;
+  logs: string[];
   winner?: string | null;
   soloWinner?: { playerId: string; role: string; reason: string } | null;
   lastNightKills?: string[];

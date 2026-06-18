@@ -154,6 +154,20 @@ export class SocketService {
     return this.myRole;
   }
 
+  getMyTeam(): string | undefined {
+    return this.myTeam;
+  }
+
+  clearSession(): void {
+    this.leaveRoom();
+    localStorage.removeItem('roomCode');
+    localStorage.removeItem('playerName');
+    this.gameState$.next(null);
+    this.playerState$.next(null);
+    this.myRole = undefined;
+    this.myTeam = undefined;
+  }
+
   private getActiveRoomId(): string | null {
     return localStorage.getItem('roomCode');
   }

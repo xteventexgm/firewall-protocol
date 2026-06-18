@@ -21,7 +21,15 @@ import {
   phaseLabel,
   translateEliminationReason,
   winnerLabel,
+  winnerTeamName,
 } from '../../core/utils/game.utils';
+import {
+  buildPendingReport,
+  buildPrivateResultReport,
+  buildResolvedReport,
+  NightActionReport,
+  PendingNightAction,
+} from '../../core/utils/night-result.utils';
 import { MIN_PLAYERS_TO_START } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
@@ -50,6 +58,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   aliveTargets: TargetOption[] = [];
   deadTargets: TargetOption[] = [];
   players: RoomPlayer[] = [];
+  roomLogs: string[] = [];
 
   selectedTarget = '';
   selectedSecondary = '';
@@ -57,12 +66,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   statusType: 'info' | 'success' | 'error' | 'warn' = 'info';
   canActAtNight = false;
 
+  nightActionReport: NightActionReport | null = null;
+  private pendingNightAction: PendingNightAction | null = null;
+  private privateResultHandled = false;
+
   incidents: IncidentReport[] = [];
   glitchPlayerIds: string[] = [];
   showIncidentReport = false;
   phaseFlash = '';
   phaseBanner = '';
   gameOverMessage = '';
+  winnerTeam = '';
   showGameOver = false;
   myVoteConfirmed = false;
 
@@ -95,11 +109,12 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (state.phase) this.gamePhase = state.phase;
         this.dayNumber = state.dayNumber;
         this.nightNumber = state.nightNumber;
+        this.roomLogs = state.logs ?? [];
 
         this.players = state.players;
         const me = this.players.find((p) => p.id === this.myPlayerId);
 
-        if (me && !me.isAlive) {
+        if (me && !me.isAlive && state.phase !== 'FIN') {
           this.gamePhase = 'ELIMINATED';
         }
 
@@ -111,7 +126,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           .filter((p) => !p.isAlive)
           .map((p) => ({ id: p.id, name: p.name, isAlive: false }));
 
-        if (state.winner || state.soloWinner) {
+        if (state.phase === 'FIN' || state.winner || state.soloWinner) {
           this.showGameOverScreen(state.winner, state.soloWinner);
         }
       }),
@@ -128,29 +143,33 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
-        if (player.isDead) this.gamePhase = 'ELIMINATED';
+        if (player.isDead && this.gamePhase !== 'FIN') this.gamePhase = 'ELIMINATED';
         this.isSilenced = !!player.silenced;
       }),
     );
 
     this.subs.add(
       this.socketService.privateResult$.subscribe((payload) => {
-        if (payload.type === 'scan') {
-          const result = payload.result === 'malicious' ? 'MALICIOSO' : 'SEGURO';
-          this.setStatus(`Escaneo completado: ${result}`, 'info');
-        }
         if (payload.type === 'hacker_team') {
           const names = (payload.members ?? [])
             .map((id: string) => this.players.find((p) => p.id === id)?.name ?? id)
             .join(', ');
-          this.setStatus(`Equipo Black Hat: ${names || (payload.members ?? []).length + ' nodos'}`, 'warn');
+          this.setPersistentRoleInfo('Equipo Black Hat', [
+            `Compañeros: ${names || (payload.members ?? []).length + ' nodos'}`,
+            'Coordinad vuestras acciones nocturnas.',
+          ]);
         }
-        if (payload.type === 'spy') {
-          const visitors = (payload.visitors ?? []).length;
-          this.setStatus(`Espionaje: ${visitors} visitantes detectados`, 'info');
-        }
-        if (payload.type === 'role_assigned') {
+
+        if (payload.type === 'role_assigned' && payload.role === 'Zero-Day') {
+          // Zero-Day: handled by buildPrivateResultReport
+        } else if (payload.type === 'role_assigned') {
           this.setStatus(`Rol asignado: ${payload.displayName ?? payload.role}`, 'success');
+        }
+
+        const report = buildPrivateResultReport(payload, this.players, this.nightNumber);
+        if (report) {
+          this.nightActionReport = report;
+          this.privateResultHandled = true;
         }
       }),
     );
@@ -173,6 +192,9 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus('Modo sigilo activado', 'warn');
           this.selectedTarget = '';
           this.selectedSecondary = '';
+          this.nightActionReport = null;
+          this.privateResultHandled = false;
+          this.pendingNightAction = null;
         }
         if (t.to === 'VOTACION') {
           this.myVoteConfirmed = false;
@@ -180,6 +202,9 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (t.to === 'VERIFICACION') {
           this.setStatus('Resolviendo votación...', 'info');
+        }
+        if (t.to === 'FIN') {
+          this.showGameOver = true;
         }
       }),
     );
@@ -199,6 +224,21 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.nightResolved$.subscribe(({ resolution }) => {
+        if (this.privateResultHandled && this.nightActionReport?.status === 'resolved') {
+          return;
+        }
+
+        if (this.pendingNightAction) {
+          this.nightActionReport = buildResolvedReport(
+            this.pendingNightAction,
+            resolution,
+            this.roomLogs,
+            this.myPlayerId,
+            this.players,
+          );
+          return;
+        }
+
         const kills = resolution.kills?.length ?? 0;
         const silenced = resolution.silenced?.length ?? 0;
         const drags = resolution.honeypotDrags?.length ?? 0;
@@ -257,6 +297,9 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.actionAccepted$.subscribe(() => {
+        if (this.pendingNightAction) {
+          this.nightActionReport = buildPendingReport(this.pendingNightAction);
+        }
         this.setStatus('Comando enviado al servidor', 'success');
         this.selectedTarget = '';
         this.selectedSecondary = '';
@@ -339,7 +382,26 @@ export class DashboardPage implements OnInit, OnDestroy {
   executeNightAction(): void {
     if (!this.selectedTarget) return;
 
-    const role = this.socketService.getMyRole();
+    const role = this.socketService.getMyRole() ?? this.playerRole;
+    const actionType = getNightActionType(role);
+    if (!actionType) return;
+
+    const targetName = this.resolveTargetName(this.selectedTarget);
+    const secondaryName = this.selectedSecondary
+      ? this.resolveTargetName(this.selectedSecondary)
+      : undefined;
+
+    this.pendingNightAction = {
+      actionType,
+      role,
+      targetId: this.selectedTarget,
+      targetName,
+      secondaryId: this.selectedSecondary || undefined,
+      secondaryName,
+      nightNumber: this.nightNumber,
+    };
+    this.privateResultHandled = false;
+
     if (this.needsSecondary) {
       if (!this.selectedSecondary) return;
       const meta =
@@ -362,6 +424,24 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.socketService.submitVote(null);
     this.selectedTarget = '';
     this.setStatus('Abstención registrada', 'info');
+  }
+
+  returnToLogin(): void {
+    this.socketService.clearSession();
+    this.router.navigate(['/login']);
+  }
+
+  private resolveTargetName(id: string): string {
+    return this.players.find((p) => p.id === id)?.name ?? id;
+  }
+
+  private setPersistentRoleInfo(headline: string, details: string[]): void {
+    this.nightActionReport = {
+      nightNumber: this.nightNumber,
+      status: 'resolved',
+      headline,
+      details,
+    };
   }
 
   private setStatus(msg: string, type: 'info' | 'success' | 'error' | 'warn'): void {
@@ -415,10 +495,12 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     if (soloWinner) {
       const name = this.players.find((p) => p.id === soloWinner.playerId)?.name ?? soloWinner.playerId;
-      this.gameOverMessage = `Victoria solitaria: ${name} (${soloWinner.role})`;
+      this.winnerTeam = soloWinner.role;
+      this.gameOverMessage = `Victoria solitaria: ${name}`;
       return;
     }
 
+    this.winnerTeam = winnerTeamName(winner);
     this.gameOverMessage = winnerLabel(winner);
   }
 }
