@@ -1,142 +1,326 @@
+> **Contrato socket compartido**: ver [`../SOCKET_CONTRACT.md`](../SOCKET_CONTRACT.md) en la raíz del monorepo.
+
 # Firewall Protocol — Backend
 
-Servidor realtime de juego basado en Node.js, Express, Socket.io y TypeScript.
+Servidor realtime del juego **Firewall Protocol**: thriller de deducción social multijugador (5–15 jugadores) con temática de ciberseguridad. Coordina salas, fases, roles, acciones nocturnas, votación diurna y victoria en tiempo real vía WebSockets.
 
-**Estado**: Backend funcional con máquina de estados, matchmaking, motor de reglas, persistencia JSON y sockets en tiempo real.
+**Stack**: TypeScript 5.9 · Node.js · Express 4.18 · Socket.io 4.7 · ts-node
 
-**Stack**: TypeScript 5.9 + Node.js + Express 4.18 + Socket.io 4.7 + ts-node (dev)
+**Estado actual**: Backend funcional con máquina de estados completa, matchmaking, motor de reglas por rol, reconexión, persistencia JSON, namespaces `/game` (móvil) y `/dashboard` (PC/TV). JWT pendiente.
 
-## Características implementadas:
+---
 
-- Tipos TypeScript estrictos en `src/types/`:
-  - `roles.types.ts`: catálogo de roles y equipos.
-  - `events.types.ts`: fases del juego y contratos de eventos socket.
+## Rol en el proyecto
 
-- Modelos en `src/models/`:
-  - `PlayerProfile.ts`: `Player` y datos de perfil.
-  - `GameState.ts`: `GameStateModel` con helpers para fases, colas y logs.
+Este repositorio corresponde al **Integrante 3 (Backend & WebSocket Architect)** del documento maestro del proyecto. Los clientes esperados son:
 
-- Máquina de estados en `src/game/StateMachine.ts`:
-  - Transiciones permitidas: LOBBY → REPARTO → NOCHE → DÍA → VOTACIÓN → VERIFICACIÓN.
-  - Emite `phaseChanged` y expone `next()`.
+| Cliente | Namespace | Descripción |
+|---------|-----------|-------------|
+| App móvil (Ionic/Angular) | `/game` | Terminal secreta del jugador |
+| Dashboard PC/TV (Angular) | `/dashboard` | Vista pública del datacenter |
 
-- Matchmaking en `src/game/Matchmaking.ts`:
-  - Asigna roles a 5–15 jugadores.
-  - Aproxima 25% Hackers (redondeo al más cercano) y asigna el resto entre System y Chaotic.
-  - RNG inyectable para pruebas deterministas.
+---
 
-- Motor de reglas en `src/game/RuleEngine.ts`:
-  - Resolución de acciones nocturnas por prioridad.
-  - Soporta protecciones (Antivirus), congelación (Deep Freeze), redirecciones (Honeypot/BGP) y resolución de ataques.
+## Características implementadas
 
-- Gestión de partidas en `src/game/Room.ts` y `src/game/RoomManager.ts`:
-  - Aislamiento de salas, orquestación de fases, asignación de roles y resolución de noches.
-  - Timers opcionales para auto-advance.
+### Arquitectura de salas
+- `RoomManager` — CRUD de salas aisladas en memoria
+- `Room` — orquestación de partida, persistencia y eventos internos
+- Reconexión sin duplicar jugadores (`reconnectPlayer`)
+- Desconexión suave (`markPlayerDisconnected`) vs abandono voluntario (`leaveRoom`)
+- Límite de **5–15 jugadores** por sala
 
-- Socket.io en `src/sockets/`:
-  - `index.ts`: namespace `/game`.
-  - `roomHandler.ts`: `joinRoom`, `leaveRoom`, `createRoom`.
-  - `gameHandler.ts`: `playerAction`, `startGame`, `advancePhase`, `submitVote`.
+### Máquina de estados
+```
+LOBBY → REPARTO → NOCHE → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE | FIN
+```
+- Restauración de fase al cargar partida desde disco (`StateMachine.restorePhase`)
+- Timers opcionales de auto-avance (`nightDurationMs`, `dayDurationMs`)
+- Fase `FIN` al terminar la partida
 
-- Persistencia ligera en `src/services/dbSyncService.ts`:
-  - Guardado/lectura de estados de juego en `backend-server/data/games/*.json`.
-  - Adapter simple en `src/config/database.ts`.
+### Matchmaking
+- ~25 % de jugadores Black Hat (redondeo al entero más cercano)
+- Resto repartido entre System y Chaotic (sesgo 2:1 hacia System)
+- 16 roles del catálogo GDD en `src/types/roles.types.ts`
+- RNG inyectable para pruebas deterministas
 
-- Utilidades:
-  - `src/utils/logger.ts`: logger simple.
-  - `src/utils/constants.ts`: constantes de proyecto.
-  - `src/config/env.ts`: configuración de entorno con valores por defecto.
+### Motor de reglas (`RuleEngine`)
+- Resolución nocturna por prioridad de rol
+- Consenso hacker (`hacker_vote`) — mayoría de Black Hat para kill nocturno
+- Protección Antivirus con cooldown de objetivo
+- Deep Freeze, BGP swap, Pentester con culpa y usos limitados
+- Ransomware (silencio diurno), Spyware, Phisher, Honeypot drag
+- Gusano inmune + kill propio, Minero con 3 escudos, Zero-Day asume rol eliminado
+- Escaneo SOC privado (`safe` / `malicious`), Rootkit devuelve falso positivo
 
-Cómo ejecutar (desarrollo):
+### Validación de acciones (`ActionValidator`)
+- Solo en fase `NOCHE`
+- Actor vivo, no silenciado, no congelado
+- Una acción por jugador por noche
+- Tipo de acción acorde al rol
+- Límites de usos y cooldowns (Pentester, Ransomware, Antivirus)
 
-### 1. Instalar dependencias:
+### Votación y victoria
+- Votación solo en `VOTACION`; silenciados no votan
+- Un voto por jugador; resolución por mayoría (empate = sin eliminación)
+- Phisher redirige votos en secreto
+- **Victoria por bando**: System elimina hackers / Black Hat iguala o supera en número
+- **Victoria solitaria**: Troll (baneado), Gusano (último en pie), Minero (único superviviente)
+
+### Información pública vs privada
+- `toPlainForPlayer(viewerId)` — estado móvil con roles ajenos ocultos
+- `toPublicState()` — estado dashboard sin secretos
+- `privateResult` — rol propio, equipo hacker, escaneos, espionaje
+- `incidentReport` — caídas nocturnas sin revelar atacante
+- `voteTrace` — trazado de votos para animaciones del dashboard
+
+### Persistencia
+- JSON en disco vía `dbSyncService` (`data/games/<roomId>.json`)
+- Adapter en `config/database.ts` preparado para migrar a MongoDB (Integrante 4)
+- `DATA_DIRECTORY` configurable desde `.env`
+
+### Pendiente
+- Autenticación JWT (`src/auth/jwt.pending.ts`)
+- Migración a MongoDB (coordinación con Integrante 4)
+- Tests unitarios automatizados
+
+---
+
+## Estructura de carpetas
+
+```
+src/
+├── auth/
+│   └── jwt.pending.ts       # Placeholder — JWT en última fase
+├── types/
+│   ├── events.types.ts      # Fases, acciones, contratos socket
+│   ├── roles.types.ts       # Catálogo de 16 roles y equipos
+│   ├── player-metadata.types.ts
+│   └── index.ts
+├── models/
+│   ├── PlayerProfile.ts     # Clase Player (isAlive, isConnected, metadata)
+│   └── GameState.ts         # GameStateModel, toPlainForPlayer, toPublicState
+├── game/
+│   ├── StateMachine.ts      # Transiciones de fase
+│   ├── Matchmaking.ts       # Reparto de roles
+│   ├── RuleEngine.ts        # Resolución nocturna por rol
+│   ├── ActionValidator.ts   # Validación de acciones
+│   ├── VictoryChecker.ts    # Condiciones de victoria
+│   ├── playerMetadata.ts    # Metadata y flags por jugador
+│   ├── Room.ts              # Orquestación de partida
+│   └── RoomManager.ts       # CRUD de salas
+├── sockets/
+│   ├── index.ts             # Namespaces /game y /dashboard
+│   ├── roomHandler.ts       # joinRoom, leaveRoom, createRoom
+│   ├── gameHandler.ts       # playerAction, startGame, advancePhase, submitVote
+│   ├── dashboardHandler.ts  # joinDashboard, leaveDashboard
+│   └── roomBridge.ts        # Puente Room → eventos socket
+├── services/
+│   └── dbSyncService.ts     # Persistencia JSON
+├── config/
+│   ├── database.ts          # Adapter de persistencia
+│   └── env.ts               # Variables de entorno
+├── utils/
+│   ├── logger.ts
+│   └── constants.ts         # MIN_PLAYERS, MAX_PLAYERS, rutas de datos
+├── app.ts                   # Express (health, raíz)
+└── server.ts                # HTTP + Socket.io
+test/
+└── test_persistence.js      # Prueba manual de persistencia
+data/
+└── games/                   # JSON de partidas (generados en runtime)
+```
+
+---
+
+## Cómo ejecutar
+
+### 1. Instalar dependencias
 
 ```bash
 cd backend-server
 npm install
 ```
 
-### 2. Configurar entorno (opcional):
+### 2. Configurar entorno (opcional)
 
-Crea `.env` en `backend-server/` con valores personalizados:
+Copia `.env.example` a `.env`:
 
 ```bash
 NODE_ENV=development
 PORT=3000
-JWT_SECRET=your-secret-key-here
-DATA_DIRECTORY=./data/games
+LOG_LEVEL=info
+DATA_DIRECTORY=./data
+JWT_SECRET=your-secret-key-here   # pendiente de uso
+NIGHT_DURATION_MS=60000
+DAY_DURATION_MS=60000
+AUTO_ADVANCE=false
 ```
 
 Si no existe `.env`, se usan valores por defecto desde `src/config/env.ts`.
 
-### 3. Ejecutar en modo desarrollo:
+### 3. Modo desarrollo
 
 ```bash
 npm run dev
 ```
 
-El servidor iniciará en `http://localhost:3000` (o el puerto configurado en `.env`).
+Servidor en `http://localhost:3000` (o el `PORT` configurado).
 
-**Nota**: TypeScript se compila automáticamente vía ts-node.
-
-### 4. Verificar salud del servidor:
+### 4. Verificar salud
 
 ```bash
 curl http://localhost:3000/health
-# Respuesta: { "status": "ok", "ts": "2026-06-16T..." }
+# { "status": "ok", "ts": "..." }
 ```
 
-### 5. Probar persistencia:
+### 5. Prueba de persistencia
 
 ```bash
 node test/test_persistence.js
 ```
 
-Este script conecta un cliente socket.io, crea una sala, inicia el juego en fase NOCHE y valida que el estado se persista en `data/games/room-test-1.json`.
+Conecta un cliente a `/game`, crea sala, inicia partida y valida el JSON en `data/games/room-test-1.json`.
 
-## Estructura de carpetas:
+---
 
+## API REST
+
+| Endpoint | Método | Descripción |
+|----------|--------|-------------|
+| `/health` | GET | Estado del servidor |
+| `/` | GET | Mensaje de confirmación |
+
+---
+
+## Socket.io — Namespace `/game` (móvil)
+
+Conexión: `io('http://<host>:<port>/game')`
+
+### Cliente → servidor
+
+| Evento | Parámetros | Descripción |
+|--------|------------|-------------|
+| `createRoom` | `roomId` | Crea sala vacía |
+| `joinRoom` | `roomId`, `playerId`, `name?` | Unirse o reconectar |
+| `leaveRoom` | `roomId`, `playerId` | Salir y eliminar jugador |
+| `startGame` | `roomId` | Inicia partida (mín. 5 jugadores) |
+| `advancePhase` | `roomId` | Avanza a la siguiente fase |
+| `playerAction` | `roomId`, `action` | Acción nocturna (ver tabla de roles) |
+| `submitVote` | `roomId`, `{ voter, target }` | Voto en fase VOTACIÓN |
+
+### Servidor → cliente
+
+| Evento | Payload | Descripción |
+|--------|---------|-------------|
+| `roomState` | `roomId`, `state` | Estado filtrado por jugador |
+| `privateResult` | `roomId`, `payload` | Rol, equipo hacker, scan, spy |
+| `phaseChanged` | `roomId`, `phase` | Cambio de fase |
+| `phaseTransition` | `{ roomId, from, to, at }` | Transición con timestamp |
+| `incidentReport` | `{ roomId, nightNumber, disconnected[] }` | Reporte de amanecer |
+| `nightResolved` | `roomId`, `resolution` | Resolución nocturna |
+| `voteTrace` | `{ roomId, voter, target, timestamp }` | Voto registrado |
+| `playerReconnected` | `roomId`, `playerId` | Jugador reconectado |
+| `playerDisconnected` | `roomId`, `playerId` | Jugador desconectado |
+| `playerEliminated` | `roomId`, `playerId`, `reason` | Jugador eliminado |
+| `gameOver` | `roomId`, `winner`, `soloWinner?` | Fin de partida |
+| `actionAccepted` | `actionId` | Acción aceptada |
+| `error` | `message` | Error |
+
+---
+
+## Socket.io — Namespace `/dashboard` (PC/TV)
+
+Conexión: `io('http://<host>:<port>/dashboard')`
+
+### Cliente → servidor
+
+| Evento | Parámetros | Descripción |
+|--------|------------|-------------|
+| `joinDashboard` | `roomId` | Suscribirse a vista pública de la sala |
+| `leaveDashboard` | `roomId` | Salir de la vista |
+
+### Servidor → cliente
+
+| Evento | Descripción |
+|--------|-------------|
+| `publicState` | Topología pública (sin roles ni secretos) |
+| `incidentReport` | Nodos desconectados tras la noche |
+| `voteTrace` | Votos en tiempo real para animaciones |
+| `phaseTransition` | Señal para animaciones noche/día |
+| `phaseChanged` | Fase actual |
+| `gameOver` | Resultado final |
+| `error` | Error |
+
+---
+
+## Acciones nocturnas por rol
+
+Payload base de `playerAction`:
+
+```typescript
+{
+  id: string;           // ID único de la acción
+  actor: string;        // playerId del actor
+  role?: string;        // rol del actor (validado)
+  type: string;         // tipo de acción (tabla abajo)
+  target?: string;      // playerId objetivo
+  timestamp: number;
+  meta?: Record<string, any>;
+}
 ```
-src/
-├── types/               # Tipos TypeScript estrictos
-│   ├── events.types.ts  # Fases, acciones, eventos socket
-│   ├── roles.types.ts   # Catálogo de roles y equipos
-│   └── index.ts         # Exports
-├── models/              # Clases de datos
-│   ├── PlayerProfile.ts # Clase Player
-│   ├── GameState.ts     # Clase GameStateModel
-│   └── index.ts         # Exports
-├── game/                # Lógica de juego
-│   ├── StateMachine.ts  # Máquina de estados (LOBBY→REPARTO→NOCHE→DÍA→VOTACIÓN→VERIFICACIÓN)
-│   ├── Matchmaking.ts   # Asignación de roles (~25% Hackers)
-│   ├── RuleEngine.ts    # Resolución de acciones nocturnas por prioridad
-│   ├── Room.ts          # Gestión de partida aislada, orquestación, persistencia
-│   └── RoomManager.ts   # CRUD de salas
-├── sockets/             # Manejo de conexiones Socket.io
-│   ├── index.ts         # Namespace `/game` y setup
-│   ├── roomHandler.ts   # Eventos: joinRoom, leaveRoom, createRoom
-│   └── gameHandler.ts   # Eventos: playerAction, startGame, advancePhase, submitVote
-├── services/            # Lógica de negocio
-│   └── dbSyncService.ts # Persistencia: read/write JSON en data/games/*.json
-├── config/              # Configuración
-│   ├── database.ts      # Adapter persistencia (envuelve dbSyncService)
-│   └── env.ts           # Variables de entorno con defaults
-├── utils/               # Utilidades
-│   ├── logger.ts        # Logger simple con timestamps
-│   └── constants.ts     # Constantes del proyecto
-├── app.ts               # Aplicación Express
-└── server.ts            # Inicialización servidor + Socket.io
-test/
-└── test_persistence.js  # Script de prueba de persistencia
-data/
-└── games/               # Archivos JSON de partidas (generados en tiempo de ejecución)
-```
 
-## Persistencia:
+| Rol | `type` | `meta` extra | Efecto |
+|-----|--------|--------------|--------|
+| Analista SOC | `scan` | — | Resultado privado `safe` / `malicious` |
+| Antivirus | `protect` | — | Protege objetivo (no 2 noches seguidas al mismo) |
+| Pentester | `pentester_kill` | — | Kill letal (2 usos; culpa si mata aliado) |
+| Deep Freeze | `freeze` | — | Congela objetivo (no actúa esa noche) |
+| Enrutador BGP | `bgp_swap` | `{ swapWith: playerId }` | Intercambia tráfico entre dos nodos |
+| Honeypot | `honeypot_drag` | — | Define a quién arrastrar si muere |
+| DDoS / Rootkit | `hacker_vote` | — | Voto conjunto hacker para kill nocturno |
+| Ransomware | `ransomware` | — | Silencia objetivo al día siguiente |
+| Spyware | `spy` | — | Revela visitantes al objetivo (privado) |
+| Phisher | `phisher_redirect` | `{ redirectTo: playerId }` | Redirige voto diurno de la víctima |
+| Gusano | `worm_kill` | — | Kill nocturno (inmune a ataques) |
+| Zero-Day | `zero_day_assume` | — | Asume rol de jugador ya eliminado |
+| SysAdmin, Troll, Minero | — | — | Sin acción nocturna |
 
-La persistencia actual es **JSON en disco** (`data/games/*.json`). Cada partida se guarda en un archivo con el ID de la sala.
+---
 
-### Ejemplo de archivo persistido:
+## Máquina de estados — detalle
+
+| Fase | Descripción |
+|------|-------------|
+| **LOBBY** | Esperando jugadores; sin roles |
+| **REPARTO** | Asignación de roles (transición rápida) |
+| **NOCHE** | Acciones secretas en móvil; servidor resuelve al avanzar |
+| **DÍA** | Reporte de incidentes (`incidentReport`); debate |
+| **VOTACIÓN** | Votos públicos; mayoría elimina (Ban de IP) |
+| **VERIFICACIÓN** | Comprueba victoria; continúa o pasa a `FIN` |
+| **FIN** | Partida terminada |
+
+Flujo cíclico: `VERIFICACIÓN → NOCHE` si nadie ha ganado.
+
+---
+
+## Condiciones de victoria
+
+| Bando / rol | Condición |
+|-------------|-----------|
+| **System** | No quedan jugadores Black Hat vivos |
+| **Black Hat** | Hackers vivos ≥ jugadores System vivos |
+| **Troll** | Es baneado por votación diurna |
+| **Gusano** | Es el único jugador vivo |
+| **Minero de Cripto** | Único superviviente cuando caen los hackers |
+
+---
+
+## Persistencia
+
+Cada partida se guarda en `data/games/<roomId>.json` (o en `DATA_DIRECTORY/games/`).
+
+Campos relevantes del JSON:
 
 ```json
 {
@@ -147,89 +331,76 @@ La persistencia actual es **JSON en disco** (`data/games/*.json`). Cada partida 
   "dayNumber": 0,
   "players": [
     {
-      "id": "player-test-1",
+      "id": "player-1",
       "name": "Tester",
-      "socketId": "26pOX_9yWHBpjgxqAAAB",
       "isAlive": true,
-      "joinedAt": 1781639242627,
+      "isConnected": false,
+      "role": "SysAdmin",
+      "team": "system",
+      "metadata": {},
       "pendingActions": []
     }
   ],
   "actionQueue": [],
   "votes": {},
-  "logs": []
+  "logs": [],
+  "lastNightKills": [],
+  "winner": null,
+  "soloWinner": null
 }
 ```
 
-## API REST:
+Tras reinicio del servidor, al unirse un jugador a una sala existente se restaura el estado y la fase de la máquina de estados.
 
-## API REST:
+---
 
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/health` | GET | Verifica que el servidor está activo |
-| `/` | GET | Mensaje de confirmación |
+## Variables de entorno
 
-## Socket.io — Eventos:
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `NODE_ENV` | Entorno | `development` |
+| `PORT` | Puerto HTTP | `3000` |
+| `LOG_LEVEL` | Nivel de log | `info` |
+| `DATA_DIRECTORY` | Directorio raíz de datos | `./data` |
+| `JWT_SECRET` | Secreto JWT (pendiente) | — |
+| `NIGHT_DURATION_MS` | Duración fase noche (auto-advance) | `60000` |
+| `DAY_DURATION_MS` | Duración fase día (auto-advance) | `60000` |
+| `AUTO_ADVANCE` | Avance automático de fases | `false` |
 
-### Namespace: `/game`
+---
 
-**Emitidos desde cliente:**
-- `createRoom(roomId: string, playerId: string, playerName: string)` — Crear sala
-- `joinRoom(roomId: string, playerId: string, playerName: string)` — Unirse a sala
-- `leaveRoom(roomId: string, playerId: string)` — Salir de sala
-- `startGame(roomId: string)` — Iniciar juego (asigna roles, entra en NOCHE)
-- `advancePhase(roomId: string)` — Avanzar a siguiente fase
-- `playerAction(roomId: string, playerId: string, action: PlayerAction)` — Ejecutar acción nocturna
-- `submitVote(roomId: string, playerId: string, votedPlayerId: string)` — Votar en fase VOTACIÓN
-
-**Recibidos en cliente:**
-- `roomState(state: GameStateModel)` — Estado completo de la partida
-- `phaseChanged(phase: GamePhase, nightNumber?: number)` — Notificación de cambio de fase
-- `nightResolved(log: string)` — Acciones nocturnas resueltas
-
-## Máquina de estados:
-
-```
-LOBBY → REPARTO → NOCHE → DÍA → VOTACIÓN → VERIFICACIÓN → (NOCHE o FIN)
-```
-
-- **LOBBY**: Esperando jugadores, sin roles asignados
-- **REPARTO**: Roles asignados, transición instantánea
-- **NOCHE**: Acciones concurrentes resueltas por RuleEngine (en orden: Kill → Protect → Freeze → Redirect)
-- **DÍA**: Fase sin acciones (navegación manual o con timer)
-- **VOTACIÓN**: Votación para eliminar jugador
-- **VERIFICACIÓN**: Validación de condición de victoria
-
-## Motor de reglas (RuleEngine):
-
-Resuelve acciones nocturnas en prioridad:
-
-1. **Kill** — Ataque directo (prioridad máxima)
-2. **Protect** — Protección (Antivirus)
-3. **Freeze** — Congelación (Deep Freeze)
-4. **Redirect** — Redirección (Honeypot/BGP)
-
-Protecciones y redirecciones pueden modificar/anular ataques. Las protecciones se aplican antes de matar jugadores.
-
-## Próximos pasos recomendados:
-
-- [ ] Pruebas unitarias para `RuleEngine` y `Matchmaking`
-- [ ] Validación de JWT en sockets (autenticación)
-- [ ] Migración a MongoDB o Postgres para persistencia robusta
-- [ ] Redis pub/sub para multi-instancia (replicación de eventos)
-- [ ] Lógica completa de verificación y votación
-- [ ] Logging estructurado y métricas (Prom/ELK)
-- [ ] Docker Compose configuración final
-
-## Docker (experimental):
-
-Existe `docker-compose.yml` para ambiente local. Valida la sintaxis YAML:
+## Docker (desarrollo)
 
 ```bash
-docker-compose -f docker-compose.yml config
+docker-compose -f docker-compose.yml config   # validar YAML
+docker-compose up
 ```
 
-Si es necesario ajustar, verificar que `docker-compose.yml` usa espacios (no tabs).
+Levanta Node 18 con el backend en el puerto 3000. MongoDB y frontends quedan a cargo del Integrante 4 según el documento maestro.
 
-## Troubleshooting:
+---
+
+## Próximos pasos
+
+- [ ] Autenticación JWT en conexión socket
+- [ ] Tests unitarios (`RuleEngine`, `VictoryChecker`, `Matchmaking`)
+- [ ] Adapter MongoDB (Integrante 4)
+- [ ] Redis pub/sub para multi-instancia (opcional)
+- [ ] Métricas y logging estructurado
+
+---
+
+## Troubleshooting
+
+| Problema | Solución |
+|----------|----------|
+| `Need at least 5 players to start` | Unir 5+ jugadores antes de `startGame` |
+| `Room is full` | Máximo 15 jugadores por sala |
+| `action rejected` | Verificar fase `NOCHE`, rol y tipo de acción |
+| `vote rejected` | Votar solo en `VOTACION`; silenciados no pueden votar |
+| Estado desincronizado tras crash | Revisar JSON en `data/games/`; reconectar con mismo `playerId` |
+| Dashboard sin eventos | Conectar a namespace `/dashboard` y emitir `joinDashboard` |
+
+---
+
+Documento alineado con el **Firewall Protocol Master Document (GDD)** — Proyecto de Grado, Programación Móvil.

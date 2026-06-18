@@ -1,6 +1,7 @@
-import { GamePhase, PlayerAction } from '../types';
+import { GamePhase, PlayerAction, PublicGameState, SoloWinner } from '../types';
 import { Team } from '../types/roles.types';
 import { Player, PlayerProfile } from './PlayerProfile';
+import { isSilenced, getMeta } from '../game/playerMetadata';
 
 export interface GameState {
   roomId: string;
@@ -13,6 +14,8 @@ export interface GameState {
   votes: Record<string, string[]>;
   logs: string[];
   winner?: Team | null;
+  soloWinner?: SoloWinner | null;
+  lastNightKills: string[];
 }
 
 export class GameStateModel implements GameState {
@@ -26,6 +29,8 @@ export class GameStateModel implements GameState {
   votes: Record<string, string[]> = {};
   logs: string[] = [];
   winner: Team | null = null;
+  soloWinner: SoloWinner | null = null;
+  lastNightKills: string[] = [];
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -41,6 +46,8 @@ export class GameStateModel implements GameState {
     s.votes = obj.votes || {};
     s.logs = obj.logs || [];
     s.winner = obj.winner ?? null;
+    s.soloWinner = obj.soloWinner ?? null;
+    s.lastNightKills = obj.lastNightKills || [];
     s.players = (obj.players || []).map((p: any) => {
       const pl = new Player(p.id, p.name, p.socketId);
       pl.role = p.role;
@@ -67,10 +74,11 @@ export class GameStateModel implements GameState {
       votes: this.votes,
       logs: this.logs,
       winner: this.winner,
+      soloWinner: this.soloWinner,
+      lastNightKills: this.lastNightKills,
     };
   }
 
-  /** Oculta roles ajenos una vez iniciada la partida. */
   toPlainForPlayer(viewerId: string) {
     const hideRoles = this.phase !== GamePhase.LOBBY && this.phase !== GamePhase.REPARTO && this.phase !== GamePhase.FIN;
     return {
@@ -80,17 +88,47 @@ export class GameStateModel implements GameState {
       players: this.players.map(p => {
         const plain = this.playerToPlain(p);
         if (hideRoles && p.id !== viewerId) {
-          return { ...plain, role: undefined, team: undefined };
+          return { ...plain, role: undefined, team: undefined, metadata: this.sanitizeMetadata(plain.metadata) };
+        }
+        if (hideRoles && p.id === viewerId) {
+          return { ...plain, metadata: this.sanitizeMetadata(plain.metadata, true) };
         }
         return plain;
       }),
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
-      actionQueue: this.actionQueue,
       votes: this.votes,
       logs: this.logs,
       winner: this.winner,
+      soloWinner: this.soloWinner,
+      lastNightKills: this.lastNightKills,
     };
+  }
+
+  toPublicState(): PublicGameState {
+    return {
+      roomId: this.roomId,
+      phase: this.phase,
+      phaseStartedAt: this.phaseStartedAt,
+      dayNumber: this.dayNumber,
+      nightNumber: this.nightNumber,
+      players: this.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        isAlive: p.isAlive,
+        isConnected: p.isConnected,
+        silenced: isSilenced(p, this.dayNumber),
+      })),
+      votes: { ...this.votes },
+      winner: this.winner,
+      soloWinner: this.soloWinner,
+    };
+  }
+
+  private sanitizeMetadata(metadata: any, isSelf = false) {
+    if (!metadata || isSelf) return metadata;
+    const { phisherRedirects, ...rest } = metadata;
+    return rest;
   }
 
   private playerToPlain(p: Player) {
@@ -109,6 +147,7 @@ export class GameStateModel implements GameState {
   }
 
   addPlayer(p: Player) {
+    if (this.players.length >= 15) throw new Error('Room is full (max 15 players)');
     this.players.push(p);
   }
 
@@ -132,7 +171,12 @@ export class GameStateModel implements GameState {
   }
 
   queueAction(action: PlayerAction) {
+    this.stateRemoveDuplicateActor(action.actor);
     this.actionQueue.push(action);
+  }
+
+  private stateRemoveDuplicateActor(actorId: string) {
+    this.actionQueue = this.actionQueue.filter(a => a.actor !== actorId);
   }
 
   clearActions() {
@@ -141,5 +185,13 @@ export class GameStateModel implements GameState {
 
   log(entry: string) {
     this.logs.push(`[${new Date().toISOString()}] ${entry}`);
+  }
+
+  resolvePhisherRedirect(voterId: string, targetId: string | null): string | null {
+    for (const p of this.players) {
+      const redirects = getMeta(p).phisherRedirects;
+      if (redirects && redirects[voterId]) return redirects[voterId];
+    }
+    return targetId;
   }
 }

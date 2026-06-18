@@ -1,12 +1,17 @@
-import { NightActionBatch, PlayerAction } from '../types/events.types';
+import { NightActionBatch, PlayerAction, PrivateResultPayload, ScanResult } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
-import { ROLE_CATALOG } from '../types/roles.types';
+import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
+import { getMeta } from './playerMetadata';
+import { applyZeroDayAssume } from './VictoryChecker';
 
-type Resolution = {
-  kills: string[]; // playerIds killed
+export type NightResolution = {
+  kills: string[];
   prevented: { actionId: string; reason: string }[];
   redirects: { actionId: string; from: string; to: string }[];
   logs: string[];
+  privateResults: { playerId: string; payload: PrivateResultPayload }[];
+  silenced: string[];
+  honeypotDrags: { honeypotId: string; draggedId: string }[];
 };
 
 function actionPriority(a: PlayerAction) {
@@ -15,21 +20,113 @@ function actionPriority(a: PlayerAction) {
   return 0;
 }
 
-function isAttackType(type: string) {
-  return ['attack', 'ddos', 'ransomware', 'ransom', 'infect', 'compromise'].includes(type.toLowerCase());
+function resolveHackerConsensus(
+  actions: PlayerAction[],
+  state: GameStateModel,
+): string | null {
+  const hackerVotes = new Map<string, number>();
+  const aliveHackers = new Set(
+    state.players.filter(p => p.isAlive && p.team === Team.BLACK_HAT).map(p => p.id),
+  );
+
+  for (const a of actions) {
+    if ((a.type || '').toLowerCase() !== 'hacker_vote' || !a.target) continue;
+    if (!aliveHackers.has(a.actor)) continue;
+    hackerVotes.set(a.target, (hackerVotes.get(a.target) || 0) + 1);
+  }
+
+  if (hackerVotes.size === 0) return null;
+
+  const hackerCount = aliveHackers.size;
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [target, count] of hackerVotes) {
+    if (count > bestCount) {
+      bestCount = count;
+      best = target;
+    }
+  }
+
+  if (best && bestCount > hackerCount / 2) return best;
+  return null;
 }
 
-export function resolveNightActions(batch: NightActionBatch, state: GameStateModel): Resolution {
-  const res: Resolution = { kills: [], prevented: [], redirects: [], logs: [] };
+function scanResult(targetRole?: RoleName): ScanResult {
+  if (!targetRole) return 'safe';
+  if (targetRole === RoleName.ROOTKIT) return 'safe';
+  const team = ROLE_CATALOG[targetRole].team;
+  return team === Team.SYSTEM ? 'safe' : 'malicious';
+}
+
+function tryKill(
+  targetId: string,
+  state: GameStateModel,
+  res: NightResolution,
+  reason: string,
+  protections: Set<string>,
+  wormImmune: Set<string>,
+): boolean {
+  if (protections.has(targetId)) {
+    res.logs.push(`Kill on ${targetId} prevented by protection`);
+    return false;
+  }
+  if (wormImmune.has(targetId)) {
+    res.logs.push(`Kill on ${targetId} prevented: Gusano immune`);
+    return false;
+  }
+
+  const target = state.getPlayer(targetId);
+  if (!target?.isAlive) return false;
+
+  const meta = getMeta(target);
+  if (target.role === RoleName.CRYPTO_MINER && (meta.shieldCharges ?? 0) > 0) {
+    meta.shieldCharges = (meta.shieldCharges ?? 0) - 1;
+    res.logs.push(`Crypto Miner ${targetId} blocked attack (${meta.shieldCharges} shields left)`);
+    return false;
+  }
+
+  target.isAlive = false;
+  res.kills.push(targetId);
+  res.logs.push(`${targetId} killed: ${reason}`);
+  return true;
+}
+
+function processHoneypotDrag(
+  deadId: string,
+  state: GameStateModel,
+  res: NightResolution,
+  protections: Set<string>,
+  wormImmune: Set<string>,
+) {
+  const dead = state.getPlayer(deadId);
+  if (dead?.role !== RoleName.HONEYPOT) return;
+  const dragTarget = getMeta(dead).honeypotDragTarget;
+  if (!dragTarget) return;
+  if (tryKill(dragTarget, state, res, `honeypot drag from ${deadId}`, protections, wormImmune)) {
+    res.honeypotDrags.push({ honeypotId: deadId, draggedId: dragTarget });
+  }
+}
+
+export function resolveNightActions(batch: NightActionBatch, state: GameStateModel): NightResolution {
+  const res: NightResolution = {
+    kills: [],
+    prevented: [],
+    redirects: [],
+    logs: [],
+    privateResults: [],
+    silenced: [],
+    honeypotDrags: [],
+  };
 
   const playersById = new Map(state.players.map(p => [p.id, p]));
-
-  // Pre-flight: build protection, freeze, and redirect maps from actions of type protect/freeze/redirect/honeypot
   const protections = new Set<string>();
-  const freezes = new Set<string>();
-  const redirectMap = new Map<string, string>(); // originalTarget -> newTarget
+  const frozenTargets = new Set<string>();
+  const swapMap = new Map<string, string>();
+  const visitLog = new Map<string, string[]>();
+  const wormImmune = new Set(
+    state.players.filter(p => p.isAlive && p.role === RoleName.WORM).map(p => p.id),
+  );
 
-  // sort actions by priority desc, timestamp asc
   const actions = batch.actions.slice().sort((a, b) => {
     const pa = actionPriority(a);
     const pb = actionPriority(b);
@@ -37,80 +134,141 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     return a.timestamp - b.timestamp;
   });
 
-  // First pass: register non-attack modifiers with high-level effect
   for (const a of actions) {
     const type = (a.type || '').toLowerCase();
-    if (type === 'protect' || type === 'antivirus' || type === 'heal') {
-      if (a.target) protections.add(a.target);
-      res.logs.push(`Protect action ${a.id} -> ${a.target}`);
-    } else if (type === 'freeze' || type === 'deep_freeze') {
-      if (a.target) freezes.add(a.target);
-      res.logs.push(`Freeze action ${a.id} -> ${a.target}`);
-    } else if (type === 'redirect' || type === 'honeypot' || type === 'bgp') {
-      // redirect: meta.to indicates new target, or actor becomes the honeypot
-      if (a.target) {
-        const to = a.meta?.to || a.actor;
-        redirectMap.set(a.target, to);
-        res.logs.push(`Redirect action ${a.id} ${a.target} -> ${to}`);
+    if (type === 'protect' && a.target) {
+      protections.add(a.target);
+      res.logs.push(`Antivirus protected ${a.target}`);
+    } else if (type === 'freeze' && a.target) {
+      frozenTargets.add(a.target);
+      res.logs.push(`Deep Freeze on ${a.target}`);
+    } else if (type === 'bgp_swap' && a.target && a.meta?.swapWith) {
+      swapMap.set(a.target, a.meta.swapWith);
+      swapMap.set(a.meta.swapWith, a.target);
+      res.logs.push(`BGP swap ${a.target} <-> ${a.meta.swapWith}`);
+    } else if (type === 'honeypot_drag' && a.target) {
+      const actor = playersById.get(a.actor);
+      if (actor) getMeta(actor).honeypotDragTarget = a.target;
+    } else if (type === 'phisher_redirect' && a.target && a.meta?.redirectTo) {
+      const actor = playersById.get(a.actor);
+      if (actor) {
+        const meta = getMeta(actor);
+        if (!meta.phisherRedirects) meta.phisherRedirects = {};
+        meta.phisherRedirects[a.target] = a.meta.redirectTo;
+        res.logs.push(`Phisher redirect ${a.target} -> ${a.meta.redirectTo}`);
       }
     }
   }
 
-  // Second pass: resolve attack-like actions considering protections/freezes/redirects
+  const resolveTarget = (targetId: string): string => {
+    let t = targetId;
+    const visited = new Set<string>();
+    while (swapMap.has(t) && !visited.has(t)) {
+      visited.add(t);
+      const next = swapMap.get(t)!;
+      res.redirects.push({ actionId: 'bgp', from: targetId, to: next });
+      t = next;
+    }
+    return t;
+  };
+
+  const recordVisit = (visitor: string, target: string) => {
+    const list = visitLog.get(target) || [];
+    list.push(visitor);
+    visitLog.set(target, list);
+  };
+
   for (const a of actions) {
     const type = (a.type || '').toLowerCase();
-    if (!a.target) continue;
-
-    // Resolve redirect chain
-    let finalTarget = a.target;
-    const visited = new Set<string>();
-    while (redirectMap.has(finalTarget) && !visited.has(finalTarget)) {
-      visited.add(finalTarget);
-      finalTarget = redirectMap.get(finalTarget)!;
-      res.redirects.push({ actionId: a.id, from: a.target, to: finalTarget });
-    }
-
-    // If actor is frozen, their action may fail
-    if (freezes.has(a.actor)) {
+    if (!a.target && type !== 'hacker_vote') continue;
+    if (frozenTargets.has(a.actor)) {
       res.prevented.push({ actionId: a.id, reason: 'actor_frozen' });
-      res.logs.push(`Action ${a.id} prevented: actor ${a.actor} frozen`);
       continue;
     }
 
-    if (isAttackType(type)) {
-      // If final target protected, attack is prevented
-      if (protections.has(finalTarget)) {
-        res.prevented.push({ actionId: a.id, reason: 'protected' });
-        res.logs.push(`Attack ${a.id} on ${finalTarget} prevented by protection`);
-        continue;
-      }
-      // If final target frozen, treat as vulnerable or immune depending on rule: we'll assume frozen prevents actions on them but doesn't protect from kills
-      // Execute the attack: mark target as killed
+    if (type === 'scan' && a.target) {
+      const finalTarget = resolveTarget(a.target);
       const targetPlayer = playersById.get(finalTarget);
-      if (targetPlayer && targetPlayer.isAlive) {
-        targetPlayer.isAlive = false;
-        res.kills.push(finalTarget);
-        res.logs.push(`Attack ${a.id} succeeded: ${finalTarget} killed by ${a.actor}`);
-      } else {
-        res.logs.push(`Attack ${a.id} no-op: target ${finalTarget} missing or already dead`);
+      const result = scanResult(targetPlayer?.role as RoleName);
+      res.privateResults.push({
+        playerId: a.actor,
+        payload: { type: 'scan', targetId: finalTarget, result },
+      });
+      recordVisit(a.actor, finalTarget);
+    } else if (type === 'spy' && a.target) {
+      const finalTarget = resolveTarget(a.target);
+      recordVisit(a.actor, finalTarget);
+    } else if (type === 'ransomware' && a.target) {
+      const finalTarget = resolveTarget(a.target);
+      const target = playersById.get(finalTarget);
+      if (target?.isAlive) {
+        getMeta(target).silencedUntilDay = state.dayNumber + 1;
+        res.silenced.push(finalTarget);
+        res.logs.push(`Ransomware silenced ${finalTarget} until day ${state.dayNumber + 1}`);
       }
-    } else if (type === 'spy' || type === 'scan' || type === 'investigate') {
-      // reveal some info (for now just log)
-      res.logs.push(`Investigation ${a.id} by ${a.actor} targeted ${finalTarget}`);
-    } else if (type === 'consume' || type === 'mine' || type === 'cryptomine') {
-      // cause some resource-drain effect; represent as log for now
-      res.logs.push(`Resource drain ${a.id} on ${finalTarget}`);
-    } else {
-      // Generic action
-      res.logs.push(`Action ${a.id} type=${a.type} by ${a.actor} -> ${finalTarget}`);
+      recordVisit(a.actor, finalTarget);
+    } else if (type === 'zero_day_assume' && a.target) {
+      applyZeroDayAssume(state, a.actor, a.target);
+      res.privateResults.push({
+        playerId: a.actor,
+        payload: {
+          type: 'role_assigned',
+          role: playersById.get(a.actor)?.role,
+          team: playersById.get(a.actor)?.team as Team,
+        },
+      });
     }
   }
 
-  // Persist some resolution artifacts into state.logs
-  for (const l of res.logs) state.log(l);
+  for (const [target, visitors] of visitLog) {
+    for (const a of actions) {
+      if ((a.type || '').toLowerCase() === 'spy' && a.target && resolveTarget(a.target) === target) {
+        res.privateResults.push({
+          playerId: a.actor,
+          payload: { type: 'spy', targetId: target, visitors: [...new Set(visitors)] },
+        });
+      }
+    }
+  }
 
-  // clear queued actions after resolution
+  const hackerKillTarget = resolveHackerConsensus(actions, state);
+  if (hackerKillTarget) {
+    const final = resolveTarget(hackerKillTarget);
+    tryKill(final, state, res, 'hacker consensus', protections, wormImmune);
+    if (res.kills.includes(final)) processHoneypotDrag(final, state, res, protections, wormImmune);
+  }
+
+  for (const a of actions) {
+    const type = (a.type || '').toLowerCase();
+    if (frozenTargets.has(a.actor)) continue;
+
+    if (type === 'pentester_kill' && a.target) {
+      const final = resolveTarget(a.target);
+      const actor = playersById.get(a.actor);
+      const target = playersById.get(final);
+      if (actor && target?.isAlive) {
+        const sameTeam = target.team === actor.team && actor.team === Team.SYSTEM;
+        const killed = tryKill(final, state, res, `pentester ${a.actor}`, protections, wormImmune);
+        if (killed) {
+          processHoneypotDrag(final, state, res, protections, wormImmune);
+          if (sameTeam) {
+            actor.isAlive = false;
+            res.kills.push(a.actor);
+            res.logs.push(`Pentester ${a.actor} died of guilt`);
+          }
+        }
+      }
+    } else if (type === 'worm_kill' && a.target) {
+      const final = resolveTarget(a.target);
+      if (tryKill(final, state, res, `worm ${a.actor}`, protections, wormImmune)) {
+        processHoneypotDrag(final, state, res, protections, wormImmune);
+      }
+    }
+  }
+
+  for (const l of res.logs) state.log(l);
   state.clearActions();
+  state.lastNightKills = [...res.kills];
 
   return res;
 }
