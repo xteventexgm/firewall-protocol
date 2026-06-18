@@ -3,6 +3,7 @@ import { Server as IOServer, Namespace } from 'socket.io';
 import RoomManager from '../game/RoomManager';
 import registerRoomHandlers from './roomHandler';
 import registerGameHandlers from './gameHandler';
+import { broadcastRoomState } from './roomBridge';
 
 export function initSockets(server: http.Server) {
   const io = new IOServer(server, { cors: { origin: '*' } });
@@ -18,7 +19,7 @@ export function initSockets(server: http.Server) {
       const found = RoomManager.findPlayerBySocketId(socket.id);
       if (found) {
         found.room.markPlayerDisconnected(socket.id);
-        ns.to(found.room.id).emit('roomState', found.room.id, found.room.state.toPlain());
+        broadcastRoomState(ns, found.room);
       }
     });
   });

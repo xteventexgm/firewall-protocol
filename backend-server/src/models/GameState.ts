@@ -1,4 +1,5 @@
 import { GamePhase, PlayerAction } from '../types';
+import { Team } from '../types/roles.types';
 import { Player, PlayerProfile } from './PlayerProfile';
 
 export interface GameState {
@@ -8,9 +9,10 @@ export interface GameState {
   players: PlayerProfile[];
   dayNumber: number;
   nightNumber: number;
-  actionQueue: PlayerAction[]; // accumulated night actions
-  votes: Record<string, string[]>; // target -> voter ids
+  actionQueue: PlayerAction[];
+  votes: Record<string, string[]>;
   logs: string[];
+  winner?: Team | null;
 }
 
 export class GameStateModel implements GameState {
@@ -23,6 +25,7 @@ export class GameStateModel implements GameState {
   actionQueue: PlayerAction[] = [];
   votes: Record<string, string[]> = {};
   logs: string[] = [];
+  winner: Team | null = null;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -37,6 +40,7 @@ export class GameStateModel implements GameState {
     s.actionQueue = obj.actionQueue || [];
     s.votes = obj.votes || {};
     s.logs = obj.logs || [];
+    s.winner = obj.winner ?? null;
     s.players = (obj.players || []).map((p: any) => {
       const pl = new Player(p.id, p.name, p.socketId);
       pl.role = p.role;
@@ -56,12 +60,51 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
-      players: this.players.map(p => ({ id: p.id, name: p.name, socketId: p.socketId, role: p.role, team: p.team, isAlive: p.isAlive, isConnected: p.isConnected, joinedAt: p.joinedAt, metadata: p.metadata, pendingActions: p.pendingActions })),
+      players: this.players.map(p => this.playerToPlain(p)),
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
       actionQueue: this.actionQueue,
       votes: this.votes,
       logs: this.logs,
+      winner: this.winner,
+    };
+  }
+
+  /** Oculta roles ajenos una vez iniciada la partida. */
+  toPlainForPlayer(viewerId: string) {
+    const hideRoles = this.phase !== GamePhase.LOBBY && this.phase !== GamePhase.REPARTO && this.phase !== GamePhase.FIN;
+    return {
+      roomId: this.roomId,
+      phase: this.phase,
+      phaseStartedAt: this.phaseStartedAt,
+      players: this.players.map(p => {
+        const plain = this.playerToPlain(p);
+        if (hideRoles && p.id !== viewerId) {
+          return { ...plain, role: undefined, team: undefined };
+        }
+        return plain;
+      }),
+      dayNumber: this.dayNumber,
+      nightNumber: this.nightNumber,
+      actionQueue: this.actionQueue,
+      votes: this.votes,
+      logs: this.logs,
+      winner: this.winner,
+    };
+  }
+
+  private playerToPlain(p: Player) {
+    return {
+      id: p.id,
+      name: p.name,
+      socketId: p.socketId,
+      role: p.role,
+      team: p.team,
+      isAlive: p.isAlive,
+      isConnected: p.isConnected,
+      joinedAt: p.joinedAt,
+      metadata: p.metadata,
+      pendingActions: p.pendingActions,
     };
   }
 

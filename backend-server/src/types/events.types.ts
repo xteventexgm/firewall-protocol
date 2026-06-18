@@ -7,6 +7,7 @@ export enum GamePhase {
   DIA = 'DIA',
   VOTACION = 'VOTACION',
   VERIFICACION = 'VERIFICACION',
+  FIN = 'FIN',
 }
 
 export type PlayerId = string;

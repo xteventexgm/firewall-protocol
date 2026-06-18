@@ -1,17 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { GAMES_DIR } from '../utils/constants';
-import { GameState } from '../models/GameState';
 import { logger } from '../utils/logger';
 
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function ensureGamesDir() {
+  if (!fs.existsSync(GAMES_DIR)) fs.mkdirSync(GAMES_DIR, { recursive: true });
 }
-
-ensureDir(GAMES_DIR);
 
 export function saveGameState(roomId: string, state: any) {
   try {
+    ensureGamesDir();
     const file = path.join(GAMES_DIR, `${roomId}.json`);
     fs.writeFileSync(file, JSON.stringify(state, null, 2), { encoding: 'utf8' });
     logger.info('Saved game state', roomId, file);
@@ -24,6 +22,7 @@ export function saveGameState(roomId: string, state: any) {
 
 export function loadGameState(roomId: string): any | null {
   try {
+    ensureGamesDir();
     const file = path.join(GAMES_DIR, `${roomId}.json`);
     if (!fs.existsSync(file)) return null;
     const raw = fs.readFileSync(file, 'utf8');
@@ -50,7 +49,7 @@ export function deleteGameState(roomId: string) {
 
 export function listSavedGames(): string[] {
   try {
-    ensureDir(GAMES_DIR);
+    ensureGamesDir();
     return fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, ''));
   } catch (err: any) {
     logger.error('Failed to list saved games', err.message || err);
