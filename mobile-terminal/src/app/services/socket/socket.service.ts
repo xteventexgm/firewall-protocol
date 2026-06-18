@@ -31,7 +31,11 @@ export class SocketService {
   private socket: Socket | null = null;
   private listenersAttached = false;
 
-  readonly gameState$ = new Subject<{ phase: GamePhase; players: any[]; roomId: string }>();
+  readonly gameState$ = new Subject<{
+    phase: GamePhase;
+    players: any[];
+    roomId: string;
+  }>();
   readonly playerState$ = new Subject<PlayerView>();
   readonly privateResult$ = new Subject<any>();
   readonly error$ = new Subject<string>();
@@ -63,7 +67,7 @@ export class SocketService {
     this.socket?.emit('joinRoom', code, playerId, name);
   }
 
-  submitNightAction(targetId: string): boolean {
+  /*submitNightAction(targetId: string): boolean {
     const roomId = localStorage.getItem('roomCode');
     const playerId = localStorage.getItem('myPlayerId');
     if (!roomId || !playerId || !this.socket?.connected) return false;
@@ -81,6 +85,32 @@ export class SocketService {
       type,
       target: targetId,
       timestamp: Date.now(),
+    };
+
+    this.socket.emit('playerAction', roomId, action);
+    return true;
+  }*/
+
+  // Añade el parámetro meta como opcional
+  submitNightAction(targetId: string, meta?: Record<string, any>): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const playerId = localStorage.getItem('myPlayerId');
+    if (!roomId || !playerId || !this.socket?.connected) return false;
+
+    const type = getNightActionType(this.myRole);
+    if (!type) {
+      this.error$.next('Tu rol no tiene acción nocturna');
+      return false;
+    }
+
+    const action = {
+      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      actor: playerId,
+      role: this.myRole,
+      type,
+      target: targetId,
+      timestamp: Date.now(),
+      meta, // <-- Se añade aquí
     };
 
     this.socket.emit('playerAction', roomId, action);

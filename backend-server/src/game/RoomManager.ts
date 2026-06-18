@@ -2,6 +2,8 @@ import Room from './Room';
 import { Player } from '../models/PlayerProfile';
 import { attachRoomBridge } from '../sockets/roomBridge';
 import { Namespace } from 'socket.io';
+import database from '../config/database';
+import { logRoom } from '../utils/socketLog';
 
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
@@ -11,11 +13,20 @@ export class RoomManager {
     const r = new Room(id, options);
     if (gameNs) attachRoomBridge(r, gameNs, dashboardNs);
     this.rooms.set(id, r);
+
+    const saved = database.save(id, r.state.toPlain());
+    logRoom('created', id, {
+      phase: r.state.phase,
+      players: r.state.players.length,
+      persisted: saved,
+    });
+
     return r;
   }
 
   ensureBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
     attachRoomBridge(room, gameNs, dashboardNs);
+    logRoom('bridge attached', room.id);
   }
 
   getRoom(id: string) {
@@ -27,6 +38,7 @@ export class RoomManager {
     if (!r) return false;
     r.destroy();
     this.rooms.delete(id);
+    logRoom('deleted from memory', id);
     return true;
   }
 
