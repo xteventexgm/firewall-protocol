@@ -10,16 +10,29 @@ export interface DBAdapter {
 
 const adapter: DBAdapter = {
 	save: (roomId: string, state: any) => {
-		logger.debug('DB save', roomId);
-		return dbSync.saveGameState(roomId, state);
+		const players = state?.players?.length ?? 0;
+		const phase = state?.phase ?? '?';
+		const ok = dbSync.saveGameState(roomId, state);
+		logger.info('[db] save', ok ? 'OK' : 'FAIL', { roomId, phase, players });
+		return ok;
 	},
 	load: (roomId: string) => {
-		logger.debug('DB load', roomId);
-		return dbSync.loadGameState(roomId);
+		const data = dbSync.loadGameState(roomId);
+		if (data) {
+			logger.info('[db] load OK', {
+				roomId,
+				phase: data.phase,
+				players: data.players?.length ?? 0,
+			});
+		} else {
+			logger.info('[db] load miss (sin archivo JSON)', { roomId });
+		}
+		return data;
 	},
 	delete: (roomId: string) => {
-		logger.debug('DB delete', roomId);
-		return dbSync.deleteGameState(roomId);
+		const ok = dbSync.deleteGameState(roomId);
+		logger.info('[db] delete', ok ? 'OK' : 'FAIL', { roomId });
+		return ok;
 	},
 	list: () => dbSync.listSavedGames(),
 };
