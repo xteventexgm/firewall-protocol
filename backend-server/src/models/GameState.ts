@@ -2,11 +2,13 @@ import { GamePhase, PlayerAction, PublicGameState, SoloWinner } from '../types';
 import { Team } from '../types/roles.types';
 import { Player, PlayerProfile } from './PlayerProfile';
 import { isSilenced, getMeta } from '../game/playerMetadata';
+import { MAX_PLAYERS } from '../utils/constants';
 
 export interface GameState {
   roomId: string;
   phase: GamePhase;
   phaseStartedAt: number;
+  maxPlayers: number;
   players: PlayerProfile[];
   dayNumber: number;
   nightNumber: number;
@@ -22,6 +24,7 @@ export class GameStateModel implements GameState {
   roomId: string;
   phase: GamePhase = GamePhase.LOBBY;
   phaseStartedAt: number = Date.now();
+  maxPlayers: number = MAX_PLAYERS;
   players: Player[] = [];
   dayNumber = 0;
   nightNumber = 0;
@@ -40,6 +43,7 @@ export class GameStateModel implements GameState {
     const s = new GameStateModel(obj.roomId || '');
     s.phase = obj.phase;
     s.phaseStartedAt = obj.phaseStartedAt || Date.now();
+    s.maxPlayers = obj.maxPlayers ?? MAX_PLAYERS;
     s.dayNumber = obj.dayNumber || 0;
     s.nightNumber = obj.nightNumber || 0;
     s.actionQueue = obj.actionQueue || [];
@@ -67,6 +71,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      maxPlayers: this.maxPlayers,
       players: this.players.map(p => this.playerToPlain(p)),
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
@@ -85,6 +90,8 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      maxPlayers: this.maxPlayers,
+      playerCount: this.players.length,
       players: this.players.map(p => {
         const plain = this.playerToPlain(p);
         if (hideRoles && p.id !== viewerId) {
@@ -112,6 +119,8 @@ export class GameStateModel implements GameState {
       phaseStartedAt: this.phaseStartedAt,
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
+      maxPlayers: this.maxPlayers,
+      playerCount: this.players.length,
       players: this.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -147,7 +156,9 @@ export class GameStateModel implements GameState {
   }
 
   addPlayer(p: Player) {
-    if (this.players.length >= 15) throw new Error('Room is full (max 15 players)');
+    if (this.players.length >= this.maxPlayers) {
+      throw new Error(`Room is full (max ${this.maxPlayers} players)`);
+    }
     this.players.push(p);
   }
 

@@ -5,7 +5,7 @@ type PhaseCallback = (from: GamePhase, to: GamePhase) => void;
 
 const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.LOBBY]: [GamePhase.REPARTO],
-  [GamePhase.REPARTO]: [GamePhase.NOCHE],
+  [GamePhase.REPARTO]: [GamePhase.DIA],
   [GamePhase.NOCHE]: [GamePhase.DIA],
   [GamePhase.DIA]: [GamePhase.VOTACION],
   [GamePhase.VOTACION]: [GamePhase.VERIFICACION],

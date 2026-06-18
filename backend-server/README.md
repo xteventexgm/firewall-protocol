@@ -32,15 +32,16 @@ Este repositorio corresponde al **Integrante 3 (Backend & WebSocket Architect)**
 
 ### Máquina de estados
 ```
-LOBBY → REPARTO → NOCHE → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE | FIN
+LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA → … → FIN
 ```
 - Restauración de fase al cargar partida desde disco (`StateMachine.restorePhase`)
 - Timers opcionales de auto-avance (`nightDurationMs`, `dayDurationMs`)
 - Fase `FIN` al terminar la partida
 
 ### Matchmaking
-- ~25 % de jugadores Black Hat (redondeo al entero más cercano)
-- Resto repartido entre System y Chaotic (sesgo 2:1 hacia System)
+- Black Hat: **1 cada 3 jugadores** (`PLAYERS_PER_BLACK_HAT` en `constants.ts`)
+- Caóticos: **1 cada 5 jugadores** (`PLAYERS_PER_CHAOTIC_ROLE` en `constants.ts`); el resto es System
+- Roles sin repetir dentro de cada equipo hasta agotar el catálogo
 - 16 roles del catálogo GDD en `src/types/roles.types.ts`
 - RNG inyectable para pruebas deterministas
 
@@ -62,7 +63,7 @@ LOBBY → REPARTO → NOCHE → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE |
 
 ### Votación y victoria
 - Votación solo en `VOTACION`; silenciados no votan
-- Un voto por jugador; resolución por mayoría (empate = sin eliminación)
+- Un voto por jugador; resolución por mayoría simple entre objetivos votados (**empate = sin eliminación**, evento `voteTied`)
 - Phisher redirige votos en secreto
 - **Victoria por bando**: System elimina hackers / Black Hat iguala o supera en número
 - **Victoria solitaria**: Troll (baneado), Gusano (último en pie), Minero (único superviviente)
@@ -201,7 +202,7 @@ Conexión: `io('http://<host>:<port>/game')`
 
 | Evento | Parámetros | Descripción |
 |--------|------------|-------------|
-| `createRoom` | `roomId` | Crea sala vacía |
+| `createRoom` | `roomId` | Rechazado — solo dashboard |
 | `joinRoom` | `roomId`, `playerId`, `name?` | Unirse o reconectar |
 | `leaveRoom` | `roomId`, `playerId` | Salir y eliminar jugador |
 | `startGame` | `roomId` | Inicia partida (mín. 5 jugadores) |
@@ -213,13 +214,14 @@ Conexión: `io('http://<host>:<port>/game')`
 
 | Evento | Payload | Descripción |
 |--------|---------|-------------|
-| `roomState` | `roomId`, `state` | Estado filtrado por jugador |
+| `roomState` | `roomId`, `state` | Estado filtrado por jugador (`maxPlayers`, `playerCount`, `players`) |
 | `privateResult` | `roomId`, `payload` | Rol, equipo hacker, scan, spy |
 | `phaseChanged` | `roomId`, `phase` | Cambio de fase |
 | `phaseTransition` | `{ roomId, from, to, at }` | Transición con timestamp |
 | `incidentReport` | `{ roomId, nightNumber, disconnected[] }` | Reporte de amanecer |
 | `nightResolved` | `roomId`, `resolution` | Resolución nocturna |
 | `voteTrace` | `{ roomId, voter, target, timestamp }` | Voto registrado |
+| `voteTied` | `{ roomId, voteCount, candidates[] }` | Empate en votación — nadie eliminado |
 | `playerReconnected` | `roomId`, `playerId` | Jugador reconectado |
 | `playerDisconnected` | `roomId`, `playerId` | Jugador desconectado |
 | `playerEliminated` | `roomId`, `playerId`, `reason` | Jugador eliminado |
@@ -237,16 +239,21 @@ Conexión: `io('http://<host>:<port>/dashboard')`
 
 | Evento | Parámetros | Descripción |
 |--------|------------|-------------|
+| `createRoom` | `roomId`, `maxPlayers` | Crea sala (**maxPlayers obligatorio**, entre 5 y 15) |
 | `joinDashboard` | `roomId` | Suscribirse a vista pública de la sala |
 | `leaveDashboard` | `roomId` | Salir de la vista |
+| `startGame` | `roomId` | Inicia partida |
+| `advancePhase` | `roomId` | Avanza fase |
 
 ### Servidor → cliente
 
 | Evento | Descripción |
 |--------|-------------|
-| `publicState` | Topología pública (sin roles ni secretos) |
+| `roomCreated` | `{ roomId, maxPlayers }` — sala creada |
+| `publicState` | Topología pública (`maxPlayers`, `playerCount`, jugadores sin roles) |
 | `incidentReport` | Nodos desconectados tras la noche |
 | `voteTrace` | Votos en tiempo real para animaciones |
+| `voteTied` | Empate en votación — sin eliminación |
 | `phaseTransition` | Señal para animaciones noche/día |
 | `phaseChanged` | Fase actual |
 | `gameOver` | Resultado final |

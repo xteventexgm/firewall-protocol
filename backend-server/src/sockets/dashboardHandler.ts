@@ -46,13 +46,16 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
     socket.leave(roomId);
   });
 
-  socket.on('createRoom', (roomId: string) => {
+  socket.on('createRoom', (roomId: string, maxPlayers: number) => {
     try {
       const code = roomId.trim().toUpperCase();
-      logClient('dashboard', 'createRoom', socket.id, { roomId: code });
-      RoomManager.createRoom(code, {}, gameNs, dashboardNs);
-      dashboardNs.emit('roomCreated', code);
-      logClient('dashboard', 'createRoom OK', socket.id, { roomId: code });
+      logClient('dashboard', 'createRoom', socket.id, { roomId: code, maxPlayers });
+      const room = RoomManager.createRoom(code, { maxPlayers }, gameNs, dashboardNs);
+      dashboardNs.emit('roomCreated', { roomId: code, maxPlayers: room.state.maxPlayers });
+      logClient('dashboard', 'createRoom OK', socket.id, {
+        roomId: code,
+        maxPlayers: room.state.maxPlayers,
+      });
     } catch (err: any) {
       logger.warn('[dashboard] createRoom FAIL', { roomId, error: err.message || String(err) });
       socket.emit('error', err.message || String(err));
