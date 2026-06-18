@@ -9,7 +9,8 @@ const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.NOCHE]: [GamePhase.DIA],
   [GamePhase.DIA]: [GamePhase.VOTACION],
   [GamePhase.VOTACION]: [GamePhase.VERIFICACION],
-  [GamePhase.VERIFICACION]: [GamePhase.NOCHE, GamePhase.DIA],
+  [GamePhase.VERIFICACION]: [GamePhase.NOCHE, GamePhase.FIN],
+  [GamePhase.FIN]: [],
 };
 
 export class StateMachine extends EventEmitter {
@@ -28,6 +29,12 @@ export class StateMachine extends EventEmitter {
 
   getPhaseStartedAt() {
     return this.phaseStartedAt;
+  }
+
+  /** Restaura fase desde persistencia sin emitir eventos ni validar transiciones. */
+  restorePhase(phase: GamePhase, phaseStartedAt?: number) {
+    this.phase = phase;
+    this.phaseStartedAt = phaseStartedAt ?? Date.now();
   }
 
   canTransitionTo(target: GamePhase) {

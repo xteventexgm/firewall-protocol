@@ -19,8 +19,6 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
       const room = RoomManager.getRoom(roomId);
       if (!room) { socket.emit('error', 'room not found'); return; }
       room.startGame();
-      ns.to(roomId).emit('phaseChanged', room.state.roomId, room.state.phase);
-      ns.to(roomId).emit('roomState', roomId, room.state);
     } catch (err: any) {
       socket.emit('error', err.message || String(err));
     }
@@ -30,9 +28,7 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
     try {
       const room = RoomManager.getRoom(roomId);
       if (!room) { socket.emit('error', 'room not found'); return; }
-      const next = await room.advancePhase();
-      ns.to(roomId).emit('phaseChanged', roomId, next);
-      ns.to(roomId).emit('roomState', roomId, room.state);
+      await room.advancePhase();
     } catch (err: any) {
       socket.emit('error', err.message || String(err));
     }
@@ -43,10 +39,8 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
       const room = RoomManager.getRoom(roomId);
       if (!room) { socket.emit('error', 'room not found'); return; }
       const { voter, target } = vote;
-      const key = target || 'null';
-      room.state.votes[key] = room.state.votes[key] || [];
-      room.state.votes[key].push(voter);
-      ns.to(roomId).emit('roomState', roomId, room.state);
+      const ok = room.submitVote(voter, target ?? null);
+      if (!ok) socket.emit('error', 'vote rejected');
     } catch (err: any) {
       socket.emit('error', err.message || String(err));
     }
