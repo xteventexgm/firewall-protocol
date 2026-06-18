@@ -9,29 +9,35 @@ import { SocketService } from '../../services/socket/socket.service';
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule]
+  imports: [IonicModule, FormsModule],
 })
 export class LoginPage {
   roomCode: string = '';
   playerName: string = '';
 
   // Inyectamos el Router en el constructor
-  constructor(private socketService: SocketService, private router: Router) {}
+  constructor(
+    private socketService: SocketService,
+    private router: Router,
+  ) {}
 
   joinNetwork() {
     if (this.roomCode.trim() && this.playerName.trim()) {
-      console.log(`[SYS] Iniciando conexión segura a la red: ${this.roomCode}`);
-      
-      this.socketService.emitAction('join-room', {
-        room: this.roomCode.toUpperCase(),
-        player: this.playerName
-      });
+      const myPlayerId = 'usr_' + Math.random().toString(36).substr(2, 9);
 
-      // Redirigimos al jugador al dashboard
+      // 1. Guardamos el ID en memoria para que el SocketService lo pueda leer luego
+      localStorage.setItem('myPlayerId', myPlayerId);
+
+      this.socketService.emitAction(
+        'joinRoom',
+        this.roomCode.toUpperCase(),
+        myPlayerId,
+        this.playerName,
+      );
+
       this.router.navigate(['/dashboard']);
-
     } else {
-      console.warn('[WARN] Faltan credenciales de acceso.');
+      console.warn('[WARN] Faltan credenciales.');
     }
   }
 }

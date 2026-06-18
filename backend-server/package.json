@@ -5,7 +5,7 @@
 	"license": "MIT",
 	"scripts": {
 		"start": "node -r ts-node/register src/server.ts",
-		"dev": "ts-node src/server.ts"
+		"dev": "node -r ts-node/register src/server.ts"
 	},
 	"dependencies": {
 		"body-parser": "^1.20.2",

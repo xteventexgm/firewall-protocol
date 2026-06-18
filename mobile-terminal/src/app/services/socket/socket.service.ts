@@ -3,11 +3,11 @@ import { io, Socket } from 'socket.io-client';
 import { Subject } from 'rxjs';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class SocketService {
   private socket!: Socket;
-  private readonly SERVER_URL = 'http://localhost:3000';
+  private readonly SERVER_URL = 'http://192.168.137.1:3000';
 
   // Transmisores reactivos para que el Dashboard los escuche
   public gameState$ = new Subject<any>();
@@ -21,31 +21,39 @@ export class SocketService {
     const savedSession = localStorage.getItem('playerSession');
 
     this.socket = io(this.SERVER_URL, {
-      auth: { session: savedSession }
+      auth: { session: savedSession },
+      transports: ['websocket'], // <-- ADICIONE ESTA LINHA
     });
 
-    this.socket.on('connect', () => {
-      console.log('🔗 Conectado al servidor central');
+    this.socket = io(this.SERVER_URL + '/game', {
+      auth: { session: savedSession },
     });
 
-    this.socket.on('session-assigned', (sessionData: any) => {
-      localStorage.setItem('playerSession', sessionData.token);
-    });
+    this.socket.on('roomState', (roomId: string, state: any) => {
+      console.log('Recibido estado de la sala:', state);
 
-    // 1. Escucha cambios generales (Noche, Día, lista de vivos)
-    this.socket.on('game-state-update', (data: any) => {
-      this.gameState$.next(data);
-    });
+      // Enviamos el estado general al dashboard (Fase y todos los jugadores)
+      this.gameState$.next(state);
 
-    // 2. Escucha cambios personales (Qué rol te tocó, si fuiste eliminado)
-    this.socket.on('player-state-update', (data: any) => {
-      this.playerState$.next(data);
+      // Buscamos MIS datos personales para saber mi ROL
+      const myPlayerId = localStorage.getItem('myPlayerId');
+      if (myPlayerId && state.players) {
+        const myData = state.players.find((p: any) => p.id === myPlayerId);
+
+        if (myData) {
+          this.playerState$.next({
+            name: myData.name,
+            role: myData.role || 'ESPERANDO ASIGNACIÓN',
+            isDead: !myData.isAlive,
+          });
+        }
+      }
     });
   }
 
-  public emitAction(action: string, payload: any) {
+  public emitAction(action: string, ...args: any[]) {
     if (this.socket.connected) {
-      this.socket.emit(action, payload);
+      this.socket.emit(action, ...args);
     } else {
       console.error('Error: Sin conexión al servidor.');
     }
