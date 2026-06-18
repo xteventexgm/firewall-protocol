@@ -1,61 +1,183 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Subject } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { getNightActionType } from '../../core/role-actions';
 
-@Injectable({
-  providedIn: 'root',
-})
+export type GamePhase =
+  | 'LOBBY'
+  | 'REPARTO'
+  | 'NOCHE'
+  | 'DIA'
+  | 'VOTACION'
+  | 'VERIFICACION'
+  | 'FIN';
+
+export interface PlayerView {
+  name: string;
+  role: string;
+  team?: string;
+  isDead: boolean;
+  silenced?: boolean;
+}
+
+export interface TargetOption {
+  id: string;
+  name: string;
+}
+
+@Injectable({ providedIn: 'root' })
 export class SocketService {
-  private socket!: Socket;
-  private readonly SERVER_URL = 'http://192.168.137.1:3000';
+  private socket: Socket | null = null;
+  private listenersAttached = false;
 
-  // Transmisores reactivos para que el Dashboard los escuche
-  public gameState$ = new Subject<any>();
-  public playerState$ = new Subject<any>();
+  readonly gameState$ = new Subject<{
+    phase: GamePhase;
+    players: any[];
+    roomId: string;
+  }>();
+  readonly playerState$ = new Subject<PlayerView>();
+  readonly privateResult$ = new Subject<any>();
+  readonly error$ = new Subject<string>();
+  readonly actionAccepted$ = new Subject<string>();
 
-  constructor() {
-    this.initSocket();
+  private myRole: string | undefined;
+  private myTeam: string | undefined;
+
+  connect(): void {
+    if (this.socket?.connected) return;
+
+    this.socket = io(`${environment.apiUrl}/game`, {
+      transports: ['websocket', 'polling'],
+    });
+
+    this.socket.on('connect', () => console.log('[socket] conectado'));
+    this.socket.on('disconnect', () => console.log('[socket] desconectado'));
+    this.attachListeners();
   }
 
-  private initSocket() {
-    const savedSession = localStorage.getItem('playerSession');
+  joinRoom(roomId: string, playerId: string, name: string): void {
+    this.connect();
+    const code = roomId.toUpperCase().trim();
 
-    this.socket = io(this.SERVER_URL, {
-      auth: { session: savedSession },
-      transports: ['websocket'], // <-- ADICIONE ESTA LINHA
-    });
+    localStorage.setItem('roomCode', code);
+    localStorage.setItem('myPlayerId', playerId);
+    localStorage.setItem('playerName', name);
 
-    this.socket = io(this.SERVER_URL + '/game', {
-      auth: { session: savedSession },
-    });
+    this.socket?.emit('joinRoom', code, playerId, name);
+  }
+
+  /*submitNightAction(targetId: string): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const playerId = localStorage.getItem('myPlayerId');
+    if (!roomId || !playerId || !this.socket?.connected) return false;
+
+    const type = getNightActionType(this.myRole);
+    if (!type) {
+      this.error$.next('Tu rol no tiene acción nocturna');
+      return false;
+    }
+
+    const action = {
+      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      actor: playerId,
+      role: this.myRole,
+      type,
+      target: targetId,
+      timestamp: Date.now(),
+    };
+
+    this.socket.emit('playerAction', roomId, action);
+    return true;
+  }*/
+
+  // Añade el parámetro meta como opcional
+  submitNightAction(targetId: string, meta?: Record<string, any>): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const playerId = localStorage.getItem('myPlayerId');
+    if (!roomId || !playerId || !this.socket?.connected) return false;
+
+    const type = getNightActionType(this.myRole);
+    if (!type) {
+      this.error$.next('Tu rol no tiene acción nocturna');
+      return false;
+    }
+
+    const action = {
+      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      actor: playerId,
+      role: this.myRole,
+      type,
+      target: targetId,
+      timestamp: Date.now(),
+      meta, // <-- Se añade aquí
+    };
+
+    this.socket.emit('playerAction', roomId, action);
+    return true;
+  }
+
+  submitVote(targetId: string | null): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const voter = localStorage.getItem('myPlayerId');
+    if (!roomId || !voter || !this.socket?.connected) return false;
+
+    this.socket.emit('submitVote', roomId, { voter, target: targetId });
+    return true;
+  }
+
+  private attachListeners(): void {
+    if (!this.socket || this.listenersAttached) return;
+    this.listenersAttached = true;
 
     this.socket.on('roomState', (roomId: string, state: any) => {
-      console.log('Recibido estado de la sala:', state);
-
-      // Enviamos el estado general al dashboard (Fase y todos los jugadores)
-      this.gameState$.next(state);
-
-      // Buscamos MIS datos personales para saber mi ROL
       const myPlayerId = localStorage.getItem('myPlayerId');
-      if (myPlayerId && state.players) {
-        const myData = state.players.find((p: any) => p.id === myPlayerId);
+      this.gameState$.next({
+        roomId,
+        phase: state.phase,
+        players: state.players ?? [],
+      });
 
-        if (myData) {
+      if (myPlayerId && state.players) {
+        const me = state.players.find((p: any) => p.id === myPlayerId);
+        if (me) {
           this.playerState$.next({
-            name: myData.name,
-            role: myData.role || 'ESPERANDO ASIGNACIÓN',
-            isDead: !myData.isAlive,
+            name: me.name,
+            role: this.myRole ?? me.role ?? 'ESPERANDO ASIGNACIÓN',
+            team: this.myTeam ?? me.team,
+            isDead: !me.isAlive,
+            silenced: me.metadata?.silencedUntilDay != null,
           });
         }
       }
     });
-  }
 
-  public emitAction(action: string, ...args: any[]) {
-    if (this.socket.connected) {
-      this.socket.emit(action, ...args);
-    } else {
-      console.error('Error: Sin conexión al servidor.');
-    }
+    this.socket.on('privateResult', (roomId: string, payload: any) => {
+      this.privateResult$.next({ roomId, ...payload });
+
+      if (payload.type === 'role_assigned') {
+        this.myRole = payload.role;
+        this.myTeam = payload.team;
+        const name = localStorage.getItem('playerName') ?? '';
+        this.playerState$.next({
+          name,
+          role: payload.role,
+          team: payload.team,
+          isDead: false,
+        });
+      }
+    });
+
+    this.socket.on('actionAccepted', (actionId: string) => {
+      this.actionAccepted$.next(actionId);
+    });
+
+    this.socket.on('error', (msg: string) => {
+      this.error$.next(msg);
+    });
+
+    this.socket.on('gameOver', () => {
+      this.error$.next('Partida terminada');
+    });
   }
 }

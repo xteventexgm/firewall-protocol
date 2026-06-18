@@ -9,7 +9,7 @@ import {
 import QRCode from 'qrcode';
 import {
   MIN_PLAYERS_TO_START,
-  MAX_MOBILE_PLAYERS_WITH_HOST,
+  MAX_PLAYERS,
   PublicGameState,
 } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
@@ -31,7 +31,7 @@ export class LobbyComponent implements OnChanges {
 
   qrDataUrl = '';
   readonly minPlayers = MIN_PLAYERS_TO_START;
-  readonly maxPlayers = MAX_MOBILE_PLAYERS_WITH_HOST;
+  readonly maxPlayers = MAX_PLAYERS;
 
   get playerCount(): number {
     return this.state?.players.length ?? 0;
