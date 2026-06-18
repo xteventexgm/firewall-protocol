@@ -1,5 +1,4 @@
 import {
-  DASHBOARD_PLAYER_ID,
   GamePhase,
   IncidentReport,
   PublicGameState,
@@ -17,15 +16,14 @@ export function generateRoomCode(): string {
 }
 
 export function sanitizeGameState(raw: any): PublicGameState {
-  const players: PublicPlayer[] = (raw?.players ?? [])
-    .filter((p: any) => p.id !== DASHBOARD_PLAYER_ID)
-    .map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      isAlive: p.isAlive !== false,
-      isConnected: p.isConnected !== false,
-      joinedAt: p.joinedAt ?? Date.now(),
-    }));
+  const players: PublicPlayer[] = (raw?.players ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    isAlive: p.isAlive !== false,
+    isConnected: p.isConnected !== false,
+    silenced: p.silenced === true,
+    joinedAt: p.joinedAt ?? Date.now(),
+  }));
 
   return {
     roomId: raw?.roomId ?? '',
@@ -35,7 +33,8 @@ export function sanitizeGameState(raw: any): PublicGameState {
     dayNumber: raw?.dayNumber ?? 0,
     nightNumber: raw?.nightNumber ?? 0,
     votes: raw?.votes ?? {},
-    logs: raw?.logs ?? [],
+    winner: raw?.winner ?? null,
+    soloWinner: raw?.soloWinner ?? null,
   };
 }
 
@@ -45,9 +44,7 @@ export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
     const resolvedTarget = target === 'null' ? '' : target;
     if (!resolvedTarget) continue;
     for (const voter of voters) {
-      if (voter !== DASHBOARD_PLAYER_ID) {
-        lastVote.set(voter, resolvedTarget);
-      }
+      lastVote.set(voter, resolvedTarget);
     }
   }
   return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
@@ -72,6 +69,17 @@ export function detectIncidents(
   return incidents;
 }
 
+export function incidentsFromServerReport(
+  disconnected: string[],
+  state: PublicGameState | null,
+): IncidentReport[] {
+  const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
+  return disconnected.map((id) => ({
+    playerId: id,
+    playerName: byId.get(id)?.name ?? id,
+  }));
+}
+
 export function phaseLabel(phase: GamePhase): string {
   const labels: Record<GamePhase, string> = {
     LOBBY: 'LOBBY — Esperando conexiones',
@@ -80,6 +88,7 @@ export function phaseLabel(phase: GamePhase): string {
     DIA: 'DÍA — Auditoría de seguridad',
     VOTACION: 'VOTACIÓN — Debate activo',
     VERIFICACION: 'VERIFICACIÓN — Conteo de votos',
+    FIN: 'FIN — Partida terminada',
   };
   return labels[phase] ?? phase;
 }

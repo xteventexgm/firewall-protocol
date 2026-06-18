@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
-import { Router } from '@angular/router'; // Importamos el Router
+import { Router } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
 
 @Component({
@@ -12,32 +12,29 @@ import { SocketService } from '../../services/socket/socket.service';
   imports: [IonicModule, FormsModule],
 })
 export class LoginPage {
-  roomCode: string = '';
-  playerName: string = '';
+  roomCode = '';
+  playerName = '';
 
-  // Inyectamos el Router en el constructor
   constructor(
     private socketService: SocketService,
     private router: Router,
   ) {}
 
-  joinNetwork() {
-    if (this.roomCode.trim() && this.playerName.trim()) {
-      const myPlayerId = 'usr_' + Math.random().toString(36).substr(2, 9);
-
-      // 1. Guardamos el ID en memoria para que el SocketService lo pueda leer luego
-      localStorage.setItem('myPlayerId', myPlayerId);
-
-      this.socketService.emitAction(
-        'joinRoom',
-        this.roomCode.toUpperCase(),
-        myPlayerId,
-        this.playerName,
-      );
-
-      this.router.navigate(['/dashboard']);
-    } else {
+  joinNetwork(): void {
+    if (!this.roomCode.trim() || !this.playerName.trim()) {
       console.warn('[WARN] Faltan credenciales.');
+      return;
     }
+
+    const existingId = localStorage.getItem('myPlayerId');
+    const myPlayerId = existingId ?? `usr_${Math.random().toString(36).slice(2, 11)}`;
+
+    this.socketService.joinRoom(
+      this.roomCode.toUpperCase(),
+      myPlayerId,
+      this.playerName.trim(),
+    );
+
+    this.router.navigate(['/dashboard']);
   }
 }
