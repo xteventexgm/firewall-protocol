@@ -1,5 +1,5 @@
 import { Socket, Namespace } from 'socket.io';
-import RoomManager from '../game/RoomManager';
+import RoomManager, { RoomClosedError } from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
@@ -8,18 +8,30 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
 
   socket.on('joinDashboard', (roomId: string) => {
     try {
-      logClient('dashboard', 'joinDashboard', socket.id, { roomId });
-      let room = RoomManager.getRoom(roomId);
-      const created = !room;
-      if (!room) room = RoomManager.createRoom(roomId, { autoAdvance: false }, gameNs, dashboardNs);
-      else RoomManager.ensureBridge(room, gameNs, dashboardNs);
+      const code = roomId.trim().toUpperCase();
+      logClient('dashboard', 'joinDashboard', socket.id, { roomId: code });
 
-      socket.join(roomId);
+      let room;
+      try {
+        room = RoomManager.getOrRestoreRoom(code, gameNs, dashboardNs);
+      } catch (err) {
+        if (err instanceof RoomClosedError) {
+          socket.emit('error', err.message);
+          return;
+        }
+        throw err;
+      }
+
+      if (!room) {
+        socket.emit('error', 'Room not found. Create a lobby first.');
+        return;
+      }
+
+      socket.join(code);
       socket.emit('publicState', room.state.toPublicState());
-      socket.emit('phaseChanged', roomId, room.state.phase);
+      socket.emit('phaseChanged', code, room.state.phase);
       logClient('dashboard', 'joinDashboard OK', socket.id, {
-        roomId,
-        created,
+        roomId: code,
         phase: room.state.phase,
         players: room.state.players.length,
       });
@@ -36,10 +48,11 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
 
   socket.on('createRoom', (roomId: string) => {
     try {
-      logClient('dashboard', 'createRoom', socket.id, { roomId });
-      RoomManager.createRoom(roomId, {}, gameNs, dashboardNs);
-      dashboardNs.emit('roomCreated', roomId);
-      logClient('dashboard', 'createRoom OK', socket.id, { roomId });
+      const code = roomId.trim().toUpperCase();
+      logClient('dashboard', 'createRoom', socket.id, { roomId: code });
+      RoomManager.createRoom(code, {}, gameNs, dashboardNs);
+      dashboardNs.emit('roomCreated', code);
+      logClient('dashboard', 'createRoom OK', socket.id, { roomId: code });
     } catch (err: any) {
       logger.warn('[dashboard] createRoom FAIL', { roomId, error: err.message || String(err) });
       socket.emit('error', err.message || String(err));
