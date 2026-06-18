@@ -61,6 +61,12 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
     refresh();
   });
 
+  room.on('voteTied', (payload) => {
+    gameNs.to(room.id).emit('voteTied', payload);
+    dashboardNs?.to(room.id).emit('voteTied', payload);
+    refresh();
+  });
+
   room.on('playerReconnected', ({ roomId, playerId }) => {
     gameNs.to(roomId).emit('playerReconnected', roomId, playerId);
     refresh();
