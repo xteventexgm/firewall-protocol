@@ -47,6 +47,8 @@ export interface PublicPlayerState {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  role?: RoleId;
+  team?: Team;
 }
 
 export interface PublicGameState {
