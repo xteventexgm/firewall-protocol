@@ -1,0 +1,29 @@
+.dashboard {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
+.main-stage {
+  border-left: 1px solid #1a3a4a;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(#1a3a4a22 1px, transparent 1px),
+    linear-gradient(90deg, #1a3a4a22 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.5;
+}
+
+.error-toast {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: #2a0a10;
+  border: 1px solid #ff2d55;
+  color: #ff8a9a;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 50;
+  max-width: 320px;
+}
