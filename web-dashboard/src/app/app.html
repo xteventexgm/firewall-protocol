@@ -4,7 +4,7 @@
     [roomCode]="roomCode"
     [state]="state"
     [connected]="connected"
-    (createLobby)="onCreateLobby()"
+    (createLobby)="onCreateLobby($event)"
     (startGame)="onStartGame()"
     (advancePhase)="onAdvancePhase()"
   />
@@ -26,12 +26,24 @@
 
     <app-phase-overlay
       [phase]="state?.phase ?? 'LOBBY'"
+      [phaseFlash]="phaseFlash"
       [incidents]="incidents"
       [showIncidentReport]="showIncidentReport"
+      [incidentNightNumber]="incidentNightNumber"
+    />
+
+    <app-game-over-overlay
+      [visible]="showGameOver"
+      [summary]="gameOverSummary"
+      (exitRoom)="onExitRoom()"
     />
 
     @if (errorMessage) {
       <div class="error-toast">{{ errorMessage }}</div>
+    }
+
+    @if (voteTiedMessage) {
+      <div class="vote-tied-toast">{{ voteTiedMessage }}</div>
     }
   </main>
 </div>

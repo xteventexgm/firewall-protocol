@@ -1,0 +1,23 @@
+@if (visible && summary) {
+  <div class="gameover-overlay">
+    <div class="gameover-content">
+      <h2 class="gameover-title">PARTIDA TERMINADA</h2>
+      <p class="gameover-headline">{{ summary.headline }}</p>
+
+      @if (summary.winners.length) {
+        <ul class="winner-list">
+          @for (winner of summary.winners; track winner.playerName) {
+            <li class="winner-item">
+              <span class="winner-name">{{ winner.playerName }}</span>
+              <span class="winner-role">{{ winner.role }}</span>
+            </li>
+          }
+        </ul>
+      }
+
+      <button type="button" class="btn-exit-room" (click)="onExitRoom()">
+        Salir de sala
+      </button>
+    </div>
+  </div>
+}

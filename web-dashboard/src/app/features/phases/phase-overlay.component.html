@@ -16,7 +16,11 @@
 @if (showIncidentReport && incidents.length) {
   <div class="incident-panel">
     <h2 class="incident-title glitch-text">REPORTE DE INCIDENTES</h2>
-    <p class="incident-sub">Nodos desconectados durante la noche:</p>
+    @if (incidentNightNumber > 0) {
+      <p class="incident-sub">Noche {{ incidentNightNumber }} — Nodos eliminados:</p>
+    } @else {
+      <p class="incident-sub">Nodos eliminados durante la noche:</p>
+    }
     <ul class="incident-list">
       @for (incident of incidents; track incident.playerId) {
         <li class="incident-item animate-glitch">
