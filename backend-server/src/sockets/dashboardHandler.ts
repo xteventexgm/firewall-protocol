@@ -19,4 +19,33 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
   socket.on('leaveDashboard', (roomId: string) => {
     socket.leave(roomId);
   });
+
+  socket.on('createRoom', (roomId: string) => {
+    try {
+      RoomManager.createRoom(roomId, {}, gameNs, dashboardNs);
+      dashboardNs.emit('roomCreated', roomId);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('startGame', (roomId: string) => {
+    try {
+      const room = RoomManager.getRoom(roomId);
+      if (!room) { socket.emit('error', 'room not found'); return; }
+      room.startGame();
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('advancePhase', (roomId: string) => {
+    try {
+      const room = RoomManager.getRoom(roomId);
+      if (!room) { socket.emit('error', 'room not found'); return; }
+      void room.advancePhase();
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
 }

@@ -1,3 +1,5 @@
+> **Contrato socket compartido**: ver [`../SOCKET_CONTRACT.md`](../SOCKET_CONTRACT.md) en la raíz del monorepo.
+
 # Firewall Protocol — Backend
 
 Servidor realtime del juego **Firewall Protocol**: thriller de deducción social multijugador (5–15 jugadores) con temática de ciberseguridad. Coordina salas, fases, roles, acciones nocturnas, votación diurna y victoria en tiempo real vía WebSockets.
