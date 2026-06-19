@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'interapophyseal-contemningly-sherly.ngrok-free.dev',
+  apiUrl: 'https://interapophyseal-contemningly-sherly.ngrok-free.dev',
   socketNamespace: '/dashboard',
 };

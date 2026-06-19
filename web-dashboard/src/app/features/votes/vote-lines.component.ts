@@ -8,11 +8,13 @@ import {
   AfterViewInit,
   HostListener,
 } from '@angular/core';
-import { GamePhase, PublicGameState } from '../../core/models/game-state.model';
+import { GamePhase, PublicGameState, VoteTrace } from '../../core/models/game-state.model';
 import { toVoteEdges } from '../../core/utils/game.utils';
 import { computeCircularLayout, NodePosition } from '../../core/utils/layout.utils';
 
 interface VoteLine {
+  from: string;
+  to: string;
   x1: number;
   y1: number;
   x2: number;
@@ -29,6 +31,7 @@ interface VoteLine {
 export class VoteLinesComponent implements OnChanges, AfterViewInit {
   @Input() state: PublicGameState | null = null;
   @Input() phase: GamePhase = 'LOBBY';
+  @Input() highlightTrace: VoteTrace | null = null;
 
   @ViewChild('container', { static: true }) container!: ElementRef<HTMLElement>;
 
@@ -50,6 +53,11 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
   @HostListener('window:resize')
   onResize(): void {
     this.rebuild();
+  }
+
+  isHighlighted(line: VoteLine): boolean {
+    if (!this.highlightTrace?.target) return false;
+    return line.from === this.highlightTrace.voter && line.to === this.highlightTrace.target;
   }
 
   private rebuild(): void {
@@ -83,6 +91,8 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
 
         const count = targetCounts.get(edge.to) ?? 1;
         return {
+          from: edge.from,
+          to: edge.to,
           x1: from.x,
           y1: from.y,
           x2: to.x,

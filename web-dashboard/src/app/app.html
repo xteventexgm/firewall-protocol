@@ -1,50 +1,67 @@
-<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg">
-  <app-lobby
-    class="shrink-0"
+<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg" [class.lobby-only]="!inRoom">
+  <div class="lobby-wrapper" [class.lobby-wrapper--home]="!inRoom">
+    <app-lobby
+      class="shrink-0"
+      [class.home-mode]="!inRoom"
+      [inRoom]="inRoom"
     [roomCode]="roomCode"
     [state]="state"
     [connected]="connected"
+    [savedRooms]="savedRooms"
+    [gameOverActive]="gameOverActive"
     (createLobby)="onCreateLobby($event)"
+    (rejoinRoom)="onRejoinRoom($event)"
+    (removeSavedRoom)="onRemoveSavedRoom($event)"
+    (backToLobby)="onBackToLobby()"
     (startGame)="onStartGame()"
     (advancePhase)="onAdvancePhase()"
-  />
-
-  <main class="main-stage flex-1 relative overflow-hidden">
-    <div class="grid-bg absolute inset-0 pointer-events-none"></div>
-
-    <app-topology
-      class="absolute inset-0"
-      [state]="state"
-      [phase]="state?.phase ?? 'LOBBY'"
-      [glitchPlayerIds]="glitchPlayerIds"
     />
+  </div>
 
-    <app-vote-lines
-      [state]="state"
-      [phase]="state?.phase ?? 'LOBBY'"
-    />
+  @if (inRoom) {
+    <main class="main-stage flex-1 relative overflow-hidden">
+      <div class="grid-bg absolute inset-0 pointer-events-none"></div>
 
-    <app-phase-overlay
-      [phase]="state?.phase ?? 'LOBBY'"
-      [phaseFlash]="phaseFlash"
-      [incidents]="incidents"
-      [showIncidentReport]="showIncidentReport"
-      [incidentNightNumber]="incidentNightNumber"
-    />
+      <app-topology
+        class="absolute inset-0"
+        [state]="state"
+        [phase]="state?.phase ?? 'LOBBY'"
+        [glitchPlayerIds]="glitchPlayerIds"
+      />
 
-    @if (showGameOver && gameOverSummary) {
-      <app-game-over-overlay
-        [summary]="gameOverSummary"
-        (exitRoom)="onExitRoom()"
-      ></app-game-over-overlay>
-    }
+      <app-vote-lines
+        [state]="state"
+        [phase]="state?.phase ?? 'LOBBY'"
+        [highlightTrace]="highlightTrace"
+      />
 
-    @if (errorMessage) {
-      <div class="error-toast">{{ errorMessage }}</div>
-    }
+      <app-phase-overlay
+        [phase]="state?.phase ?? 'LOBBY'"
+        [phaseFlash]="phaseFlash"
+        [incidents]="incidents"
+        [players]="state?.players ?? []"
+        [showIncidentReport]="showIncidentReport"
+        [incidentNightNumber]="incidentNightNumber"
+      />
 
-    @if (voteTiedMessage) {
-      <div class="vote-tied-toast">{{ voteTiedMessage }}</div>
-    }
-  </main>
+      @if (showGameOver && gameOverSummary) {
+        <app-game-over-overlay
+          [summary]="gameOverSummary"
+          (exitRoom)="onBackToLobby()"
+        ></app-game-over-overlay>
+      }
+
+      @if (errorMessage) {
+        <div class="error-toast">{{ errorMessage }}</div>
+      }
+
+      @if (voteTiedMessage) {
+        <div class="vote-tied-toast">{{ voteTiedMessage }}</div>
+      }
+
+      @if (statusMessage) {
+        <div class="status-toast" [class]="'status-' + statusMessageType">{{ statusMessage }}</div>
+      }
+    </main>
+  }
 </div>
