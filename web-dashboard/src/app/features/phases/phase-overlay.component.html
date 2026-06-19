@@ -67,3 +67,13 @@
     }
   </div>
 }
+
+@if (phase === 'NOCHE' && voteTiedMessage) {
+  <div class="phase-banner vote-tie-banner">
+    <span class="banner-icon">⚖</span>
+    <div>
+      <p class="banner-title">Empate en votación</p>
+      <p class="banner-sub">{{ voteTiedMessage }}</p>
+    </div>
+  </div>
+}

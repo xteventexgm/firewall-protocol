@@ -208,6 +208,20 @@
   box-shadow: 0 0 24px #ffd00022;
 }
 
+.vote-tie-banner {
+  background: #181008dd;
+  border: 1px solid #ffb80066;
+  box-shadow: 0 0 24px #ffb80022;
+}
+
+.vote-tie-banner .banner-icon {
+  color: #ffb800;
+}
+
+.vote-tie-banner .banner-title {
+  color: #ffb800;
+}
+
 .banner-icon {
   font-size: 1.5rem;
   color: #00f0ff;

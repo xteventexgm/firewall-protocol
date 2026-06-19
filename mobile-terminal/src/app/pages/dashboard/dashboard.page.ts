@@ -102,6 +102,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private incidentTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
   private statusTimer?: ReturnType<typeof setTimeout>;
+  private gameOverRedirectTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private socketService: SocketService,
@@ -135,7 +136,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         const gameEnded = state.phase === 'FIN' || !!state.winner || !!state.soloWinner;
 
         if (gameEnded) {
-          this.showGameOverScreen(state.winner, state.soloWinner);
+          this.handleGameOver(state.winner, state.soloWinner);
         } else if (me && !me.isAlive) {
           this.gamePhase = 'ELIMINATED';
         } else if (state.phase) {
@@ -400,7 +401,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.gameOver$.subscribe(({ winner, soloWinner }) => {
-        this.showGameOverScreen(winner, soloWinner);
+        this.handleGameOver(winner, soloWinner);
       }),
     );
 
@@ -416,6 +417,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     clearTimeout(this.incidentTimer);
     clearTimeout(this.flashTimer);
     clearTimeout(this.statusTimer);
+    clearTimeout(this.gameOverRedirectTimer);
   }
 
   isNodeCritical(player: RoomPlayer): boolean {
@@ -556,8 +558,13 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   returnToLogin(): void {
-    this.socketService.clearSession();
-    this.router.navigate(['/login']);
+    clearTimeout(this.gameOverRedirectTimer);
+    this.navigateToLoginAfterGameOver();
+  }
+
+  private navigateToLoginAfterGameOver(): void {
+    this.socketService.finalizeAfterGameOver();
+    this.router.navigate(['/login'], { queryParams: { finished: '1' } });
   }
 
   private setPersistentRoleInfo(headline: string, details: string[]): void {
@@ -618,6 +625,19 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.flashTimer = setTimeout(() => {
       this.phaseFlash = '';
     }, 2000);
+  }
+
+  private handleGameOver(
+    winner: string | null | undefined,
+    soloWinner?: { playerId: string; role: string; reason: string } | null,
+  ): void {
+    if (this.showGameOver && this.gameOverRedirectTimer) return;
+    this.showGameOverScreen(winner, soloWinner);
+    this.socketService.finalizeAfterGameOver();
+    clearTimeout(this.gameOverRedirectTimer);
+    this.gameOverRedirectTimer = setTimeout(() => {
+      this.navigateToLoginAfterGameOver();
+    }, 5000);
   }
 
   private showGameOverScreen(

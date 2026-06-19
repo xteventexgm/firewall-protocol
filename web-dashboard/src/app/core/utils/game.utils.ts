@@ -126,7 +126,7 @@ export function formatVoteTiedMessage(payload: {
     ? payload.candidates.join(', ')
     : 'varios nodos';
   const skip = payload.skipVotes ? ` (${payload.skipVotes} abstención(es))` : '';
-  return `Empate entre ${names}${skip} — no hubo expulsión.`;
+  return `La votación terminó en empate entre ${names}${skip}. Nadie fue linchado — pasa a NOCHE.`;
 }
 
 export function formatNightResolutionToast(resolution: NightResolution): string | null {

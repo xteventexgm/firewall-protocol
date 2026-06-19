@@ -108,11 +108,15 @@ export function formatVoteTiedMessage(payload: {
   skipVotes: number;
 }): string {
   if (payload.reason === 'no_votes') {
-    return 'Sin votos de eliminación — la red pasa a operación nocturna.';
+    const skip =
+      payload.skipVotes > 0 ? ` (${payload.skipVotes} abstención(es))` : '';
+    return `Sin votos de eliminación${skip} — la red pasa a operación nocturna.`;
   }
-  const names = payload.candidates.length ? payload.candidates.join(', ') : 'varios nodos';
+  const names = payload.candidates.length
+    ? payload.candidates.join(', ')
+    : 'varios nodos';
   const skip = payload.skipVotes ? ` (${payload.skipVotes} abstención(es))` : '';
-  return `Empate entre ${names}${skip} — no hubo expulsión.`;
+  return `La votación terminó en empate entre ${names}${skip}. Nadie fue linchado — pasa a NOCHE.`;
 }
 
 export function deadPlayerRoleLabel(player: RoomPlayer, phase: GamePhase | 'ELIMINATED'): string | null {

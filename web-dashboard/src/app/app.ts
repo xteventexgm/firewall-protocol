@@ -123,6 +123,9 @@ export class App implements OnInit, OnDestroy {
         if (transition.to === 'VOTACION') {
           this.voteTiedMessage = '';
         }
+        if (transition.to === 'DIA') {
+          this.voteTiedMessage = '';
+        }
         setTimeout(() => (this.phaseFlash = ''), 2000);
       }),
       this.gameSocket.voteTied$.subscribe((payload) => {
@@ -136,7 +139,8 @@ export class App implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
-        this.showStatusMessage(this.voteTiedMessage, 'warn');
+        const duration = payload.reason === 'tie' ? 12000 : 8000;
+        this.showStatusMessage(this.voteTiedMessage, 'warn', duration);
       }),
       this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
         if (!this.inRoom || this.gameOverActive) return;
@@ -282,6 +286,7 @@ export class App implements OnInit, OnDestroy {
   private showStatusMessage(
     msg: string,
     type: 'info' | 'warn' | 'success' | 'error',
+    durationMs = 6000,
   ): void {
     if (this.statusTimeout) clearTimeout(this.statusTimeout);
     this.statusMessage = msg;
@@ -291,7 +296,7 @@ export class App implements OnInit, OnDestroy {
         this.statusMessage = '';
         this.statusTimeout = null;
       }
-    }, 6000);
+    }, durationMs);
   }
 
   private startPhaseTimer(): void {

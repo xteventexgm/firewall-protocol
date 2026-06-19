@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
 import { QrScannerService } from '../../services/qr-scanner.service';
 import { formatServerErrorForToast } from '../../core/utils/error.utils';
@@ -30,6 +30,8 @@ export class LoginPage implements OnInit, OnDestroy {
     private socketService: SocketService,
     private qrScanner: QrScannerService,
     private router: Router,
+    private route: ActivatedRoute,
+    private toastController: ToastController,
   ) {
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
@@ -46,13 +48,14 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const savedCode = localStorage.getItem('roomCode');
     const savedName = localStorage.getItem('playerName');
-    if (savedCode) {
-      this.roomCode = savedCode;
-      this.step = 'alias';
-    }
     if (savedName) this.playerName = savedName;
+
+    const finished = this.route.snapshot.queryParamMap.get('finished');
+    if (finished) {
+      void this.showToast('Partida terminada. Escanea o ingresa un código para jugar de nuevo.', 'success');
+    }
+
     this.socketService.connect();
   }
 
@@ -89,7 +92,11 @@ export class LoginPage implements OnInit, OnDestroy {
     this.scanning = false;
 
     if (!result.ok) {
-      this.errorMessage = result.error;
+      if (result.code === 'permission_denied') {
+        await this.showToast(result.error, 'warning');
+      } else if (result.code !== 'cancelled') {
+        this.errorMessage = result.error;
+      }
       return;
     }
 
@@ -159,5 +166,15 @@ export class LoginPage implements OnInit, OnDestroy {
       });
 
     this.subs.add(joinSub);
+  }
+
+  private async showToast(message: string, color: 'warning' | 'success' | 'danger' = 'warning'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 4500,
+      position: 'bottom',
+      color,
+    });
+    await toast.present();
   }
 }

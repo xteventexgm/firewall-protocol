@@ -22,6 +22,7 @@ import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './player
 import { buildRoleAssignedPayload } from './roleInfo';
 import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
+import { computeVoteResolution } from './voteResolution';
 
 export class RoomJoinDeniedError extends Error {
   constructor(message: string) {
@@ -32,14 +33,7 @@ export class RoomJoinDeniedError extends Error {
 
 export type ActionSubmitResult = { ok: true } | { ok: false; reason: string };
 
-export type VoteResolution = {
-  eliminated: string | null;
-  tied: boolean;
-  skipVotes: number;
-  voteCount: number;
-  candidates: string[];
-  reason: 'eliminated' | 'tie' | 'no_votes';
-};
+export type { VoteResolution } from './voteResolution';
 
 export interface RoomOptions {
   nightDurationMs?: number;
@@ -253,90 +247,41 @@ export class Room extends EventEmitter {
     return { ok: true };
   }
 
-  private resolveVotes(): VoteResolution {
+  private resolveVotes(): import('./voteResolution').VoteResolution {
     const aliveIds = new Set(this.state.getAlivePlayers().map(p => p.id));
-    const tallies = new Map<string, number>();
+    const { resolution, events } = computeVoteResolution(this.id, this.state.votes, aliveIds);
 
-    const skipVoters = (this.state.votes['skip'] ?? []).filter(v => aliveIds.has(v));
-    const skipVotes = skipVoters.length;
-
-    for (const [target, voters] of Object.entries(this.state.votes)) {
-      if (target === 'skip' || target === 'null') continue;
-      const validVotes = voters.filter(v => aliveIds.has(v));
-      if (validVotes.length > 0) {
-        tallies.set(target, validVotes.length);
+    if (events.voteTied) {
+      const skipPart = events.voteTied.skipVotes ? ` (skip: ${events.voteTied.skipVotes})` : '';
+      if (events.voteTied.reason === 'tie') {
+        this.state.log(
+          `Vote tied at ${events.voteTied.voteCount} votes${skipPart} — no elimination, proceeding to NOCHE`,
+        );
+      } else {
+        this.state.log(`No elimination votes${skipPart} — proceeding to NOCHE`);
       }
+      this.emit('voteTied', events.voteTied);
     }
 
     let eliminated: string | null = null;
-
-    if (tallies.size === 0) {
-      this.state.log(`No elimination votes (skip: ${skipVotes}) — proceeding to NOCHE`);
-      this.emit('voteTied', {
-        roomId: this.id,
-        voteCount: 0,
-        candidates: [],
-        skipVotes,
-        reason: 'no_votes',
-      });
-      this.state.votes = {};
-      this.clearPhisherRedirects();
-      return {
-        eliminated: null,
-        tied: true,
-        skipVotes,
-        voteCount: 0,
-        candidates: [],
-        reason: 'no_votes',
-      };
-    }
-
-    const maxVotes = Math.max(...tallies.values());
-    const leaders = [...tallies.entries()].filter(([, count]) => count === maxVotes);
-    const candidates = leaders.map(([target]) => target);
-
-    if (leaders.length > 1) {
-      this.state.log(`Vote tied at ${maxVotes} votes (skip: ${skipVotes}) — no elimination, proceeding to NOCHE`);
-      this.emit('voteTied', {
-        roomId: this.id,
-        voteCount: maxVotes,
-        candidates,
-        skipVotes,
-        reason: 'tie',
-      });
-      this.state.votes = {};
-      this.clearPhisherRedirects();
-      return {
-        eliminated: null,
-        tied: true,
-        skipVotes,
-        voteCount: maxVotes,
-        candidates,
-        reason: 'tie',
-      };
-    }
-
-    const [bestTarget, bestCount] = leaders[0];
-    const player = this.state.getPlayer(bestTarget);
-    if (player?.isAlive) {
-      player.isAlive = false;
-      eliminated = bestTarget;
-      this.state.log(`Voted out: ${bestTarget} (${bestCount} votes, skip: ${skipVotes})`);
-      this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
-      this.applyHoneypotBanDrag(bestTarget);
+    if (events.eliminatedPlayerId) {
+      const bestTarget = events.eliminatedPlayerId;
+      const player = this.state.getPlayer(bestTarget);
+      if (player?.isAlive) {
+        player.isAlive = false;
+        eliminated = bestTarget;
+        this.state.log(
+          `Voted out: ${bestTarget} (${resolution.voteCount} votes, skip: ${resolution.skipVotes})`,
+        );
+        this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
+        this.applyHoneypotBanDrag(bestTarget);
+      }
     }
 
     this.state.votes = {};
     this.clearPhisherRedirects();
 
-    return {
-      eliminated,
-      tied: false,
-      skipVotes,
-      voteCount: bestCount,
-      candidates: [bestTarget],
-      reason: 'eliminated',
-    };
+    return { ...resolution, eliminated };
   }
 
   private clearPhisherRedirects() {
