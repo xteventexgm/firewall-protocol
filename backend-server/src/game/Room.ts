@@ -380,6 +380,11 @@ export class Room extends EventEmitter {
 
     const current = this.sm.getPhase();
 
+    // Recupera partidas atascadas (ej. solo Gusano vivo en DIA tras kill nocturna previa).
+    if (current !== GamePhase.NOCHE && this.endGame(checkAnyWin(this.state))) {
+      return GamePhase.FIN;
+    }
+
     if (current === GamePhase.NOCHE) {
       const batch: NightActionBatch = { roomId: this.id, phase: GamePhase.NOCHE, actions: this.state.actionQueue };
       const resolution = resolveNightActions(batch, this.state);
@@ -390,6 +395,9 @@ export class Room extends EventEmitter {
 
       this.emit('nightResolved', { roomId: this.id, resolution });
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after nightResolved', e); }
+
+      const winAfterNight = checkAnyWin(this.state);
+      if (this.endGame(winAfterNight)) return GamePhase.FIN;
 
       const nextPhase = this.sm.next();
       if (!nextPhase) return null;
