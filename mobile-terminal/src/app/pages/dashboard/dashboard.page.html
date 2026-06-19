@@ -1,8 +1,8 @@
 <ion-content
   class="terminal-content scroll-page"
   [scrollY]="false"
-  [fullscreen]="true"
   [class.phase-flash]="phaseFlash"
+  [class.system-night-standby]="isSystemNightStandby"
   [attr.data-phase]="gamePhase"
   [attr.data-team-theme]="teamTheme">
   <div class="page-scroll">
@@ -28,6 +28,10 @@
     <div *ngIf="phaseBanner" class="phase-banner">{{ phaseBanner }}</div>
 
     <div class="metrics-row">
+      <div class="metric">
+        <span class="metric-value">{{ players.length }}/{{ maxPlayers }}</span>
+        <span class="metric-label">Sala</span>
+      </div>
       <div class="metric">
         <span class="metric-value">{{ connectedCount }}/{{ players.length }}</span>
         <span class="metric-label">Conectados</span>
@@ -94,7 +98,7 @@
         <div class="idle-icon pulse-glow">◉</div>
         <h3 class="panel-title">Sala en espera</h3>
         <p class="panel-sub">Esperando que el host inicie la partida desde el dashboard.</p>
-        <p class="player-count">{{ players.length }}/{{ minPlayers }} jugadores mínimos</p>
+        <p class="player-count">{{ players.length }}/{{ maxPlayers }} participantes · mín. {{ minPlayers }}</p>
       </section>
 
       <section *ngIf="gamePhase === 'REPARTO'" class="panel idle-panel">

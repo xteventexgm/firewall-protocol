@@ -50,6 +50,19 @@
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
 
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html.plt-android,
+html.plt-capacitor {
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--ion-safe-area-top, 24px));
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--ion-safe-area-bottom, 0px));
+}
+
 /* Scroll fiable en Capacitor/Android */
 ion-content.scroll-page {
   --overflow: hidden;
@@ -74,6 +87,10 @@ ion-content.scroll-page::part(scroll) {
   touch-action: pan-y;
   transform: translateZ(0);
   will-change: scroll-position;
+  padding-top: var(--app-safe-top);
+  padding-right: var(--app-safe-right);
+  padding-bottom: var(--app-safe-bottom);
+  padding-left: var(--app-safe-left);
 }
 
 html.plt-android .page-scroll,
