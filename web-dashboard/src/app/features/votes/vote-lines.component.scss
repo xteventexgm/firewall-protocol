@@ -22,3 +22,26 @@
   stroke-dasharray: 8 4;
   animation: fade-in-line 0.4s ease-out forwards;
 }
+
+.vote-line-pulse {
+  stroke: #00ffcc;
+  stroke-opacity: 1;
+  stroke-width: 4;
+  animation: vote-line-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vote-line-pulse {
+  0%, 100% {
+    stroke-opacity: 0.6;
+    filter: drop-shadow(0 0 2px #00ff88);
+  }
+  50% {
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 8px #00ffcc);
+  }
+}
+
+@keyframes fade-in-line {
+  from { stroke-opacity: 0; }
+  to { stroke-opacity: 0.75; }
+}

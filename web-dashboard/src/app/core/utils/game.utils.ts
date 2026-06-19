@@ -1,18 +1,13 @@
 import {
+  GameOverPayload,
   GameOverSummary,
   GamePhase,
   IncidentDisplay,
-  MAX_PLAYERS,
-  MIN_PLAYERS_TO_START,
   PublicGameState,
   PublicPlayer,
-  ServerIncidentReport,
-  SoloWinner,
   Team,
   VoteEdge,
 } from '../models/game-state.model';
-
-export { MIN_PLAYERS_TO_START, MAX_PLAYERS };
 
 export function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,11 +26,8 @@ export function sanitizeGameState(raw: any): PublicGameState {
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,
     joinedAt: p.joinedAt ?? Date.now(),
-    role: p.role,
-    team: p.team,
+    role: p.role ?? undefined,
   }));
-
-  const playerCount = raw?.playerCount ?? players.length;
 
   return {
     roomId: raw?.roomId ?? '',
@@ -44,8 +36,8 @@ export function sanitizeGameState(raw: any): PublicGameState {
     players,
     dayNumber: raw?.dayNumber ?? 0,
     nightNumber: raw?.nightNumber ?? 0,
-    maxPlayers: raw?.maxPlayers ?? MAX_PLAYERS,
-    playerCount,
+    maxPlayers: raw?.maxPlayers ?? players.length,
+    playerCount: raw?.playerCount ?? players.length,
     votes: raw?.votes ?? {},
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
@@ -64,15 +56,38 @@ export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
   return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
 }
 
+export function detectIncidents(
+  previous: PublicGameState | null,
+  current: PublicGameState,
+): IncidentDisplay[] {
+  if (!previous) return [];
+
+  const prevById = new Map(previous.players.map((p) => [p.id, p]));
+  const incidents: IncidentDisplay[] = [];
+
+  for (const player of current.players) {
+    const prev = prevById.get(player.id);
+    if (prev?.isAlive && !player.isAlive) {
+      incidents.push({ playerId: player.id, playerName: player.name });
+    }
+  }
+
+  return incidents;
+}
+
 export function incidentsFromServerReport(
-  report: ServerIncidentReport,
+  disconnected: string[],
   state: PublicGameState | null,
 ): IncidentDisplay[] {
   const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
-  return report.disconnected.map((id) => ({
-    playerId: id,
-    playerName: byId.get(id)?.name ?? id,
-  }));
+  return disconnected.map((id) => {
+    const player = byId.get(id);
+    return {
+      playerId: id,
+      playerName: player?.name ?? id,
+      role: player?.role,
+    };
+  });
 }
 
 export function phaseLabel(phase: GamePhase): string {
@@ -88,65 +103,84 @@ export function phaseLabel(phase: GamePhase): string {
   return labels[phase] ?? phase;
 }
 
-export function winnerLabel(
-  winner: Team | null | undefined,
-  soloWinner?: SoloWinner | null,
-  players?: PublicPlayer[],
-): string {
-  return buildGameOverSummary({
-    roomId: '',
-    phase: 'FIN',
-    phaseStartedAt: 0,
-    players: players ?? [],
-    dayNumber: 0,
-    nightNumber: 0,
-    maxPlayers: MAX_PLAYERS,
-    playerCount: players?.length ?? 0,
-    votes: {},
-    winner: winner ?? null,
-    soloWinner: soloWinner ?? null,
-  })?.headline ?? 'Partida terminada';
-}
-
-export function buildGameOverSummary(
-  state: PublicGameState | null,
-): GameOverSummary | null {
-  if (!state) return null;
-
-  if (state.soloWinner) {
-    const name =
-      state.players.find((p) => p.id === state.soloWinner!.playerId)?.name ??
-      state.soloWinner.playerId;
-    return {
-      teamLabel: 'CAÓTICOS',
-      headline: 'Victoria de los CAÓTICOS',
-      winners: [{ playerName: name, role: state.soloWinner.role }],
-    };
-  }
-
-  if (state.winner === 'system') {
-    return {
-      teamLabel: 'BLUE TEAM',
-      headline: 'Victoria del BLUE TEAM',
-      winners: state.players
-        .filter((p) => p.team === 'system')
-        .map((p) => ({ playerName: p.name, role: p.role ?? 'Desconocido' })),
-    };
-  }
-
-  if (state.winner === 'black_hat') {
-    return {
-      teamLabel: 'RED TEAM',
-      headline: 'Victoria del RED TEAM',
-      winners: state.players
-        .filter((p) => p.team === 'black_hat')
-        .map((p) => ({ playerName: p.name, role: p.role ?? 'Desconocido' })),
-    };
-  }
-
-  return null;
-}
-
 export function isNodeCritical(player: PublicPlayer): boolean {
   return !player.isAlive || !player.isConnected;
+}
+
+export function winnerLabel(winner: Team | null | undefined): string {
+  const labels: Record<Team, string> = {
+    system: 'El SISTEMA ha restaurado la red',
+    black_hat: 'BLACK HAT ha comprometido la infraestructura',
+    chaotic: 'El caos ha prevalecido',
+  };
+  return winner ? (labels[winner] ?? `Ganador: ${winner}`) : 'Partida terminada';
+}
+
+export function winnerTeamName(winner: Team | null | undefined): string {
+  const labels: Record<Team, string> = {
+    system: 'SISTEMA',
+    black_hat: 'BLACK HAT',
+    chaotic: 'CAÓTICO',
+  };
+  return winner ? (labels[winner] ?? winner.toUpperCase()) : '—';
+}
+
+export function buildGameOverSummaryFromPayload(
+  payload: GameOverPayload,
+  state: PublicGameState | null,
+): GameOverSummary {
+  const players = state?.players ?? [];
+
+  if (payload.soloWinner) {
+    const player = players.find((p) => p.id === payload.soloWinner!.playerId);
+    const playerName = player?.name ?? payload.soloWinner.playerId;
+    return {
+      headline: `Victoria solitaria — ${playerName}`,
+      winners: [{ playerName, role: payload.soloWinner.role }],
+    };
+  }
+
+  if (payload.winner) {
+    return {
+      headline: winnerLabel(payload.winner),
+      winners: [{ playerName: winnerTeamName(payload.winner), role: 'Equipo ganador' }],
+    };
+  }
+
+  return { headline: 'Partida terminada', winners: [] };
+}
+
+export function buildGameOverSummary(state: PublicGameState | null): GameOverSummary | null {
+  if (!state || state.phase !== 'FIN') return null;
+
+  return buildGameOverSummaryFromPayload(
+    { roomId: state.roomId, winner: state.winner, soloWinner: state.soloWinner },
+    state,
+  );
+}
+
+export function detectPlayerStatusChanges(
+  previous: PublicGameState | null,
+  current: PublicGameState,
+): string[] {
+  if (!previous) return [];
+
+  const messages: string[] = [];
+  const prevById = new Map(previous.players.map((p) => [p.id, p]));
+
+  for (const player of current.players) {
+    const prev = prevById.get(player.id);
+    if (!prev) continue;
+
+    if (prev.isConnected && !player.isConnected) {
+      messages.push(`Nodo desconectado: ${player.name}`);
+    } else if (!prev.isConnected && player.isConnected) {
+      messages.push(`Nodo reconectado: ${player.name}`);
+    } else if (prev.isAlive && !player.isAlive) {
+      const roleLabel = player.role ? ` — ${player.role}` : '';
+      messages.push(`Nodo eliminado: ${player.name}${roleLabel}`);
+    }
+  }
+
+  return messages;
 }

@@ -8,7 +8,7 @@ const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.REPARTO]: [GamePhase.DIA],
   [GamePhase.NOCHE]: [GamePhase.DIA],
   [GamePhase.DIA]: [GamePhase.VOTACION],
-  [GamePhase.VOTACION]: [GamePhase.VERIFICACION],
+  [GamePhase.VOTACION]: [GamePhase.VERIFICACION, GamePhase.NOCHE],
   [GamePhase.VERIFICACION]: [GamePhase.NOCHE, GamePhase.FIN],
   [GamePhase.FIN]: [],
 };

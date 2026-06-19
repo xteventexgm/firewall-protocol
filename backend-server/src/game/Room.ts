@@ -10,10 +10,16 @@ import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import database from '../config/database';
 import { logger } from '../utils/logger';
 import { MIN_PLAYERS } from '../utils/constants';
-import { validateNightAction, markActionSubmitted, getHackerTeam } from './ActionValidator';
+import {
+  validateNightAction,
+  markActionSubmitted,
+  revertQueuedActionMetadata,
+  getHackerTeam,
+} from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
 import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
 import { buildRoleAssignedPayload } from './roleInfo';
+import { frozenActorsForValidation } from './nightFreeze';
 
 export class RoomJoinDeniedError extends Error {
   constructor(message: string) {
@@ -21,6 +27,17 @@ export class RoomJoinDeniedError extends Error {
     this.name = 'RoomJoinDeniedError';
   }
 }
+
+export type ActionSubmitResult = { ok: true } | { ok: false; reason: string };
+
+export type VoteResolution = {
+  eliminated: string | null;
+  tied: boolean;
+  skipVotes: number;
+  voteCount: number;
+  candidates: string[];
+  reason: 'eliminated' | 'tie' | 'no_votes';
+};
 
 export interface RoomOptions {
   nightDurationMs?: number;
@@ -38,7 +55,6 @@ export class Room extends EventEmitter {
   sm: StateMachine;
   options: RoomOptions;
   private timer?: NodeJS.Timeout | null;
-  private frozenActors = new Set<string>();
 
   constructor(id: string, options: RoomOptions = {}) {
     super();
@@ -68,7 +84,6 @@ export class Room extends EventEmitter {
       if (to === GamePhase.NOCHE) {
         resetNightFlags(this.state.players);
         tickRansomwareCooldowns(this.state);
-        this.frozenActors.clear();
       }
       this.emit('phaseChanged', { roomId: this.id, from, to, at });
       this.emit('phaseTransition', { roomId: this.id, from, to, at });
@@ -172,23 +187,23 @@ export class Room extends EventEmitter {
     });
   }
 
-  submitAction(action: any) {
+  submitAction(action: any): ActionSubmitResult {
     if (this.sm.getPhase() !== GamePhase.NOCHE) {
-      this.emit('error', { roomId: this.id, msg: 'Not accepting actions outside NOCHE' });
-      return false;
+      return { ok: false, reason: 'Not accepting actions outside NOCHE' };
     }
 
-    const err = validateNightAction(action, this.state, this.sm.getPhase(), this.frozenActors);
+    const frozen = frozenActorsForValidation(this.state.actionQueue, action);
+    const err = validateNightAction(action, this.state, this.sm.getPhase(), frozen);
     if (err) {
-      this.emit('error', { roomId: this.id, msg: `Action rejected: ${err}` });
-      return false;
+      return { ok: false, reason: `Action rejected: ${err}` };
     }
 
     const actor = this.state.getPlayer(action.actor)!;
     const type = (action.type || '').toLowerCase();
 
-    if (type === 'freeze' && action.target) {
-      this.frozenActors.add(action.target);
+    const previous = this.state.actionQueue.find(a => a.actor === action.actor);
+    if (previous) {
+      revertQueuedActionMetadata(actor, previous.type, previous.target);
     }
 
     this.state.queueAction(action);
@@ -196,20 +211,20 @@ export class Room extends EventEmitter {
 
     this.emit('actionAccepted', { roomId: this.id, actionId: action.id });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on submitAction', e); }
-    return true;
+    return { ok: true };
   }
 
-  submitVote(voter: string, target: string | null): boolean {
+  submitVote(voter: string, target: string | null): ActionSubmitResult {
     if (this.sm.getPhase() !== GamePhase.VOTACION) {
-      this.emit('error', { roomId: this.id, msg: 'Voting only allowed during VOTACION' });
-      return false;
+      return { ok: false, reason: 'Voting only allowed during VOTACION' };
     }
 
     const voterPlayer = this.state.getPlayer(voter);
-    if (!voterPlayer || !voterPlayer.isAlive) return false;
+    if (!voterPlayer || !voterPlayer.isAlive) {
+      return { ok: false, reason: 'Voter not found or eliminated' };
+    }
     if (isSilenced(voterPlayer, this.state.dayNumber)) {
-      this.emit('error', { roomId: this.id, msg: 'Voter is silenced' });
-      return false;
+      return { ok: false, reason: 'Voter is silenced' };
     }
 
     const resolvedTarget = this.state.resolvePhisherRedirect(voter, target);
@@ -219,7 +234,8 @@ export class Room extends EventEmitter {
       if (this.state.votes[key].length === 0) delete this.state.votes[key];
     }
 
-    const key = resolvedTarget || 'null';
+    // Skip / voto en blanco — entidad separada bajo clave 'skip'
+    const key = resolvedTarget ?? 'skip';
     this.state.votes[key] = this.state.votes[key] || [];
     this.state.votes[key].push(voter);
 
@@ -231,15 +247,18 @@ export class Room extends EventEmitter {
     });
 
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on submitVote', e); }
-    return true;
+    return { ok: true };
   }
 
-  private resolveVotes(): string | null {
+  private resolveVotes(): VoteResolution {
     const aliveIds = new Set(this.state.getAlivePlayers().map(p => p.id));
     const tallies = new Map<string, number>();
 
+    const skipVoters = (this.state.votes['skip'] ?? []).filter(v => aliveIds.has(v));
+    const skipVotes = skipVoters.length;
+
     for (const [target, voters] of Object.entries(this.state.votes)) {
-      if (target === 'null') continue;
+      if (target === 'skip' || target === 'null') continue;
       const validVotes = voters.filter(v => aliveIds.has(v));
       if (validVotes.length > 0) {
         tallies.set(target, validVotes.length);
@@ -249,38 +268,79 @@ export class Room extends EventEmitter {
     let eliminated: string | null = null;
 
     if (tallies.size === 0) {
-      this.state.log('No votes cast — no elimination');
-    } else {
-      const maxVotes = Math.max(...tallies.values());
-      const leaders = [...tallies.entries()].filter(([, count]) => count === maxVotes);
+      this.state.log(`No elimination votes (skip: ${skipVotes}) — proceeding to NOCHE`);
+      this.emit('voteTied', {
+        roomId: this.id,
+        voteCount: 0,
+        candidates: [],
+        skipVotes,
+        reason: 'no_votes',
+      });
+      this.state.votes = {};
+      this.clearPhisherRedirects();
+      return {
+        eliminated: null,
+        tied: true,
+        skipVotes,
+        voteCount: 0,
+        candidates: [],
+        reason: 'no_votes',
+      };
+    }
 
-      if (leaders.length > 1) {
-        this.state.log(`Vote tied at ${maxVotes} votes — no elimination`);
-        this.emit('voteTied', {
-          roomId: this.id,
-          voteCount: maxVotes,
-          candidates: leaders.map(([target]) => target),
-        });
-      } else {
-        const [bestTarget, bestCount] = leaders[0];
-        const player = this.state.getPlayer(bestTarget);
-        if (player?.isAlive) {
-          player.isAlive = false;
-          eliminated = bestTarget;
-          this.state.log(`Voted out: ${bestTarget} (${bestCount} votes)`);
-          this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
-          this.applyHoneypotBanDrag(bestTarget);
-        }
-      }
+    const maxVotes = Math.max(...tallies.values());
+    const leaders = [...tallies.entries()].filter(([, count]) => count === maxVotes);
+    const candidates = leaders.map(([target]) => target);
+
+    if (leaders.length > 1) {
+      this.state.log(`Vote tied at ${maxVotes} votes (skip: ${skipVotes}) — no elimination, proceeding to NOCHE`);
+      this.emit('voteTied', {
+        roomId: this.id,
+        voteCount: maxVotes,
+        candidates,
+        skipVotes,
+        reason: 'tie',
+      });
+      this.state.votes = {};
+      this.clearPhisherRedirects();
+      return {
+        eliminated: null,
+        tied: true,
+        skipVotes,
+        voteCount: maxVotes,
+        candidates,
+        reason: 'tie',
+      };
+    }
+
+    const [bestTarget, bestCount] = leaders[0];
+    const player = this.state.getPlayer(bestTarget);
+    if (player?.isAlive) {
+      player.isAlive = false;
+      eliminated = bestTarget;
+      this.state.log(`Voted out: ${bestTarget} (${bestCount} votes, skip: ${skipVotes})`);
+      this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
+      this.applyHoneypotBanDrag(bestTarget);
     }
 
     this.state.votes = {};
+    this.clearPhisherRedirects();
+
+    return {
+      eliminated,
+      tied: false,
+      skipVotes,
+      voteCount: bestCount,
+      candidates: [bestTarget],
+      reason: 'eliminated',
+    };
+  }
+
+  private clearPhisherRedirects() {
     for (const p of this.state.players) {
       const meta = getMeta(p);
       if (meta.phisherRedirects) meta.phisherRedirects = {};
     }
-
-    return eliminated;
   }
 
   private applyHoneypotBanDrag(honeypotId: string) {
@@ -330,27 +390,41 @@ export class Room extends EventEmitter {
 
       this.emit('nightResolved', { roomId: this.id, resolution });
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after nightResolved', e); }
+
+      const nextPhase = this.sm.next();
+      if (!nextPhase) return null;
+
+      if (nextPhase === GamePhase.DIA) {
+        const report: IncidentReport = {
+          roomId: this.id,
+          nightNumber: this.state.nightNumber,
+          disconnected: [...this.state.lastNightKills],
+        };
+        this.emit('incidentReport', report);
+      }
+      return nextPhase;
+    }
+
+    if (current === GamePhase.VOTACION) {
+      const voteResult = this.resolveVotes();
+      try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after resolveVotes', e); }
+
+      if (voteResult.tied) {
+        this.sm.transitionTo(GamePhase.NOCHE);
+        return GamePhase.NOCHE;
+      }
+
+      const soloAfterVote = checkAnyWin(this.state, { justVotedOut: voteResult.eliminated ?? undefined });
+      if (this.endGame(soloAfterVote)) return GamePhase.FIN;
+
+      this.sm.transitionTo(GamePhase.VERIFICACION);
+      const result = checkAnyWin(this.state);
+      if (this.endGame(result)) return GamePhase.FIN;
+      return GamePhase.VERIFICACION;
     }
 
     const nextPhase = this.sm.next();
     if (!nextPhase) return null;
-
-    if (current === GamePhase.NOCHE && nextPhase === GamePhase.DIA) {
-      const report: IncidentReport = {
-        roomId: this.id,
-        nightNumber: this.state.nightNumber,
-        disconnected: [...this.state.lastNightKills],
-      };
-      this.emit('incidentReport', report);
-    }
-
-    if (current === GamePhase.VOTACION && nextPhase === GamePhase.VERIFICACION) {
-      const eliminated = this.resolveVotes();
-      try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after resolveVotes', e); }
-
-      const soloAfterVote = checkAnyWin(this.state, { justVotedOut: eliminated ?? undefined });
-      if (this.endGame(soloAfterVote)) return GamePhase.FIN;
-    }
 
     if (nextPhase === GamePhase.VERIFICACION) {
       const result = checkAnyWin(this.state);

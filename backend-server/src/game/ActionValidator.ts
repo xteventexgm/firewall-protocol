@@ -15,6 +15,7 @@ export type ActionValidationError =
   | 'invalid_action_type'
   | 'no_uses_left'
   | 'antivirus_cooldown'
+  | 'antivirus_cure_cooldown'
   | 'ransomware_cooldown'
   | 'invalid_target'
   | 'role_mismatch';
@@ -34,7 +35,8 @@ export function validateNightAction(
   if (frozenActors.has(action.actor)) return 'actor_frozen';
 
   const meta = getMeta(actor);
-  if (meta.actedThisNight) return 'already_acted';
+  const replacingQueued = state.actionQueue.some(a => a.actor === action.actor);
+  if (meta.actedThisNight && !replacingQueued) return 'already_acted';
 
   const role = actor.role as RoleName | undefined;
   if (!role) return 'role_mismatch';
@@ -67,6 +69,12 @@ export function validateNightAction(
     }
   }
 
+  if (type === 'cure') {
+    if (meta.lastCuredTarget && meta.lastCuredTarget === action.target) {
+      return 'antivirus_cure_cooldown';
+    }
+  }
+
   if (type === 'zero_day_assume') {
     const target = state.getPlayer(action.target!);
     if (!target || target.isAlive) return 'invalid_target';
@@ -78,6 +86,22 @@ export function validateNightAction(
   }
 
   return null;
+}
+
+/** Deshace marcas de cooldown/usos de una acción encolada que se va a reemplazar. */
+export function revertQueuedActionMetadata(actor: Player, actionType: string, targetId?: string | null) {
+  const meta = getMeta(actor);
+  const type = (actionType || '').toLowerCase();
+
+  if (type === 'protect' && meta.lastProtectedTarget === (targetId ?? null)) {
+    meta.lastProtectedTarget = null;
+  }
+  if (type === 'cure' && meta.lastCuredTarget === (targetId ?? null)) {
+    meta.lastCuredTarget = null;
+  }
+  if (type === 'pentester_kill') {
+    meta.pentesterUsesLeft = Math.min(2, (meta.pentesterUsesLeft ?? 0) + 1);
+  }
 }
 
 export function markActionSubmitted(actor: Player, actionType: string, targetId?: string | null) {
@@ -92,6 +116,9 @@ export function markActionSubmitted(actor: Player, actionType: string, targetId?
   }
   if (actionType === 'protect') {
     meta.lastProtectedTarget = targetId ?? null;
+  }
+  if (actionType === 'cure') {
+    meta.lastCuredTarget = targetId ?? null;
   }
 }
 

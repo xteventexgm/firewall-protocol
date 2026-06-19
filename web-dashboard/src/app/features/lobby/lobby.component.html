@@ -12,7 +12,7 @@
     ></span>
   </header>
 
-  @if (!roomCode) {
+  @if (!inRoom) {
     <label class="flex flex-col gap-1 text-sm">
       <span class="text-xs uppercase tracking-widest text-cyber-muted">Capacidad máxima</span>
       <select
@@ -33,6 +33,40 @@
     >
       Crear sala
     </button>
+
+    @if (savedRooms.length) {
+      <section class="saved-rooms border-t border-cyber-border pt-3">
+        <p class="text-xs uppercase tracking-widest text-cyber-muted mb-2">Mis salas</p>
+        <ul class="saved-rooms-list flex flex-col gap-2">
+          @for (room of savedRooms; track room.roomId) {
+            <li class="saved-room-item flex items-center justify-between gap-2 p-2 rounded border border-cyber-border bg-cyber-bg">
+              <div class="min-w-0">
+                <p class="text-sm font-bold text-cyber-accent truncate">{{ room.roomId }}</p>
+                <p class="text-xs text-cyber-muted">Cap. {{ room.maxPlayers }}</p>
+              </div>
+              <div class="flex gap-1 shrink-0">
+                <button
+                  type="button"
+                  class="btn-primary btn-sm"
+                  (click)="onRejoinRoom(room.roomId)"
+                  [disabled]="!connected"
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  class="btn-secondary btn-sm"
+                  (click)="onRemoveSavedRoom(room.roomId)"
+                  title="Eliminar de la lista"
+                >
+                  X
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
   } @else {
     <section class="room-code-block text-center">
       <p class="text-xs uppercase tracking-widest text-cyber-muted mb-1">Código de sala</p>
@@ -70,6 +104,9 @@
       @if (state) {
         <p class="mt-1">Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}</p>
       }
+      @if (gameOverActive) {
+        <p class="mt-1 text-cyber-accent">Partida finalizada</p>
+      }
     </section>
 
     <div class="actions flex flex-col gap-2">
@@ -85,9 +122,16 @@
         type="button"
         class="btn-secondary"
         (click)="onAdvancePhase()"
-        [disabled]="!state || state.phase === 'LOBBY'"
+        [disabled]="!canAdvance"
       >
         Avanzar fase
+      </button>
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="onBackToLobby()"
+      >
+        Volver al lobby
       </button>
     </div>
 
@@ -97,13 +141,18 @@
           <li class="flex justify-between py-1 border-b border-cyber-border/50">
             <span>{{ player.name }}</span>
             <span class="player-status">
-              <span [class.text-cyber-danger]="!player.isAlive">
-                {{ player.isAlive ? 'VIVO' : 'MUERTO' }}
+              <span>
+                <span [class.text-cyber-danger]="!player.isAlive">
+                  {{ player.isAlive ? 'VIVO' : 'MUERTO' }}
+                </span>
+                ·
+                <span [class.text-cyber-danger]="!player.isConnected">
+                  {{ player.isConnected ? 'CONECTADO' : 'DESCONECTADO' }}
+                </span>
               </span>
-              ·
-              <span [class.text-cyber-danger]="!player.isConnected">
-                {{ player.isConnected ? 'CONECTADO' : 'DESCONECTADO' }}
-              </span>
+              @if (!player.isAlive && player.role) {
+                <span class="player-role">{{ player.role }}</span>
+              }
             </span>
           </li>
         }

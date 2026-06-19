@@ -4,9 +4,10 @@
       <polygon points="0 0, 8 3, 0 6" fill="#00ff88" opacity="0.8" />
     </marker>
   </defs>
-  @for (line of lines; track $index) {
+  @for (line of lines; track line.from + '-' + line.to) {
     <line
       class="vote-line"
+      [class.vote-line-pulse]="isHighlighted(line)"
       [attr.x1]="line.x1"
       [attr.y1]="line.y1"
       [attr.x2]="line.x2"

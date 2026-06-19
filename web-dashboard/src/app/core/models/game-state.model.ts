@@ -17,7 +17,6 @@ export interface PublicPlayer {
   silenced?: boolean;
   joinedAt?: number;
   role?: string;
-  team?: Team;
 }
 
 export interface SoloWinner {
@@ -45,20 +44,16 @@ export interface VoteEdge {
   to: string;
 }
 
-export interface IncidentDisplay {
-  playerId: string;
-  playerName: string;
-}
-
-export interface IncidentEvent {
-  incidents: IncidentDisplay[];
-  nightNumber: number;
-}
-
 export interface ServerIncidentReport {
   roomId: string;
   nightNumber: number;
   disconnected: string[];
+}
+
+export interface IncidentDisplay {
+  playerId: string;
+  playerName: string;
+  role?: string;
 }
 
 export interface PhaseTransition {
@@ -79,6 +74,8 @@ export interface VoteTiedPayload {
   roomId: string;
   voteCount: number;
   candidates: string[];
+  skipVotes: number;
+  reason: 'tie' | 'no_votes';
 }
 
 export interface GameOverPayload {
@@ -87,20 +84,15 @@ export interface GameOverPayload {
   soloWinner?: SoloWinner | null;
 }
 
-export interface RoomCreatedPayload {
+export interface GameOverSummary {
+  headline: string;
+  winners: { playerName: string; role: string }[];
+}
+
+export interface SavedRoom {
   roomId: string;
   maxPlayers: number;
-}
-
-export interface GameOverWinnerEntry {
-  playerName: string;
-  role: string;
-}
-
-export interface GameOverSummary {
-  teamLabel: string;
-  headline: string;
-  winners: GameOverWinnerEntry[];
+  savedAt: number;
 }
 
 export const MIN_PLAYERS_TO_START = 5;

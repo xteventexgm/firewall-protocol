@@ -9,9 +9,10 @@ import {
 import { FormsModule } from '@angular/forms';
 import QRCode from 'qrcode';
 import {
-  MAX_PLAYERS,
   MIN_PLAYERS_TO_START,
+  MAX_PLAYERS,
   PublicGameState,
+  SavedRoom,
 } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
 
@@ -23,18 +24,24 @@ import { phaseLabel } from '../../core/utils/game.utils';
   styleUrl: './lobby.component.scss',
 })
 export class LobbyComponent implements OnChanges {
+  @Input() inRoom = false;
   @Input() roomCode = '';
   @Input() state: PublicGameState | null = null;
   @Input() connected = false;
+  @Input() savedRooms: SavedRoom[] = [];
+  @Input() gameOverActive = false;
 
   @Output() startGame = new EventEmitter<void>();
   @Output() advancePhase = new EventEmitter<void>();
   @Output() createLobby = new EventEmitter<number>();
+  @Output() backToLobby = new EventEmitter<void>();
+  @Output() rejoinRoom = new EventEmitter<string>();
+  @Output() removeSavedRoom = new EventEmitter<string>();
 
   qrDataUrl = '';
-  selectedMaxPlayers = MAX_PLAYERS;
+  selectedMaxPlayers = MIN_PLAYERS_TO_START;
   readonly minPlayers = MIN_PLAYERS_TO_START;
-  readonly maxPlayersLimit = MAX_PLAYERS;
+  readonly maxPlayers = MAX_PLAYERS;
 
   get playerCount(): number {
     return this.state?.playerCount ?? this.state?.players.length ?? 0;
@@ -53,7 +60,20 @@ export class LobbyComponent implements OnChanges {
   }
 
   get canStart(): boolean {
-    return this.playerCount >= this.minPlayers && this.state?.phase === 'LOBBY';
+    return (
+      !this.gameOverActive &&
+      this.playerCount >= this.minPlayers &&
+      this.state?.phase === 'LOBBY'
+    );
+  }
+
+  get canAdvance(): boolean {
+    return (
+      !this.gameOverActive &&
+      !!this.state &&
+      this.state.phase !== 'LOBBY' &&
+      this.state.phase !== 'FIN'
+    );
   }
 
   get phaseText(): string {
@@ -61,7 +81,7 @@ export class LobbyComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['roomCode'] && this.roomCode) {
+    if (changes['roomCode'] && this.roomCode && this.inRoom) {
       void this.generateQr(this.roomCode);
     }
   }
@@ -76,6 +96,18 @@ export class LobbyComponent implements OnChanges {
 
   onAdvancePhase(): void {
     this.advancePhase.emit();
+  }
+
+  onBackToLobby(): void {
+    this.backToLobby.emit();
+  }
+
+  onRejoinRoom(roomId: string): void {
+    this.rejoinRoom.emit(roomId);
+  }
+
+  onRemoveSavedRoom(roomId: string): void {
+    this.removeSavedRoom.emit(roomId);
   }
 
   private async generateQr(code: string): Promise<void> {
