@@ -2,8 +2,8 @@ import { Player } from '../models/PlayerProfile';
 import { PlayerInfection } from '../types/player-metadata.types';
 import { getMeta } from './playerMetadata';
 
-/** Noches de espera tras infectar antes de morir (1 = muere al resolver la siguiente noche). */
-export const INFECTION_ROUNDS = 1;
+/** Noches tras infectar antes de que la infección pueda matar (2 = muere al resolver la segunda noche tras infectar). */
+export const INFECTION_ROUNDS = 2;
 
 export function getInfection(player: Player): PlayerInfection | null {
   const inf = getMeta(player).infection;

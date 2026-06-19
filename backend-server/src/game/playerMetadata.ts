@@ -1,14 +1,15 @@
 import { RoleName } from '../types/roles.types';
 import { Player } from '../models/PlayerProfile';
 import { PlayerMetadata } from '../types/player-metadata.types';
+import { minerShieldsForTable, pentesterUsesForTable } from './balance';
 
-export function initRoleMetadata(role: RoleName): PlayerMetadata {
+export function initRoleMetadata(role: RoleName, playerCount = 15): PlayerMetadata {
   const base: PlayerMetadata = { actedThisNight: false };
   switch (role) {
     case RoleName.PENTESTER:
-      return { ...base, pentesterUsesLeft: 2 };
+      return { ...base, pentesterUsesLeft: pentesterUsesForTable(playerCount) };
     case RoleName.CRYPTO_MINER:
-      return { ...base, shieldCharges: 3 };
+      return { ...base, shieldCharges: minerShieldsForTable(playerCount) };
     case RoleName.RANSOMWARE:
       return { ...base, ransomwareCooldown: 0 };
     case RoleName.WORM:

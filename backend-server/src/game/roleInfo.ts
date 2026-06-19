@@ -9,20 +9,21 @@ const TEAM_LABELS: Record<Team, string> = {
 };
 
 const NIGHT_ACTION_HINTS: Record<string, string> = {
-  scan: 'Cada noche escanea un jugador. Recibirás SEGURO o MALICIOSO (Rootkit siempre aparece como seguro).',
-  protect: 'Cada noche protege a un jugador: bloquea un intento de eliminación sobre él. No repitas el mismo objetivo dos noches seguidas.',
-  cure: 'Cura la infección de un jugador (Gusano u otra fuente). No repitas el mismo objetivo dos noches seguidas.',
-  pentester_kill: 'Elimina a un jugador de noche (2 usos en total). Si matas a un aliado del Sistema, tú también caes.',
-  freeze: 'Congela a un jugador: sus acciones nocturnas de esa noche no surten efecto.',
-  bgp_swap: 'Intercambia el destino de dos jugadores para redirigir ataques nocturnos entre ellos.',
-  honeypot_drag: 'Marca a un jugador cada noche. Si te eliminan, arrastras contigo a quien hayas marcado.',
-  hacker_vote: 'Vota con el equipo hacker a quién eliminar. Hace falta mayoría simple entre los hackers vivos.',
-  ransomware: 'Silencia a un jugador hasta el día siguiente: no podrá actuar de noche ni votar de día.',
-  spy: 'Espía a un jugador y descubre quién lo visitó esa noche.',
-  phisher_redirect: 'Redirige el voto diurno de un jugador hacia otro objetivo (fase VOTACION).',
-  worm_infect: 'Infecta a un jugador: morirá al resolver la siguiente noche si no lo curan. Eres inmune a cualquier eliminación mientras vivas.',
-  worm_kill: 'Alias de worm_infect: infecta al objetivo en lugar de eliminarlo al instante.',
-  zero_day_assume: 'Asume el rol de un jugador ya eliminado (el objetivo debe estar muerto).',
+  scan: 'Correlacionas eventos sobre un nodo: SEGURO (alineado al Sistema), SOSPECHOSO (comportamiento anómalo / caótico) o MALICIOSO (amenaza confirmada). El Rootkit siempre aparece como SEGURO.',
+  protect: 'Bloquea un intento de eliminación dirigido al objetivo esta noche. No repitas el mismo nodo dos noches seguidas.',
+  cure: 'Remedia una infección activa (p. ej. Gusano). No repitas el mismo nodo dos noches seguidas.',
+  pentester_kill: 'Exploit autorizado: eliminas a un jugador de noche (usos según tamaño de sala). Si eliminas a un aliado del Sistema, tú también caes.',
+  freeze: 'Aislamiento de endpoint: el objetivo no ejecuta acciones nocturnas esta ronda (contención EDR).',
+  bgp_swap: 'Mitigación de enrutamiento: intercambias el destino de dos nodos para desviar ataques nocturnos entre ellos.',
+  honeypot_drag: 'Despliegas un señuelo sobre un nodo. Si caes en un ataque nocturno, arrastras contigo a quien marcaste (ignora protección Antivirus).',
+  hacker_vote: 'Votas el objetivo de la campaña nocturna con el equipo hacker (mayoría simple).',
+  ddos_vote: 'Tu voto en el consenso hacker cuenta doble. Si hay consenso, el objetivo queda degradado (silenciado al día siguiente) aunque sobreviva.',
+  ransomware: 'Cifras operaciones del objetivo: no actúa de noche ni vota al día siguiente. Enfriamiento tras cada uso según tamaño de sala.',
+  spy: 'Interceptas conexiones hacia el objetivo: ves qué nodos lo visitaron y el tipo de actividad (sin revelar roles).',
+  phisher_redirect: 'Ingeniería social: rediriges el voto diurno de un jugador hacia otro objetivo (fase VOTACION).',
+  worm_infect: 'Propagación autónoma: infectas a un nodo; caerá tras dos noches sin cura. Tu primera eliminación nocturna falla (inmunidad de persistencia); luego eres vulnerable.',
+  worm_kill: 'Alias de worm_infect.',
+  zero_day_assume: 'Exploit 0-day (una vez por partida): asumes el rol de un jugador ya eliminado y heredas sus habilidades. Los escaneos SOC reflejan tu rol asumido.',
 };
 
 const PASSIVE_NIGHT_HINT =
@@ -37,10 +38,17 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
   let nightActionHint = nightAction ? NIGHT_ACTION_HINTS[nightAction] ?? PASSIVE_NIGHT_HINT : PASSIVE_NIGHT_HINT;
   if (role === RoleName.ANTIVIRUS) {
     nightActionHint =
-      'Una sola acción por noche: protect (bloquea un kill) O cure (cura infección), nunca ambas. Puedes cambiar tu elección antes de que termine la noche. No repitas el mismo objetivo dos noches seguidas por acción.';
+      'EDR del Sistema — una acción por noche: protect (bloquea un kill sobre el objetivo) O cure (limpia infección), nunca ambas. No repitas el mismo nodo dos noches seguidas con la misma acción.';
   }
   if (role === RoleName.WORM) {
     nightActionHint = NIGHT_ACTION_HINTS.worm_infect;
+  }
+  if (role === RoleName.DDOS) {
+    nightActionHint = NIGHT_ACTION_HINTS.ddos_vote;
+  }
+  if (role === RoleName.CRYPTO_MINER) {
+    nightActionHint =
+      'Cryptojacking pasivo: sin acción nocturna. Tienes capas de resistencia a kills directos (según tamaño de sala); las infecciones maduras sí pueden eliminarte. Ganas si eres el único jugador vivo.';
   }
 
   return {

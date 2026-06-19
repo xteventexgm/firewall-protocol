@@ -1,5 +1,6 @@
 import { NightActionBatch, NightResolution, PlayerAction, ScanResult } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
+import { Player } from '../models/PlayerProfile';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { getMeta } from './playerMetadata';
 import { applyZeroDayAssume } from './VictoryChecker';
@@ -31,6 +32,7 @@ function resolveHackerConsensus(
   actions: PlayerAction[],
   state: GameStateModel,
   frozenActors: Set<string>,
+  playersById: Map<string, Player>,
 ): string | null {
   const hackerVotes = new Map<string, number>();
   const aliveHackers = new Set(
@@ -41,7 +43,8 @@ function resolveHackerConsensus(
     if (actionType(a) !== 'hacker_vote' || !a.target) continue;
     if (!aliveHackers.has(a.actor)) continue;
     if (frozenActors.has(a.actor)) continue;
-    hackerVotes.set(a.target, (hackerVotes.get(a.target) || 0) + 1);
+    const weight = playersById.get(a.actor)?.role === RoleName.DDOS ? 2 : 1;
+    hackerVotes.set(a.target, (hackerVotes.get(a.target) || 0) + weight);
   }
 
   if (hackerVotes.size === 0) return null;
@@ -64,8 +67,35 @@ function scanResult(targetRole?: RoleName): ScanResult {
   if (!targetRole) return 'safe';
   if (targetRole === RoleName.ROOTKIT) return 'safe';
   const team = ROLE_CATALOG[targetRole].team;
-  return team === Team.SYSTEM ? 'safe' : 'malicious';
+  if (team === Team.SYSTEM) return 'safe';
+  if (team === Team.CHAOTIC) return 'suspicious';
+  return 'malicious';
 }
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  scan: 'correlación SOC',
+  protect: 'protección EDR',
+  cure: 'remediación',
+  pentester_kill: 'exploit autorizado',
+  worm_infect: 'propagación',
+  worm_kill: 'propagación',
+  ransomware: 'cifrado operativo',
+  hacker_consensus: 'campaña coordinada',
+  spy: 'interceptación',
+  freeze: 'aislamiento',
+  honeypot_drag: 'señuelo',
+  phisher_redirect: 'engaño social',
+  zero_day_assume: 'exploit 0-day',
+};
+
+function activityLabel(actionType: string): string {
+  return ACTIVITY_LABELS[actionType] ?? 'actividad de red';
+}
+
+type KillOptions = {
+  bypassProtection?: boolean;
+  bypassMinerShield?: boolean;
+};
 
 function tryKill(
   targetId: string,
@@ -73,14 +103,10 @@ function tryKill(
   res: NightResolution,
   reason: string,
   protections: Set<string>,
-  wormImmune: Set<string>,
+  opts: KillOptions = {},
 ): boolean {
-  if (protections.has(targetId)) {
+  if (!opts.bypassProtection && protections.has(targetId)) {
     res.logs.push(`Kill on ${targetId} prevented by Antivirus protection`);
-    return false;
-  }
-  if (wormImmune.has(targetId)) {
-    res.logs.push(`Kill on ${targetId} prevented: Gusano immune`);
     return false;
   }
 
@@ -88,9 +114,19 @@ function tryKill(
   if (!target?.isAlive) return false;
 
   const meta = getMeta(target);
-  if (target.role === RoleName.CRYPTO_MINER && (meta.shieldCharges ?? 0) > 0) {
+  if (target.role === RoleName.WORM && meta.isWormImmune) {
+    meta.isWormImmune = false;
+    res.logs.push(`Kill on ${targetId} prevented: Gusano immune (first attack consumed)`);
+    return false;
+  }
+
+  if (
+    !opts.bypassMinerShield &&
+    target.role === RoleName.CRYPTO_MINER &&
+    (meta.shieldCharges ?? 0) > 0
+  ) {
     meta.shieldCharges = (meta.shieldCharges ?? 0) - 1;
-    res.logs.push(`Crypto Miner ${targetId} blocked attack (${meta.shieldCharges} shields left)`);
+    res.logs.push(`Crypto Miner ${targetId} blocked direct attack (${meta.shieldCharges} shields left)`);
     return false;
   }
 
@@ -104,7 +140,6 @@ function processMatureInfections(
   state: GameStateModel,
   res: NightResolution,
   protections: Set<string>,
-  wormImmune: Set<string>,
 ) {
   const currentNight = state.nightNumber;
 
@@ -123,10 +158,12 @@ function processMatureInfections(
       },
     });
 
-    if (tryKill(player.id, state, res, `infection from ${infectionSourceLabel(infection)}`, protections, wormImmune)) {
+    if (tryKill(player.id, state, res, `infection from ${infectionSourceLabel(infection)}`, protections, {
+      bypassMinerShield: true,
+    })) {
       res.infectionKills.push(player.id);
       clearInfection(player);
-      processHoneypotDrag(player.id, state, res, protections, wormImmune);
+      processHoneypotDrag(player.id, state, res, protections);
     } else {
       clearInfection(player);
       res.logs.push(`Infection on ${player.id} cleared without death (blocked or already dead)`);
@@ -138,13 +175,14 @@ function processHoneypotDrag(
   state: GameStateModel,
   res: NightResolution,
   protections: Set<string>,
-  wormImmune: Set<string>,
 ) {
   const dead = state.getPlayer(deadId);
   if (dead?.role !== RoleName.HONEYPOT) return;
   const dragTarget = getMeta(dead).honeypotDragTarget;
   if (!dragTarget) return;
-  if (tryKill(dragTarget, state, res, `honeypot drag from ${deadId}`, protections, wormImmune)) {
+  if (tryKill(dragTarget, state, res, `honeypot drag from ${deadId}`, protections, {
+    bypassProtection: true,
+  })) {
     res.honeypotDrags.push({ honeypotId: deadId, draggedId: dragTarget });
   }
 }
@@ -174,10 +212,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
   const protections = new Set<string>();
   const frozenTargets = new Set<string>();
   const swapMap = new Map<string, string>();
-  const visitLog = new Map<string, string[]>();
-  const wormImmune = new Set(
-    state.players.filter(p => p.isAlive && p.role === RoleName.WORM).map(p => p.id),
-  );
+  const visitLog = new Map<string, { playerId: string; activity: string }[]>();
 
   const actions = batch.actions.slice();
 
@@ -193,9 +228,9 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     return t;
   };
 
-  const recordVisit = (visitor: string, target: string) => {
+  const recordVisit = (visitor: string, target: string, activity?: string) => {
     const list = visitLog.get(target) || [];
-    list.push(visitor);
+    list.push({ playerId: visitor, activity: activity ?? activityLabel('unknown') });
     visitLog.set(target, list);
   };
 
@@ -268,13 +303,29 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
   }
 
   // ── Fase 2: ataques — infecciones maduras, luego kills directos ──
-  processMatureInfections(state, res, protections, wormImmune);
-  const hackerKillTarget = resolveHackerConsensus(actions, state, frozenTargets);
+  processMatureInfections(state, res, protections);
+  const hackerKillTarget = resolveHackerConsensus(actions, state, frozenTargets, playersById);
   if (hackerKillTarget) {
     const final = resolveTarget(hackerKillTarget);
-    recordVisit('hacker_consensus', final);
-    if (tryKill(final, state, res, 'hacker consensus', protections, wormImmune)) {
-      processHoneypotDrag(final, state, res, protections, wormImmune);
+    recordVisit('hacker_consensus', final, activityLabel('hacker_consensus'));
+    const killed = tryKill(final, state, res, 'hacker consensus', protections);
+    if (killed) {
+      processHoneypotDrag(final, state, res, protections);
+    }
+    const ddosDegrade = actions.some(
+      a =>
+        actionType(a) === 'hacker_vote' &&
+        a.target === hackerKillTarget &&
+        playersById.get(a.actor)?.role === RoleName.DDOS &&
+        !frozenTargets.has(a.actor),
+    );
+    if (ddosDegrade) {
+      const target = playersById.get(final);
+      if (target?.isAlive) {
+        getMeta(target).silencedUntilDay = state.dayNumber + 1;
+        if (!res.silenced.includes(final)) res.silenced.push(final);
+        res.logs.push(`DDoS degraded ${final} until day ${state.dayNumber + 1}`);
+      }
     }
   }
 
@@ -286,12 +337,12 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const final = resolveTarget(a.target);
       const actor = playersById.get(a.actor);
       const target = playersById.get(final);
-      recordVisit(a.actor, final);
+      recordVisit(a.actor, final, activityLabel(type));
       if (actor && target?.isAlive) {
         const sameTeam = target.team === actor.team && actor.team === Team.SYSTEM;
-        const killed = tryKill(final, state, res, `pentester ${a.actor}`, protections, wormImmune);
+        const killed = tryKill(final, state, res, `pentester ${a.actor}`, protections);
         if (killed) {
-          processHoneypotDrag(final, state, res, protections, wormImmune);
+          processHoneypotDrag(final, state, res, protections);
           if (sameTeam) {
             actor.isAlive = false;
             res.kills.push(a.actor);
@@ -301,7 +352,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       }
     } else if (type === 'worm_infect' || type === 'worm_kill') {
       const final = resolveTarget(a.target);
-      recordVisit(a.actor, final);
+      recordVisit(a.actor, final, activityLabel(type));
       const target = playersById.get(final);
       if (!target?.isAlive) continue;
       if (isInfected(target)) {
@@ -331,7 +382,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       });
     } else if (type === 'ransomware') {
       const final = resolveTarget(a.target);
-      recordVisit(a.actor, final);
+      recordVisit(a.actor, final, activityLabel(type));
       const target = playersById.get(final);
       if (target?.isAlive) {
         getMeta(target).silencedUntilDay = state.dayNumber + 1;
@@ -348,7 +399,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
     if (type === 'scan') {
       const finalTarget = resolveTarget(a.target);
-      recordVisit(a.actor, finalTarget);
+      recordVisit(a.actor, finalTarget, activityLabel(type));
       const targetPlayer = playersById.get(finalTarget);
       const result = scanResult(targetPlayer?.role as RoleName);
       res.privateResults.push({
@@ -357,7 +408,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       });
     } else if (type === 'spy') {
       const finalTarget = resolveTarget(a.target);
-      recordVisit(a.actor, finalTarget);
+      recordVisit(a.actor, finalTarget, activityLabel(type));
     } else if (type === 'zero_day_assume') {
       applyZeroDayAssume(state, a.actor, a.target);
       const assumedRole = playersById.get(a.actor)?.role as RoleName | undefined;
@@ -373,13 +424,29 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     }
   }
 
-  for (const [target, visitors] of visitLog) {
+  for (const [target, entries] of visitLog) {
     for (const a of actions) {
       if (actionType(a) !== 'spy' || !a.target) continue;
       if (resolveTarget(a.target) !== target) continue;
+
+      const byPlayer = new Map<string, Set<string>>();
+      for (const e of entries) {
+        if (!byPlayer.has(e.playerId)) byPlayer.set(e.playerId, new Set());
+        byPlayer.get(e.playerId)!.add(e.activity);
+      }
+      const visitorActivities = Array.from(byPlayer.entries()).map(([playerId, acts]) => ({
+        playerId,
+        activity: [...acts].join(', '),
+      }));
+
       res.privateResults.push({
         playerId: a.actor,
-        payload: { type: 'spy', targetId: target, visitors: [...new Set(visitors)] },
+        payload: {
+          type: 'spy',
+          targetId: target,
+          visitors: visitorActivities.map(v => v.playerId),
+          visitorActivities,
+        },
       });
     }
   }

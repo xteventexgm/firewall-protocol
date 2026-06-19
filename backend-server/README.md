@@ -41,7 +41,7 @@ LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA �
 - Fase `FIN` al terminar la partida
 
 ### Matchmaking
-- Black Hat: **1 cada 3 jugadores** (`PLAYERS_PER_BLACK_HAT` en `constants.ts`)
+- Black Hat: **1 cada 4 jugadores** en mesas ≤8, **1 cada 3** en 9+ (`balance.ts`)
 - Caóticos: **1 cada 5 jugadores** (`PLAYERS_PER_CHAOTIC_ROLE` en `constants.ts`); el resto es System
 - Roles sin repetir dentro de cada equipo hasta agotar el catálogo
 - 16 roles del catálogo GDD en `src/types/roles.types.ts`
@@ -54,7 +54,7 @@ LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA �
 - Deep Freeze, BGP swap, Pentester con culpa y usos limitados
 - Ransomware (silencio diurno), Spyware, Phisher, Honeypot drag
 - Gusano inmune mientras vive (no consumible) + infección propia, Minero con 3 escudos, Zero-Day asume rol eliminado
-- Escaneo SOC privado (`safe` / `malicious`), Rootkit devuelve falso positivo
+- Escaneo SOC privado (`safe` / `suspicious` / `malicious`), Rootkit devuelve falso positivo
 
 ### Validación de acciones (`ActionValidator`)
 - Solo en fase `NOCHE`
@@ -69,7 +69,7 @@ LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA �
 - **Empate o sin votos de eliminación** → nadie eliminado, evento `voteTied` (`skipVotes`, `reason: 'tie' | 'no_votes'`), salto directo a `NOCHE`
 - Voto en blanco (`target: null`) se registra bajo clave `skip` (no cuenta para eliminar)
 - Phisher redirige **votos diurnos** en secreto (no acciones nocturnas ajenas)
-- **Victoria por bando**: System elimina hackers / Black Hat iguala o supera en número
+- **Victoria por bando**: System elimina hackers / Black Hat con **más** hackers que System (no empate)
 - **Victoria solitaria**: Troll (baneado), Gusano (último en pie), Minero (único superviviente)
 
 ### Información pública vs privada
@@ -115,6 +115,7 @@ src/
 │   ├── RuleEngine.ts        # Resolución nocturna por rol
 │   ├── ActionValidator.ts   # Validación de acciones
 │   ├── VictoryChecker.ts    # Condiciones de victoria
+│   ├── balance.ts           # Escalado por tamaño de mesa
 │   ├── playerMetadata.ts    # Metadata y flags por jugador
 │   ├── Room.ts              # Orquestación de partida
 │   └── RoomManager.ts       # CRUD de salas
@@ -233,7 +234,7 @@ Conexión: `io('http://<host>:<port>/game')`
 |--------|-------------------|--------|
 | `role_assigned` | `role`, `team`, `displayName`, `nightAction`, `nightActionHint` | Inicio de partida / reconexión |
 | `hacker_team` | `members[]` | Inicio de partida (roles Black Hat) |
-| `scan` | `targetId`, `result: 'safe' \| 'malicious'` | Analista SOC |
+| `scan` | `targetId`, `result: 'safe' \| 'suspicious' \| 'malicious'` | Analista SOC |
 | `spy` | `targetId`, `visitors[]` | Spyware |
 | `infected` | `targetId`, `infectionSource`, `maturesAfterNight` | Gusano infecta (víctima) |
 | `infection_warning` | `targetId`, `critical: true`, `maturesAfterNight` | Infección madura esta noche |
@@ -320,11 +321,11 @@ Payload base de `playerAction`:
 | Deep Freeze | `freeze` | — | Congela objetivo (no actúa esa noche) |
 | Enrutador BGP | `bgp_swap` | `{ swapWith: playerId }` | Intercambia tráfico entre dos nodos |
 | Honeypot | `honeypot_drag` | — | Define a quién arrastrar si muere |
-| DDoS / Rootkit | `hacker_vote` | — | Voto conjunto hacker para kill nocturno |
+| DDoS / Rootkit | `hacker_vote` | — | Voto conjunto hacker; **DDoS cuenta doble** y degrada (silencia) al objetivo del consenso si sobrevive |
 | Ransomware | `ransomware` | — | Silencia objetivo al día siguiente |
 | Spyware | `spy` | — | Revela visitantes al objetivo (privado) |
 | Phisher | `phisher_redirect` | `{ redirectTo: playerId }` | Redirige voto diurno de la víctima |
-| Gusano | `worm_infect` | — | Infecta al objetivo; muere la noche siguiente si no hay cura (`worm_kill` es alias). **Inmune a kills mientras vive** |
+| Gusano | `worm_infect` | — | Infecta al objetivo; muere tras **2 noches** sin cura. **Primera kill falla** (inmunidad consumible) |
 | Zero-Day | `zero_day_assume` | — | Asume rol de jugador ya eliminado |
 | SysAdmin, Troll, Minero | — | — | Sin acción nocturna |
 
@@ -351,7 +352,7 @@ Flujo cíclico: `VERIFICACIÓN → NOCHE` si nadie ha ganado.
 | Bando / rol | Condición |
 |-------------|-----------|
 | **System** | No quedan jugadores Black Hat vivos |
-| **Black Hat** | Hackers vivos ≥ jugadores System vivos |
+| **Black Hat** | Hackers vivos **>** jugadores System vivos |
 | **Troll** | Es baneado por votación diurna |
 | **Gusano** | Es el único jugador vivo |
 | **Minero de Cripto** | Único superviviente cuando caen los hackers |
@@ -361,7 +362,7 @@ Flujo cíclico: `VERIFICACIÓN → NOCHE` si nadie ha ganado.
 - **Zero-Day**: no tiene victoria solitaria propia. Si asume el rol de un jugador System eliminado y no quedan hackers vivos, puede declarar victoria **System** como si fuera de ese bando (`assumedFromPlayerId` en metadata).
 
 ### Gusano — inmunidad
-Mientras el Gusano está vivo, **ningún kill nocturno** puede eliminarlo (`tryKill` en `RuleEngine`). El flag `isWormImmune` en metadata es informativo para el cliente; no se consume.
+La **primera** eliminación nocturna dirigida al Gusano falla (`isWormImmune` se consume). La infección tarda **2 noches** en matar si no hay cura.
 
 ### Phisher — alcance
 `phisher_redirect` guarda en metadata un mapa `phisherRedirects[víctima] = redirectTo`. Solo afecta el **voto diurno** de la víctima en fase `VOTACION` (`resolvePhisherRedirect`). No redirige acciones nocturnas de otros jugadores.

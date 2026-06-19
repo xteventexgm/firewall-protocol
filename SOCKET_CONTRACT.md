@@ -84,10 +84,10 @@ Documento de referencia compartido para **mobile-terminal** (`/game`) y **web-da
 { type: 'hacker_team', members: string[] }
 
 // Escaneo SOC
-{ type: 'scan', targetId: string, result: 'safe' | 'malicious' }
+{ type: 'scan', targetId: string, result: 'safe' | 'suspicious' | 'malicious' }
 
 // Espionaje
-{ type: 'spy', targetId: string, visitors: string[] }
+{ type: 'spy', targetId: string, visitors: string[], visitorActivities?: { playerId: string; activity: string }[] }
 
 // Gusano infecta (víctima)
 {

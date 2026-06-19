@@ -4,6 +4,7 @@ import { RoleName, Team } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
 import { Player } from '../models/PlayerProfile';
 import { getMeta, isSilenced } from './playerMetadata';
+import { ransomwareCooldownNights } from './balance';
 
 export type ActionValidationError =
   | 'wrong_phase'
@@ -18,7 +19,8 @@ export type ActionValidationError =
   | 'antivirus_cure_cooldown'
   | 'ransomware_cooldown'
   | 'invalid_target'
-  | 'role_mismatch';
+  | 'role_mismatch'
+  | 'zero_day_already_used';
 
 export function validateNightAction(
   action: PlayerAction,
@@ -76,6 +78,7 @@ export function validateNightAction(
   }
 
   if (type === 'zero_day_assume') {
+    if (meta.assumedFromPlayerId) return 'zero_day_already_used';
     const target = state.getPlayer(action.target!);
     if (!target || target.isAlive) return 'invalid_target';
   }
@@ -104,15 +107,20 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   }
 }
 
-export function markActionSubmitted(actor: Player, actionType: string, targetId?: string | null) {
+export function markActionSubmitted(
+  actor: Player,
+  actionType: string,
+  targetId?: string | null,
+  playerCount?: number,
+) {
   const meta = getMeta(actor);
   meta.actedThisNight = true;
 
   if (actionType === 'pentester_kill') {
-    meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 2) - 1);
+    meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 0) - 1);
   }
   if (actionType === 'ransomware') {
-    meta.ransomwareCooldown = 2;
+    meta.ransomwareCooldown = ransomwareCooldownNights(playerCount ?? 15);
   }
   if (actionType === 'protect') {
     meta.lastProtectedTarget = targetId ?? null;
@@ -136,6 +144,7 @@ const ACTION_VALIDATION_MESSAGES: Record<ActionValidationError, string> = {
   ransomware_cooldown: 'Debes esperar antes de volver a usar Ransomware',
   invalid_target: 'Objetivo no válido',
   role_mismatch: 'El rol indicado no coincide con tu rol asignado',
+  zero_day_already_used: 'Ya usaste tu exploit 0-day en esta partida',
 };
 
 /** Mensaje legible para el móvil; incluye código entre paréntesis para parsing opcional. */

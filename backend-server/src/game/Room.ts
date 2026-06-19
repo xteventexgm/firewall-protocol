@@ -148,6 +148,7 @@ export class Room extends EventEmitter {
     this.sm.transitionTo(GamePhase.REPARTO);
 
     const players = this.state.players as Player[];
+    const playerCount = players.length;
     const { assignments, hackerCount } = assignRoles(players);
     this.state.log(`Assigned roles: hackers=${hackerCount}`);
 
@@ -156,7 +157,7 @@ export class Room extends EventEmitter {
       if (r) {
         p.role = r;
         p.team = ROLE_CATALOG[r].team;
-        p.metadata = initRoleMetadata(r);
+        p.metadata = initRoleMetadata(r, playerCount);
       }
     }
 
@@ -209,7 +210,7 @@ export class Room extends EventEmitter {
     }
 
     this.state.queueAction(action);
-    markActionSubmitted(actor, type, action.target);
+    markActionSubmitted(actor, type, action.target, this.state.players.length);
 
     this.emit('actionAccepted', { roomId: this.id, actionId: action.id });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on submitAction', e); }

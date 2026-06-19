@@ -91,13 +91,15 @@ export interface SoloWinner {
   reason: string;
 }
 
-export type ScanResult = 'safe' | 'malicious';
+export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 
 export interface PrivateResultPayload {
   type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned' | 'infected' | 'cured' | 'infection_warning';
   targetId?: PlayerId;
   result?: ScanResult;
   visitors?: PlayerId[];
+  /** Actividad observada por Spyware (tipo de acción, sin revelar rol). */
+  visitorActivities?: { playerId: PlayerId; activity: string }[];
   members?: PlayerId[];
   role?: RoleId;
   team?: Team;

@@ -52,7 +52,7 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
-  if (hackers.length >= systemSide.length && hackers.length > 0) {
+  if (hackers.length > systemSide.length && hackers.length > 0) {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 
