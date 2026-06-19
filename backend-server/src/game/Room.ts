@@ -10,10 +10,16 @@ import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import database from '../config/database';
 import { logger } from '../utils/logger';
 import { MIN_PLAYERS } from '../utils/constants';
-import { validateNightAction, markActionSubmitted, getHackerTeam } from './ActionValidator';
+import {
+  validateNightAction,
+  markActionSubmitted,
+  revertQueuedActionMetadata,
+  getHackerTeam,
+} from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
 import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
 import { buildRoleAssignedPayload } from './roleInfo';
+import { frozenActorsForValidation } from './nightFreeze';
 
 export class RoomJoinDeniedError extends Error {
   constructor(message: string) {
@@ -49,7 +55,6 @@ export class Room extends EventEmitter {
   sm: StateMachine;
   options: RoomOptions;
   private timer?: NodeJS.Timeout | null;
-  private frozenActors = new Set<string>();
 
   constructor(id: string, options: RoomOptions = {}) {
     super();
@@ -79,7 +84,6 @@ export class Room extends EventEmitter {
       if (to === GamePhase.NOCHE) {
         resetNightFlags(this.state.players);
         tickRansomwareCooldowns(this.state);
-        this.frozenActors.clear();
       }
       this.emit('phaseChanged', { roomId: this.id, from, to, at });
       this.emit('phaseTransition', { roomId: this.id, from, to, at });
@@ -188,7 +192,8 @@ export class Room extends EventEmitter {
       return { ok: false, reason: 'Not accepting actions outside NOCHE' };
     }
 
-    const err = validateNightAction(action, this.state, this.sm.getPhase(), this.frozenActors);
+    const frozen = frozenActorsForValidation(this.state.actionQueue, action);
+    const err = validateNightAction(action, this.state, this.sm.getPhase(), frozen);
     if (err) {
       return { ok: false, reason: `Action rejected: ${err}` };
     }
@@ -196,8 +201,9 @@ export class Room extends EventEmitter {
     const actor = this.state.getPlayer(action.actor)!;
     const type = (action.type || '').toLowerCase();
 
-    if (type === 'freeze' && action.target) {
-      this.frozenActors.add(action.target);
+    const previous = this.state.actionQueue.find(a => a.actor === action.actor);
+    if (previous) {
+      revertQueuedActionMetadata(actor, previous.type, previous.target);
     }
 
     this.state.queueAction(action);

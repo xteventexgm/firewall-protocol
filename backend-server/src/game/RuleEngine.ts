@@ -4,6 +4,15 @@ import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { getMeta } from './playerMetadata';
 import { applyZeroDayAssume } from './VictoryChecker';
 import { buildRoleAssignedPayload } from './roleInfo';
+import { collectFrozenActors } from './nightFreeze';
+import {
+  applyInfection,
+  clearInfection,
+  getInfection,
+  isInfected,
+  isInfectionMature,
+  infectionSourceLabel,
+} from './infection';
 
 export type NightResolution = {
   kills: string[];
@@ -13,6 +22,9 @@ export type NightResolution = {
   privateResults: { playerId: string; payload: PrivateResultPayload }[];
   silenced: string[];
   honeypotDrags: { honeypotId: string; draggedId: string }[];
+  infections: string[];
+  cures: string[];
+  infectionKills: string[];
 };
 
 function actionType(a: PlayerAction) {
@@ -22,6 +34,7 @@ function actionType(a: PlayerAction) {
 function isActorBlocked(a: PlayerAction, frozenActors: Set<string>, res: NightResolution) {
   if (frozenActors.has(a.actor)) {
     res.prevented.push({ actionId: a.id, reason: 'actor_frozen' });
+    res.logs.push(`Action ${actionType(a)} by ${a.actor} annulled: frozen by Deep Freeze`);
     return true;
   }
   return false;
@@ -30,6 +43,7 @@ function isActorBlocked(a: PlayerAction, frozenActors: Set<string>, res: NightRe
 function resolveHackerConsensus(
   actions: PlayerAction[],
   state: GameStateModel,
+  frozenActors: Set<string>,
 ): string | null {
   const hackerVotes = new Map<string, number>();
   const aliveHackers = new Set(
@@ -39,6 +53,7 @@ function resolveHackerConsensus(
   for (const a of actions) {
     if (actionType(a) !== 'hacker_vote' || !a.target) continue;
     if (!aliveHackers.has(a.actor)) continue;
+    if (frozenActors.has(a.actor)) continue;
     hackerVotes.set(a.target, (hackerVotes.get(a.target) || 0) + 1);
   }
 
@@ -98,6 +113,29 @@ function tryKill(
   return true;
 }
 
+function processMatureInfections(
+  state: GameStateModel,
+  res: NightResolution,
+  protections: Set<string>,
+  wormImmune: Set<string>,
+) {
+  const currentNight = state.nightNumber;
+
+  for (const player of state.players) {
+    if (!player.isAlive) continue;
+    const infection = getInfection(player);
+    if (!infection || !isInfectionMature(infection, currentNight)) continue;
+
+    if (tryKill(player.id, state, res, `infection from ${infectionSourceLabel(infection)}`, protections, wormImmune)) {
+      res.infectionKills.push(player.id);
+      clearInfection(player);
+      processHoneypotDrag(player.id, state, res, protections, wormImmune);
+    } else {
+      clearInfection(player);
+      res.logs.push(`Infection on ${player.id} cleared without death (blocked or already dead)`);
+    }
+  }
+}
 function processHoneypotDrag(
   deadId: string,
   state: GameStateModel,
@@ -130,6 +168,9 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     privateResults: [],
     silenced: [],
     honeypotDrags: [],
+    infections: [],
+    cures: [],
+    infectionKills: [],
   };
 
   const playersById = new Map(state.players.map(p => [p.id, p]));
@@ -161,20 +202,29 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     visitLog.set(target, list);
   };
 
-  // ── Fase 0: preparación (redirecciones y marcas, sin daño) ──
+  // ── Fase 0: preparación — BGP primero, luego freeze (con swap aplicado) ──
   for (const a of actions) {
     const type = actionType(a);
-    if (type === 'freeze' && a.target) {
-      frozenTargets.add(a.target);
-      res.logs.push(`Deep Freeze on ${a.target}`);
-    } else if (type === 'bgp_swap' && a.target && a.meta?.swapWith) {
+    if (type === 'bgp_swap' && a.target && a.meta?.swapWith) {
       swapMap.set(a.target, a.meta.swapWith);
       swapMap.set(a.meta.swapWith, a.target);
       res.logs.push(`BGP swap ${a.target} <-> ${a.meta.swapWith}`);
-    } else if (type === 'honeypot_drag' && a.target) {
+    }
+  }
+
+  for (const id of collectFrozenActors(actions, swapMap)) {
+    frozenTargets.add(id);
+    res.logs.push(`Deep Freeze on ${id} — night actions annulled`);
+  }
+
+  for (const a of actions) {
+    const type = actionType(a);
+    if (type === 'honeypot_drag' && a.target) {
+      if (frozenTargets.has(a.actor)) continue;
       const actor = playersById.get(a.actor);
       if (actor) getMeta(actor).honeypotDragTarget = a.target;
     } else if (type === 'phisher_redirect' && a.target && a.meta?.redirectTo) {
+      if (frozenTargets.has(a.actor)) continue;
       const actor = playersById.get(a.actor);
       if (actor) {
         const meta = getMeta(actor);
@@ -185,17 +235,44 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     }
   }
 
-  // ── Fase 1: protecciones (Antivirus antes que cualquier ataque) ──
+  // ── Fase 1: Antivirus — una sola acción por jugador (protect O cure, no ambas) ──
+  const antivirusResolved = new Set<string>();
   for (const a of actions) {
-    if (actionType(a) !== 'protect' || !a.target) continue;
+    const type = actionType(a);
+    if ((type !== 'protect' && type !== 'cure') || !a.target) continue;
+    if (antivirusResolved.has(a.actor)) {
+      res.logs.push(`Antivirus ${a.actor}: extra ${type} ignored (single choice per night)`);
+      continue;
+    }
     if (isActorBlocked(a, frozenTargets, res)) continue;
+
+    antivirusResolved.add(a.actor);
     const finalTarget = resolveTarget(a.target);
-    protections.add(finalTarget);
-    res.logs.push(`Antivirus protected ${finalTarget}`);
+
+    if (type === 'protect') {
+      protections.add(finalTarget);
+      res.logs.push(`Antivirus protected ${finalTarget}`);
+      continue;
+    }
+
+    const target = playersById.get(finalTarget);
+    if (!target?.isAlive) continue;
+
+    if (clearInfection(target)) {
+      res.cures.push(finalTarget);
+      res.logs.push(`Antivirus cured infection on ${finalTarget}`);
+      res.privateResults.push({
+        playerId: a.actor,
+        payload: { type: 'cured', targetId: finalTarget },
+      });
+    } else {
+      res.logs.push(`Antivirus cure on ${finalTarget}: no infection present`);
+    }
   }
 
-  // ── Fase 2: ataques ──
-  const hackerKillTarget = resolveHackerConsensus(actions, state);
+  // ── Fase 2: ataques — infecciones maduras, luego kills directos ──
+  processMatureInfections(state, res, protections, wormImmune);
+  const hackerKillTarget = resolveHackerConsensus(actions, state, frozenTargets);
   if (hackerKillTarget) {
     const final = resolveTarget(hackerKillTarget);
     recordVisit('hacker_consensus', final);
@@ -225,12 +302,36 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
           }
         }
       }
-    } else if (type === 'worm_kill') {
+    } else if (type === 'worm_infect' || type === 'worm_kill') {
       const final = resolveTarget(a.target);
       recordVisit(a.actor, final);
-      if (tryKill(final, state, res, `worm ${a.actor}`, protections, wormImmune)) {
-        processHoneypotDrag(final, state, res, protections, wormImmune);
+      const target = playersById.get(final);
+      if (!target?.isAlive) continue;
+      if (isInfected(target)) {
+        res.logs.push(`Worm ${a.actor} tried to infect ${final}: already infected`);
+        continue;
       }
+
+      const infection = applyInfection(target, a.actor, 'worm', state.nightNumber);
+      res.infections.push(final);
+      res.logs.push(`Worm ${a.actor} infected ${final} (matures after night ${infection.maturesAfterNight})`);
+      res.privateResults.push({
+        playerId: a.actor,
+        payload: {
+          type: 'infected',
+          targetId: final,
+          infectionSource: 'worm',
+          maturesAfterNight: infection.maturesAfterNight,
+        },
+      });
+      res.privateResults.push({
+        playerId: final,
+        payload: {
+          type: 'infection_warning',
+          infectionSource: 'worm',
+          maturesAfterNight: infection.maturesAfterNight,
+        },
+      });
     } else if (type === 'ransomware') {
       const final = resolveTarget(a.target);
       recordVisit(a.actor, final);

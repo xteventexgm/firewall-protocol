@@ -127,6 +127,7 @@ export class GameStateModel implements GameState {
         isAlive: p.isAlive,
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),
+        ...((!p.isAlive || this.phase === GamePhase.FIN) && p.role ? { role: p.role } : {}),
       })),
       votes: { ...this.votes },
       winner: this.winner,
@@ -136,7 +137,7 @@ export class GameStateModel implements GameState {
 
   private sanitizeMetadata(metadata: any, isSelf = false) {
     if (!metadata || isSelf) return metadata;
-    const { phisherRedirects, ...rest } = metadata;
+    const { phisherRedirects, infection, ...rest } = metadata;
     return rest;
   }
 

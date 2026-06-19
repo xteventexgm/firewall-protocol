@@ -47,6 +47,8 @@ export interface PublicPlayerState {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  /** Visible en dashboard cuando el jugador está eliminado o la partida terminó. */
+  role?: RoleId;
 }
 
 export interface PublicGameState {
@@ -81,7 +83,7 @@ export interface SoloWinner {
 export type ScanResult = 'safe' | 'malicious';
 
 export interface PrivateResultPayload {
-  type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned';
+  type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned' | 'infected' | 'cured' | 'infection_warning';
   targetId?: PlayerId;
   result?: ScanResult;
   visitors?: PlayerId[];
@@ -93,6 +95,8 @@ export interface PrivateResultPayload {
   teamLabel?: string;
   nightAction?: string | null;
   nightActionHint?: string;
+  infectionSource?: string;
+  maturesAfterNight?: number;
 }
 
 export interface VoteTrace {
