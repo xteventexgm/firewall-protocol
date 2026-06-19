@@ -13,6 +13,8 @@ export interface RoomPlayer {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  infected?: boolean;
+  infectionMaturesAfterNight?: number;
   joinedAt?: number;
   role?: string;
   team?: string;
@@ -58,6 +60,9 @@ export interface NightResolution {
   redirects: { actionId: string; from: string; to: string }[];
   logs: string[];
   silenced: string[];
+  infections?: string[];
+  cures?: string[];
+  infectionKills?: string[];
   honeypotDrags?: { honeypotId: string; draggedId: string }[];
 }
 
@@ -96,3 +101,7 @@ export interface TargetOption {
 
 export const MIN_PLAYERS_TO_START = 5;
 export const MAX_PLAYERS = 15;
+
+/** Mismas proporciones que backend-server/src/utils/constants.ts */
+export const PLAYERS_PER_BLACK_HAT = 3;
+export const PLAYERS_PER_CHAOTIC_ROLE = 5;
