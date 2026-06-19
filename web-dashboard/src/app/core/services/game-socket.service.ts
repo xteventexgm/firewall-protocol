@@ -39,7 +39,7 @@ export class GameSocketService implements OnDestroy {
     if (this.socket?.connected) return;
 
     const url = `${environment.apiUrl}${environment.socketNamespace}`;
-    this.socket = io(url, { transports: ['websocket', 'polling'] });
+    this.socket = io(url, { transports: ['websocket', 'polling'], extraHeaders: {'ngrok-skip-browser-warning': 'true'} });
 
     this.socket.on('connect', () => this.connected$.next(true));
     this.socket.on('disconnect', () => this.connected$.next(false));
