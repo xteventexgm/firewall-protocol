@@ -1,7 +1,6 @@
-<ion-content class="terminal-content" [class.phase-flash]="phaseFlash">
+<ion-content class="terminal-content" [class.phase-flash]="phaseFlash" [attr.data-phase]="gamePhase">
   <div class="terminal-shell">
 
-    <!-- Cabecera -->
     <header class="terminal-header">
       <div class="header-left">
         <span class="header-label">Nodo activo</span>
@@ -14,12 +13,13 @@
         <span class="conn-dot" [class.online]="connected" [class.offline]="!connected"></span>
         <div>
           <span class="header-label">Fase</span>
-          <span class="header-value phase" [attr.data-phase]="gamePhase">{{ phaseLabel }}</span>
+          <span class="header-value phase" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
         </div>
       </div>
     </header>
 
-    <!-- Métricas rápidas -->
+    <div *ngIf="phaseBanner" class="phase-banner">{{ phaseBanner }}</div>
+
     <div class="metrics-row">
       <div class="metric">
         <span class="metric-value">{{ connectedCount }}/{{ players.length }}</span>
@@ -39,51 +39,68 @@
       </div>
     </div>
 
-    <div class="bg-slate-800 border border-slate-600 p-4 rounded-md mb-4 shadow-lg">
-      <h2 class="text-xs text-slate-400 uppercase mb-1">Nivel de Acceso (Rol):</h2>
-      <p class="text-2xl font-bold text-white tracking-widest">{{ playerRole }}</p>
-      <p *ngIf="playerTeamLabel" class="text-xs text-slate-400 mt-2 uppercase tracking-wide">{{ playerTeamLabel }}</p>
-      <p *ngIf="roleDescription" class="text-sm text-slate-300 mt-3 leading-relaxed">{{ roleDescription }}</p>
-      <p *ngIf="nightActionHint" class="text-xs text-emerald-400 mt-3 border-t border-slate-700 pt-3 leading-relaxed">
-        {{ nightActionHint }}
-      </p>
+    <section class="panel role-panel">
+      <div class="panel-header">
+        <span class="panel-tag">Nivel de acceso</span>
+        <span *ngIf="playerTeamLabel" class="team-badge">{{ playerTeamLabel }}</span>
+      </div>
+      <h2 class="role-name">{{ playerRole }}</h2>
+      <p *ngIf="roleDescription" class="role-description">{{ roleDescription }}</p>
+      <p *ngIf="nightActionHint" class="night-hint">{{ nightActionHint }}</p>
+      <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
+    </section>
+
+    <div *ngIf="statusMessage" class="status-toast" [attr.data-type]="statusType">
+      <span class="status-prefix">></span> {{ statusMessage }}
     </div>
 
-    <!-- Reporte de incidentes (amanecer) -->
+    <!-- Registro persistente de acción nocturna / resultado por rol -->
+    <section
+      *ngIf="nightActionReport"
+      class="panel action-report-panel"
+      [attr.data-status]="nightActionReport.status">
+      <div class="panel-header">
+        <span class="panel-tag">Registro nocturno</span>
+        <span class="report-night">N{{ nightActionReport.nightNumber }}</span>
+      </div>
+      <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
+      <ul class="report-details">
+        <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
+      </ul>
+      <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
+        ⏳ Pendiente de resolución al amanecer
+      </p>
+    </section>
+
     <section *ngIf="showIncidentReport" class="panel incident-panel animate-fade-in">
       <h3 class="panel-title danger">Reporte de incidentes</h3>
       <p class="panel-sub">Nodos caídos durante la noche:</p>
       <ul class="incident-list">
-        <li *ngFor="let name of incidentNames">{{ name }}</li>
-        <li *ngIf="incidentNames.length === 0" class="muted">Sin bajas registradas</li>
+        <li *ngFor="let incident of incidents">{{ incident.playerName }}</li>
+        <li *ngIf="incidents.length === 0" class="muted">Sin bajas registradas</li>
       </ul>
     </section>
 
-    <!-- Contenido por fase -->
     <main class="phase-content">
 
-      <!-- LOBBY -->
       <section *ngIf="gamePhase === 'LOBBY'" class="panel idle-panel">
         <div class="idle-icon pulse-glow">◉</div>
         <h3 class="panel-title">Sala en espera</h3>
         <p class="panel-sub">Esperando que el host inicie la partida desde el dashboard.</p>
-        <p class="player-count">{{ players.length }} jugador(es) conectado(s)</p>
+        <p class="player-count">{{ players.length }}/{{ minPlayers }} jugadores mínimos</p>
       </section>
 
-      <!-- REPARTO -->
       <section *ngIf="gamePhase === 'REPARTO'" class="panel idle-panel">
         <div class="idle-icon pulse-glow">⟳</div>
         <h3 class="panel-title">Reparto de roles</h3>
         <p class="panel-sub">Asignando credenciales de acceso a cada nodo...</p>
       </section>
 
-      <!-- NOCHE sin acción -->
       <section *ngIf="gamePhase === 'NOCHE' && !canActAtNight" class="panel stealth-panel">
         <h3 class="panel-title stealth">Modo sigilo</h3>
         <p class="panel-sub">Tu rol no tiene acciones nocturnas. Mantén silencio de radio.</p>
       </section>
 
-      <!-- NOCHE con acción -->
       <section *ngIf="isNightPhase" class="panel action-panel night">
         <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
@@ -113,20 +130,18 @@
         </button>
       </section>
 
-      <!-- DÍA -->
       <section *ngIf="gamePhase === 'DIA'" class="panel day-panel">
         <h3 class="panel-title day">Auditoría diurna</h3>
         <p class="panel-sub">Analiza el comportamiento de la red. La votación comenzará pronto.</p>
       </section>
 
-      <!-- VOTACIÓN -->
       <section *ngIf="isVotePhase" class="panel action-panel vote">
         <h3 class="panel-title">Emitir ban de IP</h3>
         <p class="panel-sub">Selecciona el nodo sospechoso para expulsar de la red.</p>
 
         <label class="field-label">Objetivo</label>
         <select [(ngModel)]="selectedTarget" class="terminal-select">
-          <option value="" disabled>-- Seleccionar sospechoso --</option>
+          <option value="">-- Abstenerse / sin objetivo --</option>
           <option *ngFor="let player of aliveTargets" [value]="player.id">
             {{ player.name }}
           </option>
@@ -134,39 +149,51 @@
 
         <button
           (click)="executeVote()"
-          [disabled]="!selectedTarget"
+          [disabled]="myVoteConfirmed"
           class="terminal-btn primary">
           Confirmar voto
+        </button>
+
+        <button
+          (click)="abstainVote()"
+          [disabled]="myVoteConfirmed"
+          class="terminal-btn secondary">
+          Abstenerse
         </button>
 
         <p *ngIf="myVoteConfirmed" class="vote-confirmed">✓ Voto confirmado por el servidor</p>
       </section>
 
-      <!-- VERIFICACIÓN -->
       <section *ngIf="gamePhase === 'VERIFICACION'" class="panel idle-panel">
         <div class="idle-icon">◎</div>
         <h3 class="panel-title">Verificación</h3>
-        <p class="panel-sub">Contando votos y verificando integridad del sistema...</p>
+        <p class="panel-sub">Resolviendo votación y verificando integridad del sistema...</p>
       </section>
 
     </main>
 
-    <!-- Lista de nodos -->
     <section class="panel nodes-panel" *ngIf="players.length > 0">
       <h3 class="panel-tag">Topología de red</h3>
       <ul class="node-list">
-        <li *ngFor="let p of players" class="node-item" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
-          <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
+        <li
+          *ngFor="let p of players"
+          class="node-item"
+          [class.dead]="!p.isAlive"
+          [class.self]="p.id === myPlayerId"
+          [class.critical]="isNodeCritical(p)"
+          [class.glitch]="isGlitching(p.id)">
+          <span class="node-status" [class.online]="p.isConnected" [class.offline]="!p.isConnected"></span>
           <span class="node-name">{{ p.name }}</span>
           <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
+          <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
           <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+          <span *ngIf="p.isAlive && !p.isConnected" class="node-tag offline">OFFLINE</span>
         </li>
       </ul>
     </section>
 
   </div>
 
-  <!-- Overlay: eliminado -->
   <div *ngIf="gamePhase === 'ELIMINATED'" class="fullscreen-overlay eliminated">
     <div class="overlay-content">
       <h1 class="overlay-title">SISTEMA CAÍDO</h1>
@@ -178,11 +205,15 @@
     </div>
   </div>
 
-  <!-- Overlay: fin de partida -->
   <div *ngIf="showGameOver" class="fullscreen-overlay gameover">
     <div class="overlay-content">
-      <h1 class="overlay-title accent">PARTIDA TERMINADA</h1>
+      <p class="winner-label">GANADOR</p>
+      <div class="winner-divider"></div>
+      <h1 class="winner-team">{{ winnerTeam }}</h1>
       <p class="overlay-sub">{{ gameOverMessage }}</p>
+      <button class="terminal-btn return-btn" (click)="returnToLogin()">
+        Volver al login
+      </button>
     </div>
   </div>
 
