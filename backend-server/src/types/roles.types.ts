@@ -62,7 +62,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     team: Team.SYSTEM,
     displayName: 'Antivirus',
     description: 'Protege/curar a un jugador durante la noche',
-    playerGuide: 'Escudo del Sistema. Protege a un jugador cada noche para bloquear un intento de eliminación. No puedes proteger al mismo objetivo dos noches seguidas.',
+    playerGuide: 'Escudo del Sistema. Cada noche eliges una sola acción: protect (bloquea un kill) o cure (cura infección), nunca las dos. No repitas el mismo objetivo dos noches seguidas para cada tipo.',
     priority: 60,
   },
   [RoleName.PENTESTER]: {
@@ -154,7 +154,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     team: Team.CHAOTIC,
     displayName: 'Gusano',
     description: 'Se propaga y causa colisiones',
-    playerGuide: 'Amenaza autónoma. Eres inmune al primer ataque, puedes eliminar jugadores de noche y ganas en solitario si quedas como último en pie.',
+    playerGuide: 'Amenaza autónoma. Infectas a un jugador de noche; muere en la ronda siguiente si no lo curan. Eres inmune al primer ataque y ganas en solitario si quedas como último en pie.',
     priority: 28,
   },
   [RoleName.CRYPTO_MINER]: {

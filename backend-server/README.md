@@ -283,7 +283,7 @@ Payload base de `playerAction`:
 | Rol | `type` | `meta` extra | Efecto |
 |-----|--------|--------------|--------|
 | Analista SOC | `scan` | — | Resultado privado `safe` / `malicious` |
-| Antivirus | `protect` | — | Protege objetivo (no 2 noches seguidas al mismo) |
+| Antivirus | `protect` **o** `cure` (una por noche) | — | Solo una acción: bloquear kill o curar infección. Cooldown independiente por objetivo |
 | Pentester | `pentester_kill` | — | Kill letal (2 usos; culpa si mata aliado) |
 | Deep Freeze | `freeze` | — | Congela objetivo (no actúa esa noche) |
 | Enrutador BGP | `bgp_swap` | `{ swapWith: playerId }` | Intercambia tráfico entre dos nodos |
@@ -292,7 +292,7 @@ Payload base de `playerAction`:
 | Ransomware | `ransomware` | — | Silencia objetivo al día siguiente |
 | Spyware | `spy` | — | Revela visitantes al objetivo (privado) |
 | Phisher | `phisher_redirect` | `{ redirectTo: playerId }` | Redirige voto diurno de la víctima |
-| Gusano | `worm_kill` | — | Kill nocturno (inmune a ataques) |
+| Gusano | `worm_infect` | — | Infecta al objetivo; muere la noche siguiente si no hay cura (`worm_kill` es alias) |
 | Zero-Day | `zero_day_assume` | — | Asume rol de jugador ya eliminado |
 | SysAdmin, Troll, Minero | — | — | Sin acción nocturna |
 

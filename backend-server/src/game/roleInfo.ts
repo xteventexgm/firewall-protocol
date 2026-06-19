@@ -11,6 +11,7 @@ const TEAM_LABELS: Record<Team, string> = {
 const NIGHT_ACTION_HINTS: Record<string, string> = {
   scan: 'Cada noche escanea un jugador. Recibirás SEGURO o MALICIOSO (Rootkit siempre aparece como seguro).',
   protect: 'Cada noche protege a un jugador: bloquea un intento de eliminación sobre él. No repitas el mismo objetivo dos noches seguidas.',
+  cure: 'Cura la infección de un jugador (Gusano u otra fuente). No repitas el mismo objetivo dos noches seguidas.',
   pentester_kill: 'Elimina a un jugador de noche (2 usos en total). Si matas a un aliado del Sistema, tú también caes.',
   freeze: 'Congela a un jugador: sus acciones nocturnas de esa noche no surten efecto.',
   bgp_swap: 'Intercambia el destino de dos jugadores para redirigir ataques nocturnos entre ellos.',
@@ -19,7 +20,8 @@ const NIGHT_ACTION_HINTS: Record<string, string> = {
   ransomware: 'Silencia a un jugador hasta el día siguiente: no podrá actuar de noche ni votar de día.',
   spy: 'Espía a un jugador y descubre quién lo visitó esa noche.',
   phisher_redirect: 'Redirige las acciones nocturnas de un jugador hacia otro objetivo.',
-  worm_kill: 'Elimina a un jugador de noche. Eres inmune al primer ataque dirigido contra ti.',
+  worm_infect: 'Infecta a un jugador: morirá al resolver la siguiente noche si no lo curan. Eres inmune al primer ataque dirigido contra ti.',
+  worm_kill: 'Alias de worm_infect: infecta al objetivo en lugar de eliminarlo al instante.',
   zero_day_assume: 'Asume el rol de un jugador ya eliminado (el objetivo debe estar muerto).',
 };
 
@@ -32,6 +34,15 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
   const nightActions = ROLE_NIGHT_ACTIONS[role];
   const nightAction = nightActions?.[0] ?? null;
 
+  let nightActionHint = nightAction ? NIGHT_ACTION_HINTS[nightAction] ?? PASSIVE_NIGHT_HINT : PASSIVE_NIGHT_HINT;
+  if (role === RoleName.ANTIVIRUS) {
+    nightActionHint =
+      'Una sola acción por noche: protect (bloquea un kill) O cure (cura infección), nunca ambas. Puedes cambiar tu elección antes de que termine la noche. No repitas el mismo objetivo dos noches seguidas por acción.';
+  }
+  if (role === RoleName.WORM) {
+    nightActionHint = NIGHT_ACTION_HINTS.worm_infect;
+  }
+
   return {
     type: 'role_assigned',
     role,
@@ -40,6 +51,6 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
     description: catalog.playerGuide ?? catalog.description ?? '',
     teamLabel: TEAM_LABELS[resolvedTeam],
     nightAction,
-    nightActionHint: nightAction ? NIGHT_ACTION_HINTS[nightAction] ?? PASSIVE_NIGHT_HINT : PASSIVE_NIGHT_HINT,
+    nightActionHint,
   };
 }
