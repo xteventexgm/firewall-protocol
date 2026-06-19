@@ -58,6 +58,9 @@
       <h2 class="role-name">{{ playerRole }}</h2>
       <p *ngIf="roleDescription" class="role-description">{{ roleDescription }}</p>
       <p *ngIf="nightActionHint" class="night-hint">{{ nightActionHint }}</p>
+      <ul *ngIf="roleStatusLines.length" class="role-status-lines">
+        <li *ngFor="let line of roleStatusLines">{{ line }}</li>
+      </ul>
       <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
     </section>
 
@@ -174,6 +177,10 @@
       <section *ngIf="gamePhase === 'DIA'" class="panel day-panel">
         <h3 class="panel-title day">Auditoría diurna</h3>
         <p class="panel-sub">Analiza el comportamiento de la red. La votación comenzará pronto.</p>
+        <ul *ngIf="lastNightKillNames.length" class="day-recap">
+          <li *ngFor="let name of lastNightKillNames">Caído anoche: {{ name }}</li>
+        </ul>
+        <p *ngIf="!lastNightKillNames.length && nightNumber > 0" class="panel-sub muted">Sin bajas registradas la última noche.</p>
       </section>
 
       <!-- VOTACIÓN -->
@@ -196,6 +203,13 @@
           Confirmar voto
         </button>
 
+        <button
+          (click)="executeSkipVote()"
+          class="terminal-btn ghost">
+          Abstenerse (no expulsar)
+        </button>
+
+        <p *ngIf="voteTiedMessage" class="vote-tied-msg">{{ voteTiedMessage }}</p>
         <p *ngIf="myVoteConfirmed" class="vote-confirmed">✓ Voto confirmado por el servidor</p>
       </section>
 
@@ -203,7 +217,7 @@
       <section *ngIf="gamePhase === 'VERIFICACION'" class="panel idle-panel">
         <div class="idle-icon">◎</div>
         <h3 class="panel-title">Verificación</h3>
-        <p class="panel-sub">Contando votos y verificando integridad del sistema...</p>
+        <p class="panel-sub">El host comprueba condiciones de victoria. Espera el siguiente avance de fase.</p>
       </section>
 
     </main>
@@ -220,6 +234,7 @@
             <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
           </ng-container>
           <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+          <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
           <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
         </li>
       </ul>

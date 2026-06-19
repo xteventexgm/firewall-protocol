@@ -44,6 +44,30 @@ export function getSecondaryTargetLabel(role: string | undefined): string {
   return 'Segundo objetivo';
 }
 
+import { PlayerRoleMeta } from './models/game-state.model';
+
+/** Líneas de estado dinámico según metadata del backend (solo jugador local). */
+export function getRoleStatusLines(role: string | undefined, meta: PlayerRoleMeta | undefined): string[] {
+  if (!meta) return [];
+  const lines: string[] = [];
+  if (meta.pentesterUsesLeft != null) {
+    lines.push(`Eliminaciones restantes: ${meta.pentesterUsesLeft}/2`);
+  }
+  if (meta.shieldCharges != null) {
+    lines.push(`Escudos cripto: ${meta.shieldCharges}/3 (bloquean un kill cada uno)`);
+  }
+  if (meta.ransomwareCooldown != null && meta.ransomwareCooldown > 0) {
+    lines.push(`Secuestro en cooldown: ${meta.ransomwareCooldown} noche(s)`);
+  }
+  if (meta.isWormImmune && role === 'Gusano') {
+    lines.push('Inmunidad activa — no puedes ser eliminado mientras vivas');
+  }
+  if (meta.assumedFromPlayerId) {
+    lines.push('Identidad asumida — actúas con el rol del nodo caído');
+  }
+  return lines;
+}
+
 export function getNightActionLabel(role: string | undefined, actionType?: string): string {
   const byType: Record<string, string> = {
     scan: 'Escanear nodo',

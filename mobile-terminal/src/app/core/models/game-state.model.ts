@@ -7,6 +7,15 @@ export type GamePhase =
   | 'VERIFICACION'
   | 'FIN';
 
+/** Metadata propia visible en roomState (backend sanitizeMetadata isSelf). */
+export interface PlayerRoleMeta {
+  pentesterUsesLeft?: number;
+  shieldCharges?: number;
+  ransomwareCooldown?: number;
+  isWormImmune?: boolean;
+  assumedFromPlayerId?: string | null;
+}
+
 export interface RoomPlayer {
   id: string;
   name: string;
@@ -18,6 +27,34 @@ export interface RoomPlayer {
   joinedAt?: number;
   role?: string;
   team?: string;
+  meta?: PlayerRoleMeta;
+}
+
+export type PrivateResultType =
+  | 'scan'
+  | 'spy'
+  | 'hacker_team'
+  | 'role_assigned'
+  | 'infected'
+  | 'cured'
+  | 'infection_warning';
+
+export interface PrivateResultPayload {
+  type: PrivateResultType;
+  targetId?: string;
+  result?: 'safe' | 'malicious';
+  visitors?: string[];
+  members?: string[];
+  role?: string;
+  team?: string;
+  displayName?: string;
+  description?: string;
+  teamLabel?: string;
+  nightAction?: string | null;
+  nightActionHint?: string;
+  infectionSource?: string;
+  maturesAfterNight?: number;
+  critical?: boolean;
 }
 
 export interface PlayerRoomState {
@@ -45,6 +82,8 @@ export interface VoteTiedPayload {
   roomId: string;
   voteCount: number;
   candidates: string[];
+  skipVotes: number;
+  reason: 'tie' | 'no_votes';
 }
 
 export interface PhaseTransition {

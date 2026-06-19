@@ -1,9 +1,21 @@
 import {
   GamePhase,
   IncidentReport,
+  PlayerRoleMeta,
   PlayerRoomState,
   RoomPlayer,
 } from '../models/game-state.model';
+
+function extractRoleMeta(metadata: any): PlayerRoleMeta | undefined {
+  if (!metadata) return undefined;
+  const meta: PlayerRoleMeta = {};
+  if (metadata.pentesterUsesLeft != null) meta.pentesterUsesLeft = metadata.pentesterUsesLeft;
+  if (metadata.shieldCharges != null) meta.shieldCharges = metadata.shieldCharges;
+  if (metadata.ransomwareCooldown != null) meta.ransomwareCooldown = metadata.ransomwareCooldown;
+  if (metadata.isWormImmune) meta.isWormImmune = true;
+  if (metadata.assumedFromPlayerId) meta.assumedFromPlayerId = metadata.assumedFromPlayerId;
+  return Object.keys(meta).length ? meta : undefined;
+}
 
 export function sanitizeRoomState(raw: any): PlayerRoomState {
   const dayNumber = raw?.dayNumber ?? 0;
@@ -18,6 +30,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     joinedAt: p.joinedAt ?? Date.now(),
     role: p.role,
     team: p.team,
+    meta: extractRoleMeta(p.metadata),
   }));
 
   return {
@@ -74,10 +87,28 @@ export function isNodeCritical(player: RoomPlayer): boolean {
 
 export function translateEliminationReason(reason: string): string {
   const labels: Record<string, string> = {
-    vote: 'votación',
-    honeypot_drag: 'arrastre honeypot',
+    vote: 'votación pública',
+    honeypot_drag: 'arrastre de honeypot',
   };
   return labels[reason] ?? reason;
+}
+
+export function formatVoteTiedMessage(payload: {
+  reason: 'tie' | 'no_votes';
+  candidates: string[];
+  skipVotes: number;
+}): string {
+  if (payload.reason === 'no_votes') {
+    return 'Sin votos de eliminación — la red pasa a operación nocturna.';
+  }
+  const names = payload.candidates.length ? payload.candidates.join(', ') : 'varios nodos';
+  const skip = payload.skipVotes ? ` (${payload.skipVotes} abstención(es))` : '';
+  return `Empate entre ${names}${skip} — no hubo expulsión.`;
+}
+
+export function deadPlayerRoleLabel(player: RoomPlayer): string | null {
+  if (player.isAlive || !player.role) return null;
+  return player.role;
 }
 
 export function winnerLabel(winner: string | null | undefined): string {

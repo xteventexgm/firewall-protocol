@@ -8,8 +8,10 @@ import {
   GamePhase,
   NightResolution,
   PlayerRoomState,
+  PrivateResultPayload,
   RoomPlayer,
   TargetOption,
+  VoteTiedPayload,
 } from '../../core/models/game-state.model';
 
 export type { GamePhase, NightResolution, RoomPlayer, TargetOption };
@@ -74,6 +76,7 @@ export class SocketService {
   readonly incidentReport$ = new Subject<IncidentReport>();
   readonly nightResolved$ = new Subject<{ roomId: string; resolution: NightResolution }>();
   readonly voteTrace$ = new Subject<VoteTrace>();
+  readonly voteTied$ = new Subject<VoteTiedPayload>();
   readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string }>();
   readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string }>();
   readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
@@ -221,6 +224,7 @@ export class SocketService {
     this.leaveRoom();
     localStorage.removeItem('roomCode');
     localStorage.removeItem('playerName');
+    localStorage.removeItem('myPlayerId');
     this.myRole = undefined;
     this.myTeam = undefined;
   }
@@ -252,7 +256,7 @@ export class SocketService {
       }
     });
 
-    this.socket.on('privateResult', (_roomId: string, payload: any) => {
+    this.socket.on('privateResult', (_roomId: string, payload: PrivateResultPayload) => {
       this.privateResult$.next(payload);
 
       if (payload.type === 'role_assigned') {
@@ -261,7 +265,7 @@ export class SocketService {
         const name = localStorage.getItem('playerName') ?? '';
         this.playerState$.next({
           name,
-          role: payload.displayName ?? payload.role,
+          role: payload.displayName ?? payload.role ?? 'Desconocido',
           roleId: payload.role,
           team: payload.team,
           teamLabel: payload.teamLabel,
@@ -290,6 +294,10 @@ export class SocketService {
 
     this.socket.on('voteTrace', (trace: VoteTrace) => {
       this.voteTrace$.next(trace);
+    });
+
+    this.socket.on('voteTied', (payload: VoteTiedPayload) => {
+      this.voteTied$.next(payload);
     });
 
     this.socket.on('playerReconnected', (roomId: string, playerId: string) => {

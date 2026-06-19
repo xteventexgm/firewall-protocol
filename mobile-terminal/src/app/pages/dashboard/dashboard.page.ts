@@ -15,10 +15,13 @@ import {
   getNightActionLabel,
   getNightActionType,
   getNightActionVariants,
+  getRoleStatusLines,
   needsSecondaryTarget,
   getSecondaryTargetLabel,
 } from '../../core/role-actions';
 import {
+  deadPlayerRoleLabel,
+  formatVoteTiedMessage,
   isNodeCritical,
   phaseLabel,
   translateEliminationReason,
@@ -32,7 +35,7 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_BLACK_HAT, PLAYERS_PER_CHAOTIC_ROLE } from '../../core/models/game-state.model';
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_BLACK_HAT, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -48,6 +51,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   readonly playersPerChaotic = PLAYERS_PER_CHAOTIC_ROLE;
   maxPlayers = MAX_PLAYERS;
   myInfectionMaturesAfterNight: number | null = null;
+  myRoleMeta: PlayerRoleMeta | undefined;
+  roleStatusLines: string[] = [];
+  voteTiedMessage = '';
+  lastNightKillNames: string[] = [];
 
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
@@ -85,6 +92,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   hackerTeamMemberIds: string[] = [];
 
   private subs = new Subscription();
+  private pendingNightAction: PendingNightAction | null = null;
   myPlayerId = localStorage.getItem('myPlayerId') ?? '';
   private incidentTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
@@ -145,6 +153,13 @@ export class DashboardPage implements OnInit, OnDestroy {
           .map((p) => ({ id: p.id, name: p.name, isAlive: false }));
 
         this.syncInfectionFromState(me);
+        this.syncRoleMeta(me);
+
+        if (state.lastNightKills?.length) {
+          this.lastNightKillNames = state.lastNightKills.map(
+            (id) => this.players.find((p) => p.id === id)?.name ?? id,
+          );
+        }
       }),
     );
 
@@ -193,6 +208,13 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (payload.type === 'role_assigned') {
           this.setStatus(`Rol asignado: ${payload.displayName ?? payload.role}`, 'success');
+          const roleKey = payload.role ?? '';
+          this.selectedNightActionType = '';
+          this.canActAtNight = !!getNightActionType(roleKey);
+          const variants = getNightActionVariants(roleKey);
+          if (variants.length) {
+            this.selectedNightActionType = variants[0].value;
+          }
         }
         if (payload.type === 'infection_warning') {
           this.setStatus(
@@ -238,6 +260,10 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (t.to === 'VOTACION') {
           this.myVoteConfirmed = false;
           this.selectedTarget = '';
+          this.voteTiedMessage = '';
+        }
+        if (t.to === 'VERIFICACION') {
+          this.setStatus('Verificando integridad del sistema…', 'info');
         }
       }),
     );
@@ -263,8 +289,21 @@ export class DashboardPage implements OnInit, OnDestroy {
         const parts: string[] = [];
         if (kills) parts.push(`${kills} caída(s) nocturna(s)`);
         if (silenced) parts.push(`${silenced} silenciado(s)`);
+        if (resolution.infections?.length) parts.push(`${resolution.infections.length} infectado(s)`);
+        if (resolution.cures?.length) parts.push(`${resolution.cures.length} curado(s)`);
         if (parts.length) {
           this.setStatus(`Noche resuelta: ${parts.join(', ')}`, 'warn');
+        }
+
+        if (this.pendingNightAction && this.nightActionReport?.status === 'pending') {
+          this.nightActionReport = buildResolvedReport(
+            this.pendingNightAction,
+            resolution,
+            resolution.logs ?? [],
+            this.myPlayerId,
+            this.players,
+          );
+          this.pendingNightAction = null;
         }
 
         if (resolution.infectionKills?.includes(this.myPlayerId)) {
@@ -279,10 +318,27 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
 
     this.subs.add(
+      this.socketService.voteTied$.subscribe((payload) => {
+        const candidateNames = payload.candidates.map(
+          (id) => this.players.find((p) => p.id === id)?.name ?? id,
+        );
+        this.voteTiedMessage = formatVoteTiedMessage({
+          reason: payload.reason,
+          candidates: candidateNames,
+          skipVotes: payload.skipVotes ?? 0,
+        });
+        this.setStatus(this.voteTiedMessage, 'warn');
+      }),
+    );
+
+    this.subs.add(
       this.socketService.voteTrace$.subscribe((trace) => {
         if (trace.voter === this.myPlayerId) {
           this.myVoteConfirmed = true;
-          this.setStatus('Voto registrado en el servidor', 'success');
+          const targetLabel = trace.target
+            ? (this.players.find((p) => p.id === trace.target)?.name ?? trace.target)
+            : 'abstención';
+          this.setStatus(`Voto registrado: ${targetLabel}`, 'success');
         }
       }),
     );
@@ -290,10 +346,12 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.playerEliminated$.subscribe(({ playerId, reason }) => {
         const name = this.players.find((p) => p.id === playerId)?.name ?? playerId;
+        const reasonLabel = translateEliminationReason(reason);
         if (playerId === this.myPlayerId && !this.showGameOver) {
           this.gamePhase = 'ELIMINATED';
+          this.setStatus(`Eliminado por ${reasonLabel}`, 'error');
         } else {
-          this.setStatus(`${name} eliminado (${reason})`, 'error');
+          this.setStatus(`${name} eliminado (${reasonLabel})`, 'error');
         }
       }),
     );
@@ -352,6 +410,10 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.hackerTeamMemberIds,
       this.gamePhase,
     );
+  }
+
+  deadPlayerRole(player: RoomPlayer): string | null {
+    return deadPlayerRoleLabel(player);
   }
 
   get isNightPhase(): boolean {
@@ -428,6 +490,15 @@ export class DashboardPage implements OnInit, OnDestroy {
       secondaryName,
       nightNumber: this.nightNumber,
     });
+    this.pendingNightAction = {
+      actionType,
+      role: roleKey,
+      targetId: this.selectedTarget,
+      targetName,
+      secondaryId: this.selectedSecondary || undefined,
+      secondaryName,
+      nightNumber: this.nightNumber,
+    };
 
     if (this.needsSecondary) {
       if (!this.selectedSecondary) return;
@@ -443,7 +514,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   executeVote(): void {
-    this.socketService.submitVote(this.selectedTarget || null);
+    if (!this.selectedTarget) return;
+    this.socketService.submitVote(this.selectedTarget);
+  }
+
+  executeSkipVote(): void {
+    this.socketService.submitVote(null);
     this.selectedTarget = '';
   }
 
@@ -469,7 +545,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.myInfectionMaturesAfterNight = me.infectionMaturesAfterNight ?? null;
     if (
       !this.nightActionReport ||
-      !this.nightActionReport.headline.includes('infect')
+      !this.nightActionReport.headline.toLowerCase().includes('infect')
     ) {
       this.nightActionReport = {
         nightNumber: this.nightNumber,
@@ -483,6 +559,12 @@ export class DashboardPage implements OnInit, OnDestroy {
         ],
       };
     }
+  }
+
+  private syncRoleMeta(me: RoomPlayer | undefined): void {
+    this.myRoleMeta = me?.meta;
+    const roleKey = this.socketService.getMyRole() ?? me?.role;
+    this.roleStatusLines = getRoleStatusLines(roleKey, this.myRoleMeta);
   }
 
   private setStatus(msg: string, type: 'info' | 'success' | 'error' | 'warn'): void {

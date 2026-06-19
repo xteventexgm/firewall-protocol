@@ -279,6 +279,34 @@
   color: var(--color-cyber-warn, #ffb800);
 }
 
+.role-status-lines {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.day-recap {
+  margin: 0.75rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
+  color: var(--color-cyber-danger, #ff2d55);
+}
+
+.vote-tied-msg {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-cyber-warn, #ffb800);
+}
+
+.terminal-btn.ghost {
+  margin-top: 0.5rem;
+  background: transparent;
+  border: 1px solid #64748b66;
+  color: #94a3b8;
+}
+
 .infection-panel {
   border-color: #ff2d5566;
   background: #ff2d550d;
@@ -590,6 +618,12 @@
   &.offline {
     color: #64748b;
     border-color: #64748b33;
+  }
+
+  &.revealed {
+    color: #a78bfa;
+    border-color: #a78bfa44;
+    background: #a78bfa11;
   }
 
   &.ally {
