@@ -15,6 +15,21 @@ import {
   needsSecondaryTarget,
   getSecondaryTargetLabel,
 } from '../../core/role-actions';
+import {
+  isNodeCritical,
+  phaseLabel,
+  translateEliminationReason,
+} from '../../core/utils/game.utils';
+import { buildGameOverView, GameOverView } from '../../core/utils/game-over.utils';
+import {
+  buildPendingReport,
+  buildPrivateResultReport,
+  buildResolvedReport,
+  NightActionReport,
+  PendingNightAction,
+} from '../../core/utils/night-result.utils';
+import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
+import { MIN_PLAYERS_TO_START } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -51,9 +66,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   incidentNames: string[] = [];
   showIncidentReport = false;
   phaseFlash = '';
-  gameOverMessage = '';
+  phaseBanner = '';
+  gameOverView: GameOverView | null = null;
   showGameOver = false;
   myVoteConfirmed = false;
+  myTeam: string | undefined;
+  hackerTeamMemberIds: string[] = [];
 
   private subs = new Subscription();
   myPlayerId = localStorage.getItem('myPlayerId') ?? '';
@@ -123,6 +141,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.canActAtNight = !!getNightActionType(player.roleId ?? player.role);
         }
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
+        if (player.team) this.myTeam = player.team;
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead) this.gamePhase = 'ELIMINATED';
@@ -137,7 +156,14 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus(`Escaneo completado: ${result}`, 'info');
         }
         if (payload.type === 'hacker_team') {
-          this.setStatus(`Equipo Black Hat: ${(payload.members ?? []).length} nodos`, 'warn');
+          this.hackerTeamMemberIds = payload.members ?? [];
+          const names = this.hackerTeamMemberIds
+            .map((id: string) => this.players.find((p) => p.id === id)?.name ?? id)
+            .join(', ');
+          this.setPersistentRoleInfo('Equipo Black Hat', [
+            `Compañeros: ${names || (payload.members ?? []).length + ' nodos'}`,
+            'Coordinad vuestras acciones nocturnas.',
+          ]);
         }
         if (payload.type === 'spy') {
           const visitors = (payload.visitors ?? []).length;
@@ -256,6 +282,24 @@ export class DashboardPage implements OnInit, OnDestroy {
     clearTimeout(this.statusTimer);
   }
 
+  isNodeCritical(player: RoomPlayer): boolean {
+    return isNodeCritical(player);
+  }
+
+  isGlitching(playerId: string): boolean {
+    return this.glitchPlayerIds.includes(playerId);
+  }
+
+  getPlayerNodeBadge(player: RoomPlayer) {
+    return getPlayerNodeBadge(
+      this.myTeam,
+      player,
+      this.myPlayerId,
+      this.hackerTeamMemberIds,
+      this.gamePhase,
+    );
+  }
+
   get isNightPhase(): boolean {
     return this.gamePhase === 'NOCHE' && this.canActAtNight && !this.isSilenced;
   }
@@ -361,20 +405,19 @@ export class DashboardPage implements OnInit, OnDestroy {
   ): void {
     this.showGameOver = true;
     this.gamePhase = 'FIN';
+    this.gameOverView = buildGameOverView(
+      this.myTeam,
+      this.myPlayerId,
+      winner,
+      soloWinner,
+      this.players,
+    );
+  }
 
-    if (soloWinner) {
-      const name = this.players.find((p) => p.id === soloWinner.playerId)?.name ?? soloWinner.playerId;
-      this.gameOverMessage = `Victoria solitaria: ${name} (${soloWinner.role})`;
-      return;
+  get teamTheme(): 'system' | 'black_hat' | 'chaotic' | null {
+    if (this.myTeam === 'system' || this.myTeam === 'black_hat' || this.myTeam === 'chaotic') {
+      return this.myTeam;
     }
-
-    const winnerLabels: Record<string, string> = {
-      system: 'El SISTEMA ha restaurado la red',
-      black_hat: 'BLACK HAT ha comprometido la infraestructura',
-      chaotic: 'El caos ha prevalecido',
-    };
-    this.gameOverMessage = winner
-      ? (winnerLabels[winner] ?? `Ganador: ${winner}`)
-      : 'Partida terminada';
+    return null;
   }
 }

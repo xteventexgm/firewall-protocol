@@ -1,4 +1,9 @@
+/**
+ * Desarrollo (ionic serve).
+ * Con ngrok: ngrok http 3000 → copia la URL https aquí (sin puerto).
+ */
 export const environment = {
   production: false,
-  apiUrl: 'http://26.156.134.72:3000',
+  apiUrl: 'https://interapophyseal-contemningly-sherly.ngrok-free.dev',
+  socketNamespace: '/game',
 };

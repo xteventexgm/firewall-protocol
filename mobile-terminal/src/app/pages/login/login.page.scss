@@ -5,6 +5,7 @@
 
 .login-content {
   --background: var(--color-cyber-bg, #050a12);
+  height: 100%;
 }
 
 .login-shell {
@@ -14,8 +15,11 @@
   justify-content: center;
   min-height: 100%;
   padding: 1.5rem;
+  padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   font-family: var(--font-mono);
   color: #c8e6f0;
+  box-sizing: border-box;
 }
 
 .login-header {

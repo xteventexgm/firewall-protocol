@@ -111,12 +111,30 @@ export class SocketService {
   connect(): void {
     if (this.socket?.connected) return;
 
-    this.socket = io(`${environment.apiUrl}/game`, {
-      transports: ['websocket'],
-      extraHeaders: {
-        'Bypass-Tunnel-Reminder': 'true',
-      },
-    });
+    if (this.socket && !this.socket.connected) {
+      this.socket.connect();
+      return;
+    }
+
+    const url = this.buildSocketUrl();
+    const socketOptions: Parameters<typeof io>[1] = {
+      // polling primero: extraHeaders solo aplican en polling (ngrok/localtunnel)
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      timeout: 15000,
+    };
+
+    const extraHeaders = this.buildTunnelHeaders();
+    if (Object.keys(extraHeaders).length > 0) {
+      socketOptions.extraHeaders = extraHeaders;
+      socketOptions.transportOptions = {
+        polling: { extraHeaders },
+      };
+    }
+
+    console.log('[socket] conectando a', url);
+    this.socket = io(url, socketOptions);
 
     this.socket.on('connect', () => {
       console.log('[socket] conectado');
@@ -128,7 +146,34 @@ export class SocketService {
       this.connected$.next(false);
     });
 
+    this.socket.on('connect_error', (err: Error) => {
+      console.error('[socket] connect_error', err.message);
+      this.connected$.next(false);
+      this.error$.next(`No se pudo conectar al backend: ${err.message}`);
+    });
+
     this.attachListeners();
+  }
+
+  private buildSocketUrl(): string {
+    let base = environment.apiUrl.replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(base)) {
+      base = `https://${base}`;
+    }
+    return `${base}${environment.socketNamespace}`;
+  }
+
+  /** ngrok/localtunnel bloquean clientes móviles sin estos headers (también en APK/prod). */
+  private buildTunnelHeaders(): Record<string, string> {
+    const host = environment.apiUrl.toLowerCase();
+    const headers: Record<string, string> = {};
+    if (host.includes('ngrok')) {
+      headers['ngrok-skip-browser-warning'] = '69420';
+    }
+    if (host.includes('loca.lt') || host.includes('localtunnel')) {
+      headers['Bypass-Tunnel-Reminder'] = 'true';
+    }
+    return headers;
   }
 
   joinRoom(roomId: string, playerId: string, name: string): void {
