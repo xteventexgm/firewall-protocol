@@ -57,6 +57,14 @@
     --color-cyber-warn: #a1a1aa;
     --team-text: #a1a1aa;
   }
+
+  &.player-dead-screen {
+    --color-cyber-bg: #1a0508;
+    --color-cyber-panel: #240810;
+    --color-cyber-border: #5a1830;
+    --color-cyber-accent: #ff2d55;
+    --team-text: #fecdd3;
+  }
 }
 
 .terminal-shell {

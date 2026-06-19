@@ -33,7 +33,7 @@ import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './player
 import { buildRoleAssignedPayload } from './roleInfo';
 import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
-import { computeVoteResolution } from './voteResolution';
+import { computeVoteResolution, isVoteTieResult } from './voteResolution';
 
 /** Intento de unirse a partida ya iniciada (solo LOBBY acepta nuevos jugadores). */
 export class RoomJoinDeniedError extends Error {
@@ -285,7 +285,7 @@ export class Room extends EventEmitter {
     }
 
     let eliminated: string | null = null;
-    if (events.eliminatedPlayerId) {
+    if (!isVoteTieResult(resolution) && events.eliminatedPlayerId) {
       const bestTarget = events.eliminatedPlayerId;
       const player = this.state.getPlayer(bestTarget);
       if (player?.isAlive) {
@@ -393,6 +393,12 @@ export class Room extends EventEmitter {
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after resolveVotes', e); }
 
       if (voteResult.tied) {
+        if (voteResult.eliminated != null) {
+          logger.warn('[Room] vote tie had eliminated id — ignoring', {
+            roomId: this.id,
+            eliminated: voteResult.eliminated,
+          });
+        }
         this.sm.transitionTo(GamePhase.NOCHE);
         return GamePhase.NOCHE;
       }

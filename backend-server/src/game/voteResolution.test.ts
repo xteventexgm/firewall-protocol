@@ -45,4 +45,16 @@ const roomId = 'FIRE-TEST';
   assert(resolution.reason === 'no_votes', 'no_votes reason');
 }
 
+// Empate a 3 bandas
+{
+  const { resolution } = computeVoteResolution(
+    roomId,
+    { a: ['b'], b: ['c'], c: ['d'] },
+    alive,
+  );
+  assert(resolution.tied === true, '3-way tie');
+  assert(resolution.eliminated === null, '3-way no kill');
+  assert(resolution.reason === 'tie', '3-way reason tie');
+}
+
 console.log('\nAll vote resolution tests passed.');

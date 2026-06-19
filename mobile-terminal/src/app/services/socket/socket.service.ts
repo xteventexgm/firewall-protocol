@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -7,6 +8,7 @@ import {
   getEliminatedIdsFromIncident,
   sanitizeRoomState,
 } from '../../core/utils/game.utils';
+import { clearGameSessionStorage } from '../../core/utils/error.utils';
 import {
   GamePhase,
   GameOverPayload,
@@ -26,8 +28,10 @@ export type { GamePhase, RoomPlayer, TargetOption };
 
 @Injectable({ providedIn: 'root' })
 export class SocketService {
+  private readonly router = inject(Router);
   private socket: Socket | null = null;
   private listenersAttached = false;
+  private gameOverNavTimer?: ReturnType<typeof setTimeout>;
 
   private myRole: string | undefined;
   private myTeam: string | undefined;
@@ -183,6 +187,7 @@ export class SocketService {
   }
 
   clearSession(): void {
+    this.cancelGameOverRedirect();
     this.leaveRoom();
     localStorage.removeItem('roomCode');
     localStorage.removeItem('playerName');
@@ -191,13 +196,40 @@ export class SocketService {
     this.myTeam = undefined;
   }
 
-  /** Tras game over: invalida sesión de sala para que RoomGuard no re-entre. */
+  /** Tras game over: invalida sesión y programa vuelta a login. */
   finalizeAfterGameOver(): void {
+    this.cancelGameOverRedirect();
     this.leaveRoom();
-    localStorage.removeItem('roomCode');
-    localStorage.removeItem('myPlayerId');
+    clearGameSessionStorage();
     this.myRole = undefined;
     this.myTeam = undefined;
+  }
+
+  /** Limpia sesión y redirige a login tras mostrar el overlay de victoria. */
+  scheduleLoginRedirectAfterGameOver(delayMs = 5000): void {
+    this.cancelGameOverRedirect();
+    this.gameOverNavTimer = setTimeout(() => {
+      clearGameSessionStorage();
+      void this.router.navigate(['/login'], { queryParams: { finished: '1' } });
+      this.gameOverNavTimer = undefined;
+    }, delayMs);
+  }
+
+  cancelGameOverRedirect(): void {
+    if (this.gameOverNavTimer) {
+      clearTimeout(this.gameOverNavTimer);
+      this.gameOverNavTimer = undefined;
+    }
+  }
+
+  private onGameOverFromServer(
+    roomId: string,
+    winner: string | null,
+    soloWinner?: GameOverPayload['soloWinner'],
+  ): void {
+    this.finalizeAfterGameOver();
+    this.gameOver$.next({ roomId, winner, soloWinner });
+    this.scheduleLoginRedirectAfterGameOver(5000);
   }
 
   private attachListeners(): void {
@@ -297,7 +329,7 @@ export class SocketService {
     this.socket.on(
       'gameOver',
       (roomId: string, winner: string | null, soloWinner?: GameOverPayload['soloWinner']) => {
-        this.gameOver$.next({ roomId, winner, soloWinner });
+        this.onGameOverFromServer(roomId, winner, soloWinner);
       },
     );
   }

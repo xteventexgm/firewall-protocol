@@ -106,3 +106,8 @@ export function computeVoteResolution(
     },
   };
 }
+
+/** Empate o sin votos de eliminación — nadie debe morir; la sala pasa a NOCHE. */
+export function isVoteTieResult(resolution: VoteResolution): boolean {
+  return resolution.tied && resolution.eliminated === null;
+}

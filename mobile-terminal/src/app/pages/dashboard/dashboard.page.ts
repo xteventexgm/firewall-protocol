@@ -41,6 +41,7 @@ import {
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 @Component({
   selector: 'app-dashboard',
@@ -102,7 +103,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private incidentTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
   private statusTimer?: ReturnType<typeof setTimeout>;
-  private gameOverRedirectTimer?: ReturnType<typeof setTimeout>;
+  private deathHapticTriggered = false;
 
   constructor(
     private socketService: SocketService,
@@ -139,6 +140,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.handleGameOver(state.winner, state.soloWinner);
         } else if (me && !me.isAlive) {
           this.gamePhase = 'ELIMINATED';
+          void this.runDeathHaptic();
         } else if (state.phase) {
           this.gamePhase = state.phase;
         }
@@ -189,6 +191,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
           this.gamePhase = 'ELIMINATED';
+          void this.runDeathHaptic();
         }
         this.isSilenced = !!player.silenced;
       }),
@@ -261,6 +264,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.phaseTransition$.subscribe((t) => {
         this.triggerPhaseFlash(t.to);
+        void this.runPhaseHaptic(t.to);
         if (t.to === 'DIA') {
           this.setStatus('Amanecer — auditoría diurna iniciada', 'info');
         }
@@ -417,7 +421,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     clearTimeout(this.incidentTimer);
     clearTimeout(this.flashTimer);
     clearTimeout(this.statusTimer);
-    clearTimeout(this.gameOverRedirectTimer);
+    this.socketService.cancelGameOverRedirect();
   }
 
   isNodeCritical(player: RoomPlayer): boolean {
@@ -558,13 +562,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   returnToLogin(): void {
-    clearTimeout(this.gameOverRedirectTimer);
-    this.navigateToLoginAfterGameOver();
-  }
-
-  private navigateToLoginAfterGameOver(): void {
-    this.socketService.finalizeAfterGameOver();
-    this.router.navigate(['/login'], { queryParams: { finished: '1' } });
+    this.socketService.cancelGameOverRedirect();
+    void this.router.navigate(['/login'], { queryParams: { finished: '1' } });
   }
 
   private setPersistentRoleInfo(headline: string, details: string[]): void {
@@ -631,13 +630,31 @@ export class DashboardPage implements OnInit, OnDestroy {
     winner: string | null | undefined,
     soloWinner?: { playerId: string; role: string; reason: string } | null,
   ): void {
-    if (this.showGameOver && this.gameOverRedirectTimer) return;
+    if (this.showGameOver) return;
     this.showGameOverScreen(winner, soloWinner);
-    this.socketService.finalizeAfterGameOver();
-    clearTimeout(this.gameOverRedirectTimer);
-    this.gameOverRedirectTimer = setTimeout(() => {
-      this.navigateToLoginAfterGameOver();
-    }, 5000);
+  }
+
+  private async runPhaseHaptic(phase: GamePhase): Promise<void> {
+    try {
+      if (phase === 'NOCHE') {
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+      } else if (phase === 'DIA') {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      }
+    } catch {
+      /* Web / emulador sin motor háptico */
+    }
+  }
+
+  private async runDeathHaptic(): Promise<void> {
+    if (this.deathHapticTriggered) return;
+    this.deathHapticTriggered = true;
+    try {
+      await Haptics.vibrate({ duration: 750 });
+      await Haptics.impact({ style: ImpactStyle.Heavy });
+    } catch {
+      /* Web / emulador sin motor háptico */
+    }
   }
 
   private showGameOverScreen(
@@ -665,5 +682,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   /** Equipo Sistema sin acciones nocturnas: pantalla en gris durante NOCHE. */
   get isSystemNightStandby(): boolean {
     return this.myTeam === 'system' && this.gamePhase === 'NOCHE';
+  }
+
+  /** Jugador eliminado: fondo de alerta roja (no durante overlay de victoria). */
+  get isPlayerDead(): boolean {
+    return this.gamePhase === 'ELIMINATED' && !this.showGameOver;
   }
 }
