@@ -3,15 +3,16 @@ import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { getNightActionType } from '../../core/role-actions';
+import { sanitizeRoomState } from '../../core/utils/game.utils';
+import {
+  GamePhase,
+  NightResolution,
+  PlayerRoomState,
+  RoomPlayer,
+  TargetOption,
+} from '../../core/models/game-state.model';
 
-export type GamePhase =
-  | 'LOBBY'
-  | 'REPARTO'
-  | 'NOCHE'
-  | 'DIA'
-  | 'VOTACION'
-  | 'VERIFICACION'
-  | 'FIN';
+export type { GamePhase, NightResolution, RoomPlayer, TargetOption };
 
 export interface PlayerView {
   name: string;
@@ -23,13 +24,6 @@ export interface PlayerView {
   nightActionHint?: string;
   isDead: boolean;
   silenced?: boolean;
-  isConnected?: boolean;
-}
-
-export interface TargetOption {
-  id: string;
-  name: string;
-  isAlive?: boolean;
   isConnected?: boolean;
 }
 
@@ -46,14 +40,6 @@ export interface IncidentReport {
   disconnected: string[];
 }
 
-export interface NightResolution {
-  kills: string[];
-  prevented: { actionId: string; reason: string }[];
-  redirects: { actionId: string; from: string; to: string }[];
-  logs: string[];
-  silenced: string[];
-}
-
 export interface VoteTrace {
   roomId: string;
   voter: string;
@@ -67,13 +53,6 @@ export interface GameOverPayload {
   soloWinner?: { playerId: string; role: string; reason: string } | null;
 }
 
-export interface RoomPlayer {
-  id: string;
-  name: string;
-  isAlive: boolean;
-  isConnected?: boolean;
-}
-
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private socket: Socket | null = null;
@@ -84,15 +63,7 @@ export class SocketService {
 
   readonly connected$ = new BehaviorSubject<boolean>(false);
 
-  readonly gameState$ = new Subject<{
-    phase: GamePhase;
-    players: RoomPlayer[];
-    roomId: string;
-    dayNumber?: number;
-    nightNumber?: number;
-    winner?: string | null;
-    soloWinner?: GameOverPayload['soloWinner'];
-  }>();
+  readonly gameState$ = new Subject<PlayerRoomState & { roomId: string }>();
 
   readonly playerState$ = new Subject<PlayerView>();
   readonly privateResult$ = new Subject<any>();
@@ -204,12 +175,12 @@ export class SocketService {
     }
   }
 
-  submitNightAction(targetId: string, meta?: Record<string, unknown>): boolean {
+  submitNightAction(targetId: string, meta?: Record<string, unknown>, actionType?: string): boolean {
     const roomId = localStorage.getItem('roomCode');
     const playerId = localStorage.getItem('myPlayerId');
     if (!roomId || !playerId || !this.socket?.connected) return false;
 
-    const type = getNightActionType(this.myRole);
+    const type = actionType ?? getNightActionType(this.myRole);
     if (!type) {
       this.error$.next('Tu rol no tiene acción nocturna');
       return false;
@@ -242,31 +213,39 @@ export class SocketService {
     return this.myRole;
   }
 
+  getMyTeam(): string | undefined {
+    return this.myTeam;
+  }
+
+  clearSession(): void {
+    this.leaveRoom();
+    localStorage.removeItem('roomCode');
+    localStorage.removeItem('playerName');
+    this.myRole = undefined;
+    this.myTeam = undefined;
+  }
+
   private attachListeners(): void {
     if (!this.socket || this.listenersAttached) return;
     this.listenersAttached = true;
 
     this.socket.on('roomState', (roomId: string, state: any) => {
-      const myPlayerId = localStorage.getItem('myPlayerId');
-      this.gameState$.next({
-        roomId,
-        phase: state.phase,
-        players: state.players ?? [],
-        dayNumber: state.dayNumber,
-        nightNumber: state.nightNumber,
-        winner: state.winner,
-        soloWinner: state.soloWinner,
-      });
+      const storedRoom = localStorage.getItem('roomCode');
+      if (storedRoom && roomId !== storedRoom) return;
 
-      if (myPlayerId && state.players) {
-        const me = state.players.find((p: any) => p.id === myPlayerId);
+      const sanitized = sanitizeRoomState({ ...state, roomId });
+      this.gameState$.next(sanitized);
+
+      const myPlayerId = localStorage.getItem('myPlayerId');
+      if (myPlayerId && sanitized.players) {
+        const me = sanitized.players.find((p) => p.id === myPlayerId);
         if (me) {
           this.playerState$.next({
             name: me.name,
             role: this.myRole ?? me.role ?? 'ESPERANDO ASIGNACIÓN',
             team: this.myTeam ?? me.team,
             isDead: !me.isAlive,
-            silenced: me.metadata?.silencedUntilDay != null,
+            silenced: !!me.silenced,
             isConnected: me.isConnected,
           });
         }

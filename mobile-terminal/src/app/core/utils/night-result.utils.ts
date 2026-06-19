@@ -21,6 +21,11 @@ export function resolvePlayerName(id: string, players: RoomPlayer[]): string {
   return players.find((p) => p.id === id)?.name ?? id;
 }
 
+function infectionSourceLabel(source: string | undefined): string {
+  if (source === 'worm') return 'Gusano';
+  return source ?? 'desconocida';
+}
+
 export function buildPendingReport(action: PendingNightAction): NightActionReport {
   const lines: string[] = [`Objetivo: ${action.targetName}`];
   if (action.secondaryName) {
@@ -88,6 +93,59 @@ export function buildPrivateResultReport(
     };
   }
 
+  if (payload.type === 'infected') {
+    const target = resolvePlayerName(payload.targetId, players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Infección propagada',
+      details: [
+        `Objetivo: ${target}`,
+        `Fuente: ${infectionSourceLabel(payload.infectionSource)}`,
+        payload.maturesAfterNight != null
+          ? `Madurará tras resolver la noche N${payload.maturesAfterNight}.`
+          : 'El objetivo caerá si un Antivirus no lo cura.',
+      ],
+    };
+  }
+
+  if (payload.type === 'infection_warning') {
+    const source = infectionSourceLabel(payload.infectionSource);
+    if (payload.critical) {
+      return {
+        nightNumber,
+        status: 'resolved',
+        headline: '☣ Infección CRÍTICA',
+        details: [
+          `Amenaza: ${source}`,
+          'La infección madura esta noche — tu nodo caerá al amanecer si no te curaron.',
+        ],
+      };
+    }
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: '☣ Has sido infectado',
+      details: [
+        `Fuente: ${source}`,
+        payload.maturesAfterNight != null
+          ? `Efecto mortal tras resolver la noche N${payload.maturesAfterNight} sin cura.`
+          : 'Un Antivirus puede curarte antes de que madure.',
+        'Recibirás otro aviso si la infección está a punto de matarte.',
+      ],
+    };
+  }
+
+  if (payload.type === 'cured') {
+    const target = resolvePlayerName(payload.targetId, players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Infección curada',
+      details: [`Eliminaste la infección en ${target}.`],
+    };
+  }
+
   return null;
 }
 
@@ -108,7 +166,14 @@ export function buildResolvedReport(
         details.push(`Protegiste a ${targetName} contra ataques nocturnos.`);
       } else {
         details.push(`Intentaste proteger a ${targetName}.`);
-        details.push('La protección quedó registrada en el servidor.');
+      }
+      break;
+
+    case 'cure':
+      if (resolution.cures?.includes(targetId) || logMatches(logs, `Antivirus cured infection on ${targetId}`)) {
+        details.push(`Curaste la infección en ${targetName}.`);
+      } else {
+        details.push(`Intentaste curar a ${targetName}: no tenía infección activa.`);
       }
       break;
 
@@ -181,11 +246,14 @@ export function buildResolvedReport(
       break;
     }
 
+    case 'worm_infect':
     case 'worm_kill':
-      if (resolution.kills?.includes(targetId)) {
-        details.push(`Propagaste el ataque y eliminaste a ${targetName}.`);
+      if (logMatches(logs, `Worm ${myPlayerId} infected ${targetId}`) || resolution.infections?.includes(targetId)) {
+        details.push(`Infectaste a ${targetName}.`);
+        details.push('Morirá al resolver la siguiente noche si un Antivirus no lo cura.');
       } else {
-        details.push(`El ataque contra ${targetName} fue bloqueado o falló.`);
+        details.push(`Intentaste infectar a ${targetName}.`);
+        details.push('La infección fue bloqueada o el objetivo ya estaba infectado.');
       }
       break;
 
@@ -226,7 +294,9 @@ function pendingHeadline(role: string, actionType: string): string {
     hacker_vote: 'Voto hacker registrado',
     ransomware: 'Secuestro enviado',
     phisher_redirect: 'Redirección enviada',
-    worm_kill: 'Ataque propagado',
+    worm_infect: 'Infección enviada',
+    worm_kill: 'Infección enviada',
+    cure: 'Curación enviada',
     pentester_kill: 'Eliminación enviada',
     zero_day_assume: 'Asunción de identidad enviada',
   };
@@ -244,7 +314,9 @@ function resolvedHeadline(role: string, actionType: string): string {
     hacker_vote: 'Voto hacker resuelto',
     ransomware: 'Secuestro aplicado',
     phisher_redirect: 'Redirección aplicada',
-    worm_kill: 'Ataque del gusano',
+    worm_infect: 'Infección del Gusano',
+    worm_kill: 'Infección del Gusano',
+    cure: 'Curación aplicada',
     pentester_kill: 'Ataque del pentester',
     zero_day_assume: 'Identidad asumida',
   };

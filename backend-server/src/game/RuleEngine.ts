@@ -126,6 +126,16 @@ function processMatureInfections(
     const infection = getInfection(player);
     if (!infection || !isInfectionMature(infection, currentNight)) continue;
 
+    res.privateResults.push({
+      playerId: player.id,
+      payload: {
+        type: 'infection_warning',
+        infectionSource: infection.source,
+        maturesAfterNight: currentNight,
+        critical: true,
+      },
+    });
+
     if (tryKill(player.id, state, res, `infection from ${infectionSourceLabel(infection)}`, protections, wormImmune)) {
       res.infectionKills.push(player.id);
       clearInfection(player);
