@@ -1,4 +1,11 @@
-<ion-content class="terminal-content" [class.phase-flash]="phaseFlash" [attr.data-phase]="gamePhase">
+<ion-content
+  class="terminal-content scroll-page"
+  [scrollY]="false"
+  [fullscreen]="true"
+  [class.phase-flash]="phaseFlash"
+  [attr.data-phase]="gamePhase"
+  [attr.data-team-theme]="teamTheme">
+  <div class="page-scroll">
   <div class="terminal-shell">
 
     <header class="terminal-header">
@@ -42,7 +49,7 @@
     <section class="panel role-panel">
       <div class="panel-header">
         <span class="panel-tag">Nivel de acceso</span>
-        <span *ngIf="playerTeamLabel" class="team-badge">{{ playerTeamLabel }}</span>
+        <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
       </div>
       <h2 class="role-name">{{ playerRole }}</h2>
       <p *ngIf="roleDescription" class="role-description">{{ roleDescription }}</p>
@@ -185,6 +192,9 @@
           <span class="node-status" [class.online]="p.isConnected" [class.offline]="!p.isConnected"></span>
           <span class="node-name">{{ p.name }}</span>
           <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
+          <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
+            <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
+          </ng-container>
           <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
           <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
           <span *ngIf="p.isAlive && !p.isConnected" class="node-tag offline">OFFLINE</span>
@@ -192,6 +202,7 @@
       </ul>
     </section>
 
+  </div>
   </div>
 
   <div *ngIf="gamePhase === 'ELIMINATED'" class="fullscreen-overlay eliminated">
@@ -205,13 +216,28 @@
     </div>
   </div>
 
-  <div *ngIf="showGameOver" class="fullscreen-overlay gameover">
+  <div
+    *ngIf="showGameOver && gameOverView"
+    class="fullscreen-overlay"
+    [class.gameover-win]="gameOverView.didWin"
+    [class.gameover-loss]="!gameOverView.didWin">
     <div class="overlay-content">
-      <p class="winner-label">GANADOR</p>
-      <div class="winner-divider"></div>
-      <h1 class="winner-team">{{ winnerTeam }}</h1>
-      <p class="overlay-sub">{{ gameOverMessage }}</p>
-      <button class="terminal-btn return-btn" (click)="returnToLogin()">
+      <p class="winner-label">{{ gameOverView.headline }}</p>
+      <div class="winner-divider" [class.loss]="!gameOverView.didWin"></div>
+      <h1 class="winner-team" [class.loss]="!gameOverView.didWin">{{ gameOverView.winnerTeam }}</h1>
+      <p class="overlay-sub">{{ gameOverView.message }}</p>
+
+      <section *ngFor="let reveal of gameOverView.reveals" class="reveal-panel">
+        <h4 class="reveal-title">{{ reveal.title }}</h4>
+        <ul class="reveal-list">
+          <li *ngFor="let item of reveal.items">{{ item }}</li>
+        </ul>
+      </section>
+
+      <button
+        class="terminal-btn return-btn"
+        [class.loss]="!gameOverView.didWin"
+        (click)="returnToLogin()">
         Volver al login
       </button>
     </div>
