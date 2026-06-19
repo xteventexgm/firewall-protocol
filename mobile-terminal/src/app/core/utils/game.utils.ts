@@ -13,6 +13,8 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: isPlayerSilenced(p, dayNumber),
+    infected: !!p.metadata?.infection,
+    infectionMaturesAfterNight: p.metadata?.infection?.maturesAfterNight,
     joinedAt: p.joinedAt ?? Date.now(),
     role: p.role,
     team: p.team,

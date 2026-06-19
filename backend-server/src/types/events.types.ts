@@ -97,6 +97,8 @@ export interface PrivateResultPayload {
   nightActionHint?: string;
   infectionSource?: string;
   maturesAfterNight?: number;
+  /** Infección madura esta noche — el nodo caerá si no fue curado. */
+  critical?: boolean;
 }
 
 export interface VoteTrace {

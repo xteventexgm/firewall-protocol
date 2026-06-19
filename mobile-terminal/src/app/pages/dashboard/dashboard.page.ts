@@ -6,12 +6,15 @@ import { Router } from '@angular/router';
 import {
   GamePhase,
   RoomPlayer,
-  SocketService,
   TargetOption,
+} from '../../core/models/game-state.model';
+import {
+  SocketService,
 } from '../../services/socket/socket.service';
 import {
   getNightActionLabel,
   getNightActionType,
+  getNightActionVariants,
   needsSecondaryTarget,
   getSecondaryTargetLabel,
 } from '../../core/role-actions';
@@ -29,7 +32,7 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS } from '../../core/models/game-state.model';
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_BLACK_HAT, PLAYERS_PER_CHAOTIC_ROLE } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -41,7 +44,10 @@ import { Subscription } from 'rxjs';
 })
 export class DashboardPage implements OnInit, OnDestroy {
   readonly minPlayers = MIN_PLAYERS_TO_START;
+  readonly playersPerBlackHat = PLAYERS_PER_BLACK_HAT;
+  readonly playersPerChaotic = PLAYERS_PER_CHAOTIC_ROLE;
   maxPlayers = MAX_PLAYERS;
+  myInfectionMaturesAfterNight: number | null = null;
 
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
@@ -65,6 +71,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   statusMessage = '';
   statusType: 'info' | 'success' | 'error' | 'warn' = 'info';
   canActAtNight = false;
+  selectedNightActionType = '';
+  nightActionReport: NightActionReport | null = null;
 
   incidentNames: string[] = [];
   showIncidentReport = false;
@@ -104,17 +112,21 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.gameState$.subscribe((state) => {
         if (state.roomId) this.roomCode = state.roomId;
-        if (state.phase) this.gamePhase = state.phase;
-        this.dayNumber = state.dayNumber;
-        this.nightNumber = state.nightNumber;
+        this.dayNumber = state.dayNumber ?? 0;
+        this.nightNumber = state.nightNumber ?? 0;
         this.maxPlayers = state.maxPlayers ?? MAX_PLAYERS;
-        this.roomLogs = state.logs ?? [];
 
         this.players = state.players ?? [];
         const me = this.players.find((p) => p.id === this.myPlayerId);
 
-        if (me && !me.isAlive) {
+        const gameEnded = state.phase === 'FIN' || !!state.winner || !!state.soloWinner;
+
+        if (gameEnded) {
+          this.showGameOverScreen(state.winner, state.soloWinner);
+        } else if (me && !me.isAlive) {
           this.gamePhase = 'ELIMINATED';
+        } else if (state.phase) {
+          this.gamePhase = state.phase;
         }
 
         this.allPlayers = this.players.map((p) => ({
@@ -132,9 +144,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           .filter((p) => !p.isAlive)
           .map((p) => ({ id: p.id, name: p.name, isAlive: false }));
 
-        if (state.winner || state.soloWinner) {
-          this.showGameOverScreen(state.winner, state.soloWinner);
-        }
+        this.syncInfectionFromState(me);
       }),
     );
 
@@ -143,13 +153,20 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.name) this.playerName = player.name;
         if (player.role) {
           this.playerRole = player.role;
-          this.canActAtNight = !!getNightActionType(player.roleId ?? player.role);
+          const roleKey = player.roleId ?? player.role;
+          this.canActAtNight = !!getNightActionType(roleKey);
+          const variants = getNightActionVariants(roleKey);
+          if (variants.length && !this.selectedNightActionType) {
+            this.selectedNightActionType = variants[0].value;
+          }
         }
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.team) this.myTeam = player.team;
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
-        if (player.isDead) this.gamePhase = 'ELIMINATED';
+        if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
+          this.gamePhase = 'ELIMINATED';
+        }
         this.isSilenced = !!player.silenced;
       }),
     );
@@ -175,7 +192,31 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus(`Espionaje: ${visitors} visitantes detectados`, 'info');
         }
         if (payload.type === 'role_assigned') {
-          this.setStatus(`Rol asignado: ${payload.role}`, 'success');
+          this.setStatus(`Rol asignado: ${payload.displayName ?? payload.role}`, 'success');
+        }
+        if (payload.type === 'infection_warning') {
+          this.setStatus(
+            payload.critical
+              ? '☣ Infección crítica — caerás al amanecer si no te curaron'
+              : '☣ Has sido infectado — busca cura de un Antivirus',
+            'error',
+          );
+        }
+        if (payload.type === 'infected') {
+          const name = this.players.find((p) => p.id === payload.targetId)?.name ?? payload.targetId;
+          this.setStatus(`Infección enviada a ${name}`, 'success');
+        }
+        if (payload.type === 'cured') {
+          const name = this.players.find((p) => p.id === payload.targetId)?.name ?? payload.targetId;
+          this.setStatus(`Infección curada en ${name}`, 'success');
+          if (payload.targetId === this.myPlayerId) {
+            this.myInfectionMaturesAfterNight = null;
+          }
+        }
+
+        const report = buildPrivateResultReport(payload, this.players, this.nightNumber);
+        if (report) {
+          this.nightActionReport = report;
         }
       }),
     );
@@ -190,6 +231,9 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus('Modo sigilo activado', 'warn');
           this.selectedTarget = '';
           this.selectedSecondary = '';
+          if (!this.isInfected) {
+            this.nightActionReport = null;
+          }
         }
         if (t.to === 'VOTACION') {
           this.myVoteConfirmed = false;
@@ -222,6 +266,15 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (parts.length) {
           this.setStatus(`Noche resuelta: ${parts.join(', ')}`, 'warn');
         }
+
+        if (resolution.infectionKills?.includes(this.myPlayerId)) {
+          this.setStatus('Tu nodo cayó por infección del Gusano', 'error');
+          this.myInfectionMaturesAfterNight = null;
+        } else if (resolution.cures?.includes(this.myPlayerId)) {
+          this.setStatus('Un Antivirus curó tu infección', 'success');
+          this.myInfectionMaturesAfterNight = null;
+          this.nightActionReport = null;
+        }
       }),
     );
 
@@ -237,7 +290,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.playerEliminated$.subscribe(({ playerId, reason }) => {
         const name = this.players.find((p) => p.id === playerId)?.name ?? playerId;
-        if (playerId === this.myPlayerId) {
+        if (playerId === this.myPlayerId && !this.showGameOver) {
           this.gamePhase = 'ELIMINATED';
         } else {
           this.setStatus(`${name} eliminado (${reason})`, 'error');
@@ -291,10 +344,6 @@ export class DashboardPage implements OnInit, OnDestroy {
     return isNodeCritical(player);
   }
 
-  isGlitching(playerId: string): boolean {
-    return this.glitchPlayerIds.includes(playerId);
-  }
-
   getPlayerNodeBadge(player: RoomPlayer) {
     return getPlayerNodeBadge(
       this.myTeam,
@@ -322,30 +371,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get nightActionLabel(): string {
-    return getNightActionLabel(this.playerRole);
+    const roleKey = this.socketService.getMyRole() ?? this.playerRole;
+    const type = getNightActionType(roleKey, this.selectedNightActionType || undefined);
+    return getNightActionLabel(roleKey, type ?? undefined);
   }
 
-  get phaseLabel(): string {
-    const labels: Record<string, string> = {
-      LOBBY: 'EN ESPERA',
-      REPARTO: 'REPARTO DE ROLES',
-      NOCHE: 'OPERACIÓN NOCTURNA',
-      DIA: 'AUDITORÍA DIURNA',
-      VOTACION: 'VOTACIÓN PÚBLICA',
-      VERIFICACION: 'VERIFICACIÓN',
-      FIN: 'PARTIDA TERMINADA',
-      ELIMINATED: 'SISTEMA CAÍDO',
-    };
-    return labels[this.gamePhase] ?? this.gamePhase;
+  get nightActionVariants(): { value: string; label: string }[] {
+    return getNightActionVariants(this.socketService.getMyRole() ?? this.playerRole);
   }
 
-  get teamLabel(): string {
-    const teams: Record<string, string> = {
-      system: 'SISTEMA',
-      black_hat: 'BLACK HAT',
-      chaotic: 'CAÓTICO',
-    };
-    return teams[this.playerTeam] ?? this.playerTeam;
+  get phaseLabelText(): string {
+    return phaseLabel(this.gamePhase);
   }
 
   get targetOptions(): TargetOption[] {
@@ -365,26 +401,88 @@ export class DashboardPage implements OnInit, OnDestroy {
     return this.players.filter((p) => p.isAlive).length;
   }
 
+  get isInfected(): boolean {
+    const me = this.players.find((p) => p.id === this.myPlayerId);
+    return !!me?.infected;
+  }
+
   executeNightAction(): void {
     if (!this.selectedTarget) return;
+
+    const roleKey = this.socketService.getMyRole() ?? this.playerRole;
+    const actionType = getNightActionType(roleKey, this.selectedNightActionType || undefined);
+    if (!actionType) return;
+
+    const targetName =
+      this.players.find((p) => p.id === this.selectedTarget)?.name ?? this.selectedTarget;
+    const secondaryName = this.selectedSecondary
+      ? (this.players.find((p) => p.id === this.selectedSecondary)?.name ?? this.selectedSecondary)
+      : undefined;
+
+    this.nightActionReport = buildPendingReport({
+      actionType,
+      role: roleKey,
+      targetId: this.selectedTarget,
+      targetName,
+      secondaryId: this.selectedSecondary || undefined,
+      secondaryName,
+      nightNumber: this.nightNumber,
+    });
 
     if (this.needsSecondary) {
       if (!this.selectedSecondary) return;
       const meta =
-        this.playerRole === 'Enrutador BGP'
+        roleKey === 'Enrutador BGP'
           ? { swapWith: this.selectedSecondary }
           : { redirectTo: this.selectedSecondary };
-      this.socketService.submitNightAction(this.selectedTarget, meta);
+      this.socketService.submitNightAction(this.selectedTarget, meta, actionType);
       return;
     }
 
-    this.socketService.submitNightAction(this.selectedTarget);
+    this.socketService.submitNightAction(this.selectedTarget, undefined, actionType);
   }
 
   executeVote(): void {
-    if (!this.selectedTarget) return;
-    this.socketService.submitVote(this.selectedTarget);
+    this.socketService.submitVote(this.selectedTarget || null);
     this.selectedTarget = '';
+  }
+
+  returnToLogin(): void {
+    this.socketService.clearSession();
+    this.router.navigate(['/login']);
+  }
+
+  private setPersistentRoleInfo(headline: string, details: string[]): void {
+    this.nightActionReport = {
+      nightNumber: this.nightNumber,
+      status: 'resolved',
+      headline,
+      details,
+    };
+  }
+
+  private syncInfectionFromState(me: RoomPlayer | undefined): void {
+    if (!me?.infected) {
+      this.myInfectionMaturesAfterNight = null;
+      return;
+    }
+    this.myInfectionMaturesAfterNight = me.infectionMaturesAfterNight ?? null;
+    if (
+      !this.nightActionReport ||
+      !this.nightActionReport.headline.includes('infect')
+    ) {
+      this.nightActionReport = {
+        nightNumber: this.nightNumber,
+        status: 'resolved',
+        headline: '☣ Infección activa',
+        details: [
+          'Fuente: Gusano',
+          this.myInfectionMaturesAfterNight != null
+            ? `Madura tras resolver la noche N${this.myInfectionMaturesAfterNight} sin cura.`
+            : 'Un Antivirus puede curarte de noche.',
+        ],
+      };
+    }
   }
 
   private setStatus(msg: string, type: 'info' | 'success' | 'error' | 'warn'): void {
