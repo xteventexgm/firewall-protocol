@@ -78,7 +78,12 @@ export class SocketService {
       };
     }
 
-    this.socket = io(url, socketOptions);
+    this.socket = io(`${environment.apiUrl}/game`, {
+      transports: ['websocket', 'polling'],
+      extraHeaders: {
+        'ngrok-skip-browser-warning': 'true' // <-- ESTO SALTA LA PANTALLA DE NGROK
+      }
+    });
 
     this.socket.on('connect', () => {
       console.log('[socket] conectado');

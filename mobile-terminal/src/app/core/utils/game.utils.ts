@@ -14,6 +14,8 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     isConnected: p.isConnected !== false,
     silenced: isPlayerSilenced(p, dayNumber),
     joinedAt: p.joinedAt ?? Date.now(),
+    role: p.role,
+    team: p.team,
   }));
 
   return {

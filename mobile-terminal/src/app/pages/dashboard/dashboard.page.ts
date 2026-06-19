@@ -20,9 +20,8 @@ import {
   isNodeCritical,
   phaseLabel,
   translateEliminationReason,
-  winnerLabel,
-  winnerTeamName,
 } from '../../core/utils/game.utils';
+import { buildGameOverView, GameOverView } from '../../core/utils/game-over.utils';
 import {
   buildPendingReport,
   buildPrivateResultReport,
@@ -30,6 +29,7 @@ import {
   NightActionReport,
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
+import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
 import { MIN_PLAYERS_TO_START } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
@@ -75,10 +75,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   showIncidentReport = false;
   phaseFlash = '';
   phaseBanner = '';
-  gameOverMessage = '';
-  winnerTeam = '';
+  gameOverView: GameOverView | null = null;
   showGameOver = false;
   myVoteConfirmed = false;
+  myTeam: string | undefined;
+  hackerTeamMemberIds: string[] = [];
 
   private subs = new Subscription();
   myPlayerId = localStorage.getItem('myPlayerId') ?? '';
@@ -141,6 +142,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.canActAtNight = !!getNightActionType(player.roleId ?? player.role);
         }
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
+        if (player.team) this.myTeam = player.team;
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && this.gamePhase !== 'FIN') this.gamePhase = 'ELIMINATED';
@@ -151,7 +153,8 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.privateResult$.subscribe((payload) => {
         if (payload.type === 'hacker_team') {
-          const names = (payload.members ?? [])
+          this.hackerTeamMemberIds = payload.members ?? [];
+          const names = this.hackerTeamMemberIds
             .map((id: string) => this.players.find((p) => p.id === id)?.name ?? id)
             .join(', ');
           this.setPersistentRoleInfo('Equipo Black Hat', [
@@ -339,6 +342,16 @@ export class DashboardPage implements OnInit, OnDestroy {
     return this.glitchPlayerIds.includes(playerId);
   }
 
+  getPlayerNodeBadge(player: RoomPlayer) {
+    return getPlayerNodeBadge(
+      this.myTeam,
+      player,
+      this.myPlayerId,
+      this.hackerTeamMemberIds,
+      this.gamePhase,
+    );
+  }
+
   get isNightPhase(): boolean {
     return this.gamePhase === 'NOCHE' && this.canActAtNight && !this.isSilenced;
   }
@@ -492,15 +505,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   ): void {
     this.showGameOver = true;
     this.gamePhase = 'FIN';
-
-    if (soloWinner) {
-      const name = this.players.find((p) => p.id === soloWinner.playerId)?.name ?? soloWinner.playerId;
-      this.winnerTeam = soloWinner.role;
-      this.gameOverMessage = `Victoria solitaria: ${name}`;
-      return;
-    }
-
-    this.winnerTeam = winnerTeamName(winner);
-    this.gameOverMessage = winnerLabel(winner);
+    this.gameOverView = buildGameOverView(
+      this.myTeam,
+      this.myPlayerId,
+      winner,
+      soloWinner,
+      this.players,
+    );
   }
 }
