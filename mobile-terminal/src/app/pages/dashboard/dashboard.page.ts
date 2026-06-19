@@ -29,7 +29,7 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
-import { MIN_PLAYERS_TO_START } from '../../core/models/game-state.model';
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -40,6 +40,9 @@ import { Subscription } from 'rxjs';
   imports: [IonicModule, FormsModule, CommonModule],
 })
 export class DashboardPage implements OnInit, OnDestroy {
+  readonly minPlayers = MIN_PLAYERS_TO_START;
+  maxPlayers = MAX_PLAYERS;
+
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
   playerTeamLabel = '';
@@ -102,8 +105,10 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.socketService.gameState$.subscribe((state) => {
         if (state.roomId) this.roomCode = state.roomId;
         if (state.phase) this.gamePhase = state.phase;
-        if (state.dayNumber != null) this.dayNumber = state.dayNumber;
-        if (state.nightNumber != null) this.nightNumber = state.nightNumber;
+        this.dayNumber = state.dayNumber;
+        this.nightNumber = state.nightNumber;
+        this.maxPlayers = state.maxPlayers ?? MAX_PLAYERS;
+        this.roomLogs = state.logs ?? [];
 
         this.players = state.players ?? [];
         const me = this.players.find((p) => p.id === this.myPlayerId);
@@ -419,5 +424,10 @@ export class DashboardPage implements OnInit, OnDestroy {
       return this.myTeam;
     }
     return null;
+  }
+
+  /** Equipo Sistema sin acciones nocturnas: pantalla en gris durante NOCHE. */
+  get isSystemNightStandby(): boolean {
+    return this.myTeam === 'system' && this.gamePhase === 'NOCHE';
   }
 }
