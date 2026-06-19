@@ -34,25 +34,6 @@
       Crear sala
     </button>
 
-    <label class="flex flex-col gap-1 text-sm">
-      <span class="text-xs uppercase tracking-widest text-cyber-muted">Unirse con código</span>
-      <input
-        type="text"
-        class="join-code-input rounded border border-cyber-border bg-cyber-bg px-2 py-2 text-cyber-accent uppercase"
-        [(ngModel)]="joinRoomCode"
-        placeholder="FIRE-XXXX"
-        [disabled]="!connected"
-      />
-    </label>
-    <button
-      type="button"
-      class="btn-secondary"
-      (click)="onJoinByCode()"
-      [disabled]="!connected || !joinRoomCode.trim()"
-    >
-      Entrar a sala
-    </button>
-
     @if (savedRooms.length) {
       <section class="saved-rooms border-t border-cyber-border pt-3">
         <p class="text-xs uppercase tracking-widest text-cyber-muted mb-2">Mis salas</p>

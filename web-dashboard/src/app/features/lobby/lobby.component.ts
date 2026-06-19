@@ -39,7 +39,6 @@ export class LobbyComponent implements OnChanges {
   @Output() removeSavedRoom = new EventEmitter<string>();
 
   qrDataUrl = '';
-  joinRoomCode = '';
   selectedMaxPlayers = MIN_PLAYERS_TO_START;
   readonly minPlayers = MIN_PLAYERS_TO_START;
   readonly maxPlayers = MAX_PLAYERS;
@@ -106,12 +105,6 @@ export class LobbyComponent implements OnChanges {
 
   onRejoinRoom(roomId: string): void {
     this.rejoinRoom.emit(roomId);
-  }
-
-  onJoinByCode(): void {
-    const code = this.joinRoomCode.toUpperCase().trim();
-    if (!code) return;
-    this.rejoinRoom.emit(code);
   }
 
   onRemoveSavedRoom(roomId: string): void {
