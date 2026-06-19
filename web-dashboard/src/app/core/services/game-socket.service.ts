@@ -3,13 +3,9 @@ import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  GameOverPayload,
-  IncidentEvent,
-  PhaseTransition,
+  GamePhase,
+  IncidentReport,
   PublicGameState,
-  RoomCreatedPayload,
-  ServerIncidentReport,
-  VoteTiedPayload,
 } from '../models/game-state.model';
 import {
   generateRoomCode,
@@ -23,12 +19,9 @@ export class GameSocketService implements OnDestroy {
   private roomId: string | null = null;
 
   readonly roomState$ = new BehaviorSubject<PublicGameState | null>(null);
-  readonly phaseTransition$ = new Subject<PhaseTransition>();
-  readonly gameOver$ = new Subject<GameOverPayload>();
-  readonly voteTied$ = new Subject<VoteTiedPayload>();
-  readonly roomCreated$ = new Subject<RoomCreatedPayload>();
+  readonly phaseChanged$ = new Subject<{ roomId: string; phase: GamePhase }>();
   readonly error$ = new Subject<string>();
-  readonly incidents$ = new Subject<IncidentEvent>();
+  readonly incidents$ = new Subject<IncidentReport[]>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
 
   get currentRoomId(): string | null {
@@ -50,35 +43,15 @@ export class GameSocketService implements OnDestroy {
       this.roomState$.next(sanitized);
     });
 
-    this.socket.on('phaseTransition', (transition: PhaseTransition) => {
-      if (this.roomId && transition.roomId !== this.roomId) return;
-      this.phaseTransition$.next(transition);
+    this.socket.on('phaseChanged', (rid: string, phase: GamePhase) => {
+      if (this.roomId && rid !== this.roomId) return;
+      this.phaseChanged$.next({ roomId: rid, phase });
     });
 
-    this.socket.on('incidentReport', (report: ServerIncidentReport) => {
+    this.socket.on('incidentReport', (report: { roomId: string; disconnected: string[] }) => {
       if (this.roomId && report.roomId !== this.roomId) return;
-      const incidents = incidentsFromServerReport(report, this.roomState$.value);
-      if (incidents.length) {
-        this.incidents$.next({ incidents, nightNumber: report.nightNumber });
-      }
-    });
-
-    this.socket.on(
-      'gameOver',
-      (roomId: string, winner: GameOverPayload['winner'], soloWinner?: GameOverPayload['soloWinner']) => {
-        if (this.roomId && roomId !== this.roomId) return;
-        this.gameOver$.next({ roomId, winner, soloWinner });
-      },
-    );
-
-    this.socket.on('voteTied', (payload: VoteTiedPayload) => {
-      if (this.roomId && payload.roomId !== this.roomId) return;
-      this.voteTied$.next(payload);
-    });
-
-    this.socket.on('roomCreated', (payload: RoomCreatedPayload) => {
-      if (this.roomId && payload.roomId !== this.roomId) return;
-      this.roomCreated$.next(payload);
+      const incidents = incidentsFromServerReport(report.disconnected, this.roomState$.value);
+      if (incidents.length) this.incidents$.next(incidents);
     });
 
     this.socket.on('voteTrace', () => {
@@ -88,22 +61,15 @@ export class GameSocketService implements OnDestroy {
     this.socket.on('error', (msg: string) => this.error$.next(msg));
   }
 
-  createLobby(maxPlayers: number): string {
+  createLobby(): string {
     this.connect();
     const code = generateRoomCode();
     this.roomId = code;
     this.roomState$.next(null);
 
-    this.socket?.emit('createRoom', code, maxPlayers);
+    this.socket?.emit('createRoom', code);
     this.socket?.emit('joinDashboard', code);
     return code;
-  }
-
-  joinExistingLobby(code: string): void {
-    this.connect();
-    this.roomId = code.trim().toUpperCase();
-    this.roomState$.next(null);
-    this.socket?.emit('joinDashboard', this.roomId);
   }
 
   startGame(): void {
@@ -117,15 +83,7 @@ export class GameSocketService implements OnDestroy {
   }
 
   getRealPlayerCount(state: PublicGameState | null): number {
-    return state?.playerCount ?? state?.players.length ?? 0;
-  }
-
-  leaveLobby(): void {
-    if (this.roomId) {
-      this.socket?.emit('leaveDashboard', this.roomId);
-    }
-    this.roomId = null;
-    this.roomState$.next(null);
+    return state?.players.length ?? 0;
   }
 
   ngOnDestroy(): void {

@@ -127,9 +127,6 @@ export class GameStateModel implements GameState {
         isAlive: p.isAlive,
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),
-        ...(this.phase === GamePhase.FIN && p.role
-          ? { role: p.role, team: p.team as Team }
-          : {}),
       })),
       votes: { ...this.votes },
       winner: this.winner,

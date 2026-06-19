@@ -1,0 +1,92 @@
+{
+  "roomId": "FIRE-XWAQ",
+  "phase": "FIN",
+  "phaseStartedAt": 1781758746282,
+  "maxPlayers": 5,
+  "players": [
+    {
+      "id": "usr_2pbp802ap",
+      "name": "Steven",
+      "role": "Antivirus",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": false,
+      "joinedAt": 1781757889509,
+      "metadata": {
+        "actedThisNight": true,
+        "lastProtectedTarget": "usr_hldpuig4o"
+      },
+      "pendingActions": []
+    },
+    {
+      "id": "usr_5baxd9w0s",
+      "name": "Jairo",
+      "role": "SysAdmin",
+      "team": "system",
+      "isAlive": false,
+      "isConnected": false,
+      "joinedAt": 1781757915324,
+      "metadata": {
+        "actedThisNight": false
+      },
+      "pendingActions": []
+    },
+    {
+      "id": "usr_eh7ch1pzd",
+      "name": "Roberto",
+      "role": "Spyware",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": false,
+      "joinedAt": 1781757926108,
+      "metadata": {
+        "actedThisNight": true
+      },
+      "pendingActions": []
+    },
+    {
+      "id": "usr_j6aiw2i5r",
+      "name": "Nardy-chan",
+      "role": "Minero de Cripto",
+      "team": "chaotic",
+      "isAlive": false,
+      "isConnected": false,
+      "joinedAt": 1781757940355,
+      "metadata": {
+        "actedThisNight": false,
+        "shieldCharges": 3
+      },
+      "pendingActions": []
+    },
+    {
+      "id": "usr_hldpuig4o",
+      "name": "Denisse",
+      "role": "Enrutador BGP",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": false,
+      "joinedAt": 1781757947855,
+      "metadata": {
+        "actedThisNight": true
+      },
+      "pendingActions": []
+    }
+  ],
+  "dayNumber": 3,
+  "nightNumber": 2,
+  "actionQueue": [],
+  "votes": {},
+  "logs": [
+    "[2026-06-18T04:46:55.662Z] Assigned roles: hackers=1",
+    "[2026-06-18T04:51:11.203Z] Voted out: usr_5baxd9w0s (3 votes)",
+    "[2026-06-18T04:55:58.407Z] BGP swap usr_2pbp802ap <-> usr_j6aiw2i5r",
+    "[2026-06-18T04:56:54.838Z] Voted out: usr_j6aiw2i5r (3 votes)",
+    "[2026-06-18T04:58:23.526Z] Antivirus protected usr_hldpuig4o",
+    "[2026-06-18T04:58:23.526Z] BGP swap usr_2pbp802ap <-> usr_eh7ch1pzd",
+    "[2026-06-18T04:59:06.281Z] Voted out: usr_eh7ch1pzd (2 votes)",
+    "[2026-06-18T04:59:06.282Z] Game over: system wins"
+  ],
+  "winner": "system",
+  "soloWinner": null,
+  "lastNightKills": []
+}

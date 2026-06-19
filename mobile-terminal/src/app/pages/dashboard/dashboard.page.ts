@@ -5,7 +5,6 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
   GamePhase,
-  IncidentReport,
   RoomPlayer,
   SocketService,
   TargetOption,
@@ -16,21 +15,6 @@ import {
   needsSecondaryTarget,
   getSecondaryTargetLabel,
 } from '../../core/role-actions';
-import {
-  isNodeCritical,
-  phaseLabel,
-  translateEliminationReason,
-  winnerLabel,
-  winnerTeamName,
-} from '../../core/utils/game.utils';
-import {
-  buildPendingReport,
-  buildPrivateResultReport,
-  buildResolvedReport,
-  NightActionReport,
-  PendingNightAction,
-} from '../../core/utils/night-result.utils';
-import { MIN_PLAYERS_TO_START } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -41,8 +25,6 @@ import { Subscription } from 'rxjs';
   imports: [IonicModule, FormsModule, CommonModule],
 })
 export class DashboardPage implements OnInit, OnDestroy {
-  readonly minPlayers = MIN_PLAYERS_TO_START;
-
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
   playerTeamLabel = '';
@@ -57,8 +39,8 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   aliveTargets: TargetOption[] = [];
   deadTargets: TargetOption[] = [];
+  allPlayers: TargetOption[] = [];
   players: RoomPlayer[] = [];
-  roomLogs: string[] = [];
 
   selectedTarget = '';
   selectedSecondary = '';
@@ -66,17 +48,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   statusType: 'info' | 'success' | 'error' | 'warn' = 'info';
   canActAtNight = false;
 
-  nightActionReport: NightActionReport | null = null;
-  private pendingNightAction: PendingNightAction | null = null;
-  private privateResultHandled = false;
-
-  incidents: IncidentReport[] = [];
-  glitchPlayerIds: string[] = [];
+  incidentNames: string[] = [];
   showIncidentReport = false;
   phaseFlash = '';
-  phaseBanner = '';
   gameOverMessage = '';
-  winnerTeam = '';
   showGameOver = false;
   myVoteConfirmed = false;
 
@@ -84,7 +59,6 @@ export class DashboardPage implements OnInit, OnDestroy {
   myPlayerId = localStorage.getItem('myPlayerId') ?? '';
   private incidentTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
-  private bannerTimer?: ReturnType<typeof setTimeout>;
   private statusTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -95,6 +69,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.roomCode = localStorage.getItem('roomCode') ?? '';
 
+    if (!this.socketService.reconnectFromStorage()) {
+      this.router.navigate(['/login']);
+      return;
+    }
+
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
         this.connected = c;
@@ -103,20 +82,24 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.gameState$.subscribe((state) => {
-        if (!state) return;
-
         if (state.roomId) this.roomCode = state.roomId;
         if (state.phase) this.gamePhase = state.phase;
-        this.dayNumber = state.dayNumber;
-        this.nightNumber = state.nightNumber;
-        this.roomLogs = state.logs ?? [];
+        if (state.dayNumber != null) this.dayNumber = state.dayNumber;
+        if (state.nightNumber != null) this.nightNumber = state.nightNumber;
 
-        this.players = state.players;
+        this.players = state.players ?? [];
         const me = this.players.find((p) => p.id === this.myPlayerId);
 
-        if (me && !me.isAlive && state.phase !== 'FIN') {
+        if (me && !me.isAlive) {
           this.gamePhase = 'ELIMINATED';
         }
+
+        this.allPlayers = this.players.map((p) => ({
+          id: p.id,
+          name: p.name,
+          isAlive: p.isAlive,
+          isConnected: p.isConnected,
+        }));
 
         this.aliveTargets = this.players
           .filter((p) => p.isAlive && p.id !== this.myPlayerId)
@@ -126,7 +109,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           .filter((p) => !p.isAlive)
           .map((p) => ({ id: p.id, name: p.name, isAlive: false }));
 
-        if (state.phase === 'FIN' || state.winner || state.soloWinner) {
+        if (state.winner || state.soloWinner) {
           this.showGameOverScreen(state.winner, state.soloWinner);
         }
       }),
@@ -134,7 +117,6 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.playerState$.subscribe((player) => {
-        if (!player) return;
         if (player.name) this.playerName = player.name;
         if (player.role) {
           this.playerRole = player.role;
@@ -143,48 +125,33 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
-        if (player.isDead && this.gamePhase !== 'FIN') this.gamePhase = 'ELIMINATED';
+        if (player.isDead) this.gamePhase = 'ELIMINATED';
         this.isSilenced = !!player.silenced;
       }),
     );
 
     this.subs.add(
       this.socketService.privateResult$.subscribe((payload) => {
+        if (payload.type === 'scan') {
+          const result = payload.result === 'malicious' ? 'MALICIOSO' : 'SEGURO';
+          this.setStatus(`Escaneo completado: ${result}`, 'info');
+        }
         if (payload.type === 'hacker_team') {
-          const names = (payload.members ?? [])
-            .map((id: string) => this.players.find((p) => p.id === id)?.name ?? id)
-            .join(', ');
-          this.setPersistentRoleInfo('Equipo Black Hat', [
-            `Compañeros: ${names || (payload.members ?? []).length + ' nodos'}`,
-            'Coordinad vuestras acciones nocturnas.',
-          ]);
+          this.setStatus(`Equipo Black Hat: ${(payload.members ?? []).length} nodos`, 'warn');
         }
-
-        if (payload.type === 'role_assigned' && payload.role === 'Zero-Day') {
-          // Zero-Day: handled by buildPrivateResultReport
-        } else if (payload.type === 'role_assigned') {
-          this.setStatus(`Rol asignado: ${payload.displayName ?? payload.role}`, 'success');
+        if (payload.type === 'spy') {
+          const visitors = (payload.visitors ?? []).length;
+          this.setStatus(`Espionaje: ${visitors} visitantes detectados`, 'info');
         }
-
-        const report = buildPrivateResultReport(payload, this.players, this.nightNumber);
-        if (report) {
-          this.nightActionReport = report;
-          this.privateResultHandled = true;
+        if (payload.type === 'role_assigned') {
+          this.setStatus(`Rol asignado: ${payload.role}`, 'success');
         }
-      }),
-    );
-
-    this.subs.add(
-      this.socketService.phaseChanged$.subscribe(({ phase }) => {
-        this.updatePhaseBanner(phase);
       }),
     );
 
     this.subs.add(
       this.socketService.phaseTransition$.subscribe((t) => {
         this.triggerPhaseFlash(t.to);
-        this.updatePhaseBanner(t.to);
-
         if (t.to === 'DIA') {
           this.setStatus('Amanecer — auditoría diurna iniciada', 'info');
         }
@@ -192,60 +159,35 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus('Modo sigilo activado', 'warn');
           this.selectedTarget = '';
           this.selectedSecondary = '';
-          this.nightActionReport = null;
-          this.privateResultHandled = false;
-          this.pendingNightAction = null;
         }
         if (t.to === 'VOTACION') {
           this.myVoteConfirmed = false;
           this.selectedTarget = '';
         }
-        if (t.to === 'VERIFICACION') {
-          this.setStatus('Resolviendo votación...', 'info');
-        }
-        if (t.to === 'FIN') {
-          this.showGameOver = true;
-        }
       }),
     );
 
     this.subs.add(
-      this.socketService.incidents$.subscribe((incidents) => {
-        this.incidents = incidents;
-        this.glitchPlayerIds = incidents.map((i) => i.playerId);
+      this.socketService.incidentReport$.subscribe((report) => {
+        const names = report.disconnected
+          .map((id) => this.players.find((p) => p.id === id)?.name ?? id)
+          .filter(Boolean);
+        this.incidentNames = names;
         this.showIncidentReport = true;
         clearTimeout(this.incidentTimer);
         this.incidentTimer = setTimeout(() => {
           this.showIncidentReport = false;
-          this.glitchPlayerIds = [];
         }, 8000);
       }),
     );
 
     this.subs.add(
       this.socketService.nightResolved$.subscribe(({ resolution }) => {
-        if (this.privateResultHandled && this.nightActionReport?.status === 'resolved') {
-          return;
-        }
-
-        if (this.pendingNightAction) {
-          this.nightActionReport = buildResolvedReport(
-            this.pendingNightAction,
-            resolution,
-            this.roomLogs,
-            this.myPlayerId,
-            this.players,
-          );
-          return;
-        }
-
         const kills = resolution.kills?.length ?? 0;
         const silenced = resolution.silenced?.length ?? 0;
-        const drags = resolution.honeypotDrags?.length ?? 0;
         const parts: string[] = [];
         if (kills) parts.push(`${kills} caída(s) nocturna(s)`);
         if (silenced) parts.push(`${silenced} silenciado(s)`);
-        if (drags) parts.push(`${drags} arrastre(s) honeypot`);
         if (parts.length) {
           this.setStatus(`Noche resuelta: ${parts.join(', ')}`, 'warn');
         }
@@ -262,21 +204,12 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
 
     this.subs.add(
-      this.socketService.voteTied$.subscribe((payload) => {
-        const names = payload.candidates
-          .map((id) => this.players.find((p) => p.id === id)?.name ?? id)
-          .join(', ');
-        this.setStatus(`Empate en votación (${payload.voteCount} votos): ${names}`, 'warn');
-      }),
-    );
-
-    this.subs.add(
       this.socketService.playerEliminated$.subscribe(({ playerId, reason }) => {
         const name = this.players.find((p) => p.id === playerId)?.name ?? playerId;
         if (playerId === this.myPlayerId) {
           this.gamePhase = 'ELIMINATED';
         } else {
-          this.setStatus(`${name} eliminado por ${translateEliminationReason(reason)}`, 'error');
+          this.setStatus(`${name} eliminado (${reason})`, 'error');
         }
       }),
     );
@@ -297,9 +230,6 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.actionAccepted$.subscribe(() => {
-        if (this.pendingNightAction) {
-          this.nightActionReport = buildPendingReport(this.pendingNightAction);
-        }
         this.setStatus('Comando enviado al servidor', 'success');
         this.selectedTarget = '';
         this.selectedSecondary = '';
@@ -314,29 +244,16 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.error$.subscribe((msg) => {
-        this.setStatus(this.translateError(msg), 'error');
+        this.setStatus(msg, 'error');
       }),
     );
-
-    if (!this.socketService.reconnectFromStorage()) {
-      this.router.navigate(['/login']);
-    }
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
     clearTimeout(this.incidentTimer);
     clearTimeout(this.flashTimer);
-    clearTimeout(this.bannerTimer);
     clearTimeout(this.statusTimer);
-  }
-
-  isNodeCritical(player: RoomPlayer): boolean {
-    return isNodeCritical(player);
-  }
-
-  isGlitching(playerId: string): boolean {
-    return this.glitchPlayerIds.includes(playerId);
   }
 
   get isNightPhase(): boolean {
@@ -348,23 +265,43 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get needsSecondary(): boolean {
-    return needsSecondaryTarget(this.socketService.getMyRole());
+    return needsSecondaryTarget(this.playerRole);
   }
 
   get secondaryLabel(): string {
-    return getSecondaryTargetLabel(this.socketService.getMyRole());
+    return getSecondaryTargetLabel(this.playerRole);
   }
 
   get nightActionLabel(): string {
-    return getNightActionLabel(this.socketService.getMyRole() ?? this.playerRole);
+    return getNightActionLabel(this.playerRole);
   }
 
-  get phaseLabelText(): string {
-    return phaseLabel(this.gamePhase);
+  get phaseLabel(): string {
+    const labels: Record<string, string> = {
+      LOBBY: 'EN ESPERA',
+      REPARTO: 'REPARTO DE ROLES',
+      NOCHE: 'OPERACIÓN NOCTURNA',
+      DIA: 'AUDITORÍA DIURNA',
+      VOTACION: 'VOTACIÓN PÚBLICA',
+      VERIFICACION: 'VERIFICACIÓN',
+      FIN: 'PARTIDA TERMINADA',
+      ELIMINATED: 'SISTEMA CAÍDO',
+    };
+    return labels[this.gamePhase] ?? this.gamePhase;
+  }
+
+  get teamLabel(): string {
+    const teams: Record<string, string> = {
+      system: 'SISTEMA',
+      black_hat: 'BLACK HAT',
+      chaotic: 'CAÓTICO',
+    };
+    return teams[this.playerTeam] ?? this.playerTeam;
   }
 
   get targetOptions(): TargetOption[] {
-    return this.socketService.getMyRole() === 'Zero-Day' ? this.deadTargets : this.aliveTargets;
+    const roleKey = this.socketService.getMyRole();
+    return roleKey === 'Zero-Day' ? this.deadTargets : this.aliveTargets;
   }
 
   get secondaryOptions(): TargetOption[] {
@@ -372,7 +309,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get connectedCount(): number {
-    return this.players.filter((p) => p.isConnected).length;
+    return this.players.filter((p) => p.isConnected !== false).length;
   }
 
   get aliveCount(): number {
@@ -382,30 +319,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   executeNightAction(): void {
     if (!this.selectedTarget) return;
 
-    const role = this.socketService.getMyRole() ?? this.playerRole;
-    const actionType = getNightActionType(role);
-    if (!actionType) return;
-
-    const targetName = this.resolveTargetName(this.selectedTarget);
-    const secondaryName = this.selectedSecondary
-      ? this.resolveTargetName(this.selectedSecondary)
-      : undefined;
-
-    this.pendingNightAction = {
-      actionType,
-      role,
-      targetId: this.selectedTarget,
-      targetName,
-      secondaryId: this.selectedSecondary || undefined,
-      secondaryName,
-      nightNumber: this.nightNumber,
-    };
-    this.privateResultHandled = false;
-
     if (this.needsSecondary) {
       if (!this.selectedSecondary) return;
       const meta =
-        role === 'Enrutador BGP'
+        this.playerRole === 'Enrutador BGP'
           ? { swapWith: this.selectedSecondary }
           : { redirectTo: this.selectedSecondary };
       this.socketService.submitNightAction(this.selectedTarget, meta);
@@ -416,32 +333,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   executeVote(): void {
-    this.socketService.submitVote(this.selectedTarget || null);
+    if (!this.selectedTarget) return;
+    this.socketService.submitVote(this.selectedTarget);
     this.selectedTarget = '';
-  }
-
-  abstainVote(): void {
-    this.socketService.submitVote(null);
-    this.selectedTarget = '';
-    this.setStatus('Abstención registrada', 'info');
-  }
-
-  returnToLogin(): void {
-    this.socketService.clearSession();
-    this.router.navigate(['/login']);
-  }
-
-  private resolveTargetName(id: string): string {
-    return this.players.find((p) => p.id === id)?.name ?? id;
-  }
-
-  private setPersistentRoleInfo(headline: string, details: string[]): void {
-    this.nightActionReport = {
-      nightNumber: this.nightNumber,
-      status: 'resolved',
-      headline,
-      details,
-    };
   }
 
   private setStatus(msg: string, type: 'info' | 'success' | 'error' | 'warn'): void {
@@ -461,31 +355,6 @@ export class DashboardPage implements OnInit, OnDestroy {
     }, 2000);
   }
 
-  private updatePhaseBanner(phase: GamePhase): void {
-    const banners: Partial<Record<GamePhase, string>> = {
-      NOCHE: 'MODO SIGILO — Operaciones encubiertas',
-      DIA: 'AMANECER — Auditoría de seguridad',
-      VOTACION: 'VOTACIÓN EN CURSO',
-    };
-    this.phaseBanner = banners[phase] ?? '';
-    clearTimeout(this.bannerTimer);
-    if (this.phaseBanner) {
-      this.bannerTimer = setTimeout(() => {
-        this.phaseBanner = '';
-      }, 4000);
-    }
-  }
-
-  private translateError(msg: string): string {
-    const labels: Record<string, string> = {
-      'action rejected': 'Acción rechazada por el servidor',
-      'vote rejected': 'Voto rechazado por el servidor',
-      'Room not found': 'Sala no encontrada',
-      'Room is full': 'La sala está llena',
-    };
-    return labels[msg] ?? msg;
-  }
-
   private showGameOverScreen(
     winner: string | null | undefined,
     soloWinner?: { playerId: string; role: string; reason: string } | null,
@@ -495,12 +364,17 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     if (soloWinner) {
       const name = this.players.find((p) => p.id === soloWinner.playerId)?.name ?? soloWinner.playerId;
-      this.winnerTeam = soloWinner.role;
-      this.gameOverMessage = `Victoria solitaria: ${name}`;
+      this.gameOverMessage = `Victoria solitaria: ${name} (${soloWinner.role})`;
       return;
     }
 
-    this.winnerTeam = winnerTeamName(winner);
-    this.gameOverMessage = winnerLabel(winner);
+    const winnerLabels: Record<string, string> = {
+      system: 'El SISTEMA ha restaurado la red',
+      black_hat: 'BLACK HAT ha comprometido la infraestructura',
+      chaotic: 'El caos ha prevalecido',
+    };
+    this.gameOverMessage = winner
+      ? (winnerLabels[winner] ?? `Ganador: ${winner}`)
+      : 'Partida terminada';
   }
 }

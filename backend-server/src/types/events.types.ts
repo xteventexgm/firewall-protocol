@@ -47,8 +47,6 @@ export interface PublicPlayerState {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
-  role?: RoleId;
-  team?: Team;
 }
 
 export interface PublicGameState {
@@ -69,6 +67,9 @@ export interface VoteTiedPayload {
   roomId: RoomId;
   voteCount: number;
   candidates: PlayerId[];
+  /** Votos en blanco / skip (target null). */
+  skipVotes: number;
+  reason: 'tie' | 'no_votes';
 }
 
 export interface SoloWinner {

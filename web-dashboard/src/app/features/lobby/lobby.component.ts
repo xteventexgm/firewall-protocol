@@ -6,11 +6,10 @@ import {
   Output,
   SimpleChanges,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import QRCode from 'qrcode';
 import {
-  MAX_PLAYERS,
   MIN_PLAYERS_TO_START,
+  MAX_PLAYERS,
   PublicGameState,
 } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
@@ -18,7 +17,6 @@ import { phaseLabel } from '../../core/utils/game.utils';
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [FormsModule],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
 })
@@ -29,19 +27,14 @@ export class LobbyComponent implements OnChanges {
 
   @Output() startGame = new EventEmitter<void>();
   @Output() advancePhase = new EventEmitter<void>();
-  @Output() createLobby = new EventEmitter<number>();
+  @Output() createLobby = new EventEmitter<void>();
 
   qrDataUrl = '';
-  selectedMaxPlayers = MAX_PLAYERS;
   readonly minPlayers = MIN_PLAYERS_TO_START;
-  readonly maxPlayersLimit = MAX_PLAYERS;
+  readonly maxPlayers = MAX_PLAYERS;
 
   get playerCount(): number {
-    return this.state?.playerCount ?? this.state?.players.length ?? 0;
-  }
-
-  get capacity(): number {
-    return this.state?.maxPlayers ?? this.selectedMaxPlayers;
+    return this.state?.players.length ?? 0;
   }
 
   get connectedCount(): number {
@@ -67,7 +60,7 @@ export class LobbyComponent implements OnChanges {
   }
 
   onCreateLobby(): void {
-    this.createLobby.emit(this.selectedMaxPlayers);
+    this.createLobby.emit();
   }
 
   onStartGame(): void {
