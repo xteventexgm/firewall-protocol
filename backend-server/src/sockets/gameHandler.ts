@@ -14,13 +14,13 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
       });
       const room = RoomManager.getRoom(roomId);
       if (!room) { socket.emit('error', 'room not found'); return; }
-      const ok = room.submitAction(action);
-      if (ok) {
+      const result = room.submitAction(action);
+      if (result.ok) {
         logClient('mobile', 'playerAction accepted', socket.id, { actionId: action.id });
         socket.emit('actionAccepted', action.id);
       } else {
-        logger.warn('[mobile] playerAction rejected', { roomId, actor: action?.actor });
-        socket.emit('error', 'action rejected');
+        logger.warn('[mobile] playerAction rejected', { roomId, actor: action?.actor, reason: result.reason });
+        socket.emit('error', result.reason);
       }
     } catch (err: any) {
       logger.error('[mobile] playerAction FAIL', err.message || err);
@@ -46,8 +46,14 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
       const room = RoomManager.getRoom(roomId);
       logClient('mobile', 'advancePhase', socket.id, { roomId, from: room?.state.phase });
       if (!room) { socket.emit('error', 'room not found'); return; }
-      const next = await room.advancePhase();
-      logClient('mobile', 'advancePhase OK', socket.id, { roomId, to: next });
+      room.advancePhase()
+        .then((next) => {
+          logClient('mobile', 'advancePhase OK', socket.id, { roomId, to: next });
+        })
+        .catch((err: any) => {
+          logger.error('[mobile] advancePhase FAIL', err.message || err);
+          socket.emit('error', err.message || String(err));
+        });
     } catch (err: any) {
       logger.error('[mobile] advancePhase FAIL', err.message || err);
       socket.emit('error', err.message || String(err));
@@ -64,10 +70,10 @@ export default function registerGameHandlers(socket: Socket, ns: Namespace) {
       const room = RoomManager.getRoom(roomId);
       if (!room) { socket.emit('error', 'room not found'); return; }
       const { voter, target } = vote;
-      const ok = room.submitVote(voter, target ?? null);
-      if (!ok) {
-        logger.warn('[mobile] submitVote rejected', { roomId, voter });
-        socket.emit('error', 'vote rejected');
+      const result = room.submitVote(voter, target ?? null);
+      if (!result.ok) {
+        logger.warn('[mobile] submitVote rejected', { roomId, voter, reason: result.reason });
+        socket.emit('error', result.reason);
       } else {
         logClient('mobile', 'submitVote OK', socket.id, { roomId, voter, target });
       }

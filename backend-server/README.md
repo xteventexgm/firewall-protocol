@@ -33,6 +33,7 @@ Este repositorio corresponde al **Integrante 3 (Backend & WebSocket Architect)**
 ### Máquina de estados
 ```
 LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA → … → FIN
+(VOTACIÓN también puede ir directo a NOCHE si hay empate en votos)
 ```
 - Restauración de fase al cargar partida desde disco (`StateMachine.restorePhase`)
 - Timers opcionales de auto-avance (`nightDurationMs`, `dayDurationMs`)
@@ -63,7 +64,9 @@ LOBBY → REPARTO → DÍA → VOTACIÓN → VERIFICACIÓN → NOCHE → DÍA �
 
 ### Votación y victoria
 - Votación solo en `VOTACION`; silenciados no votan
-- Un voto por jugador; resolución por mayoría simple entre objetivos votados (**empate = sin eliminación**, evento `voteTied`)
+- Un voto por jugador; resolución por mayoría simple entre objetivos votados
+- **Empate o sin votos de eliminación** → nadie eliminado, evento `voteTied`, salto directo a `NOCHE`
+- Voto en blanco (`target: null`) se registra bajo clave `skip` (no cuenta para eliminar)
 - Phisher redirige votos en secreto
 - **Victoria por bando**: System elimina hackers / Black Hat iguala o supera en número
 - **Victoria solitaria**: Troll (baneado), Gusano (último en pie), Minero (único superviviente)

@@ -7,8 +7,6 @@ export type GamePhase =
   | 'VERIFICACION'
   | 'FIN';
 
-export type Team = 'system' | 'black_hat' | 'chaotic';
-
 export interface PublicPlayer {
   id: string;
   name: string;
@@ -16,14 +14,6 @@ export interface PublicPlayer {
   isConnected: boolean;
   silenced?: boolean;
   joinedAt?: number;
-  role?: string;
-  team?: Team;
-}
-
-export interface SoloWinner {
-  playerId: string;
-  role: string;
-  reason: string;
 }
 
 export interface PublicGameState {
@@ -33,11 +23,9 @@ export interface PublicGameState {
   players: PublicPlayer[];
   dayNumber: number;
   nightNumber: number;
-  maxPlayers: number;
-  playerCount: number;
   votes: Record<string, string[]>;
-  winner: Team | null;
-  soloWinner: SoloWinner | null;
+  winner?: string | null;
+  soloWinner?: { playerId: string; role: string; reason: string } | null;
 }
 
 export interface VoteEdge {
@@ -45,62 +33,9 @@ export interface VoteEdge {
   to: string;
 }
 
-export interface IncidentDisplay {
+export interface IncidentReport {
   playerId: string;
   playerName: string;
-}
-
-export interface IncidentEvent {
-  incidents: IncidentDisplay[];
-  nightNumber: number;
-}
-
-export interface ServerIncidentReport {
-  roomId: string;
-  nightNumber: number;
-  disconnected: string[];
-}
-
-export interface PhaseTransition {
-  roomId: string;
-  from: GamePhase;
-  to: GamePhase;
-  at: number;
-}
-
-export interface VoteTrace {
-  roomId: string;
-  voter: string;
-  target: string | null;
-  timestamp: number;
-}
-
-export interface VoteTiedPayload {
-  roomId: string;
-  voteCount: number;
-  candidates: string[];
-}
-
-export interface GameOverPayload {
-  roomId: string;
-  winner: Team | null;
-  soloWinner?: SoloWinner | null;
-}
-
-export interface RoomCreatedPayload {
-  roomId: string;
-  maxPlayers: number;
-}
-
-export interface GameOverWinnerEntry {
-  playerName: string;
-  role: string;
-}
-
-export interface GameOverSummary {
-  teamLabel: string;
-  headline: string;
-  winners: GameOverWinnerEntry[];
 }
 
 export const MIN_PLAYERS_TO_START = 5;

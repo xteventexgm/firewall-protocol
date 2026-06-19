@@ -15,10 +15,16 @@ export type NightResolution = {
   honeypotDrags: { honeypotId: string; draggedId: string }[];
 };
 
-function actionPriority(a: PlayerAction) {
-  if (a.priority !== undefined) return a.priority;
-  if (a.role && ROLE_CATALOG[a.role]) return ROLE_CATALOG[a.role].priority || 0;
-  return 0;
+function actionType(a: PlayerAction) {
+  return (a.type || '').toLowerCase();
+}
+
+function isActorBlocked(a: PlayerAction, frozenActors: Set<string>, res: NightResolution) {
+  if (frozenActors.has(a.actor)) {
+    res.prevented.push({ actionId: a.id, reason: 'actor_frozen' });
+    return true;
+  }
+  return false;
 }
 
 function resolveHackerConsensus(
@@ -31,7 +37,7 @@ function resolveHackerConsensus(
   );
 
   for (const a of actions) {
-    if ((a.type || '').toLowerCase() !== 'hacker_vote' || !a.target) continue;
+    if (actionType(a) !== 'hacker_vote' || !a.target) continue;
     if (!aliveHackers.has(a.actor)) continue;
     hackerVotes.set(a.target, (hackerVotes.get(a.target) || 0) + 1);
   }
@@ -68,7 +74,7 @@ function tryKill(
   wormImmune: Set<string>,
 ): boolean {
   if (protections.has(targetId)) {
-    res.logs.push(`Kill on ${targetId} prevented by protection`);
+    res.logs.push(`Kill on ${targetId} prevented by Antivirus protection`);
     return false;
   }
   if (wormImmune.has(targetId)) {
@@ -108,6 +114,13 @@ function processHoneypotDrag(
   }
 }
 
+/**
+ * Resolución nocturna en fases estrictas (regla de oro Mafia/Werewolf):
+ * 0. Preparación — redirecciones, congelado, marcas (BGP, Deep Freeze, Honeypot, Phisher)
+ * 1. Protecciones — Antivirus
+ * 2. Ataques — consenso hacker, Pentester, Gusano, Ransomware
+ * 3. Investigaciones — Analista SOC (scan), Spyware (spy), Zero-Day
+ */
 export function resolveNightActions(batch: NightActionBatch, state: GameStateModel): NightResolution {
   const res: NightResolution = {
     kills: [],
@@ -128,19 +141,30 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     state.players.filter(p => p.isAlive && p.role === RoleName.WORM).map(p => p.id),
   );
 
-  const actions = batch.actions.slice().sort((a, b) => {
-    const pa = actionPriority(a);
-    const pb = actionPriority(b);
-    if (pa !== pb) return pb - pa;
-    return a.timestamp - b.timestamp;
-  });
+  const actions = batch.actions.slice();
 
+  const resolveTarget = (targetId: string): string => {
+    let t = targetId;
+    const visited = new Set<string>();
+    while (swapMap.has(t) && !visited.has(t)) {
+      visited.add(t);
+      const next = swapMap.get(t)!;
+      res.redirects.push({ actionId: 'bgp', from: targetId, to: next });
+      t = next;
+    }
+    return t;
+  };
+
+  const recordVisit = (visitor: string, target: string) => {
+    const list = visitLog.get(target) || [];
+    list.push(visitor);
+    visitLog.set(target, list);
+  };
+
+  // ── Fase 0: preparación (redirecciones y marcas, sin daño) ──
   for (const a of actions) {
-    const type = (a.type || '').toLowerCase();
-    if (type === 'protect' && a.target) {
-      protections.add(a.target);
-      res.logs.push(`Antivirus protected ${a.target}`);
-    } else if (type === 'freeze' && a.target) {
+    const type = actionType(a);
+    if (type === 'freeze' && a.target) {
       frozenTargets.add(a.target);
       res.logs.push(`Deep Freeze on ${a.target}`);
     } else if (type === 'bgp_swap' && a.target && a.meta?.swapWith) {
@@ -161,54 +185,82 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     }
   }
 
-  const resolveTarget = (targetId: string): string => {
-    let t = targetId;
-    const visited = new Set<string>();
-    while (swapMap.has(t) && !visited.has(t)) {
-      visited.add(t);
-      const next = swapMap.get(t)!;
-      res.redirects.push({ actionId: 'bgp', from: targetId, to: next });
-      t = next;
-    }
-    return t;
-  };
+  // ── Fase 1: protecciones (Antivirus antes que cualquier ataque) ──
+  for (const a of actions) {
+    if (actionType(a) !== 'protect' || !a.target) continue;
+    if (isActorBlocked(a, frozenTargets, res)) continue;
+    const finalTarget = resolveTarget(a.target);
+    protections.add(finalTarget);
+    res.logs.push(`Antivirus protected ${finalTarget}`);
+  }
 
-  const recordVisit = (visitor: string, target: string) => {
-    const list = visitLog.get(target) || [];
-    list.push(visitor);
-    visitLog.set(target, list);
-  };
+  // ── Fase 2: ataques ──
+  const hackerKillTarget = resolveHackerConsensus(actions, state);
+  if (hackerKillTarget) {
+    const final = resolveTarget(hackerKillTarget);
+    recordVisit('hacker_consensus', final);
+    if (tryKill(final, state, res, 'hacker consensus', protections, wormImmune)) {
+      processHoneypotDrag(final, state, res, protections, wormImmune);
+    }
+  }
 
   for (const a of actions) {
-    const type = (a.type || '').toLowerCase();
-    if (!a.target && type !== 'hacker_vote') continue;
-    if (frozenTargets.has(a.actor)) {
-      res.prevented.push({ actionId: a.id, reason: 'actor_frozen' });
-      continue;
-    }
+    const type = actionType(a);
+    if (!a.target || isActorBlocked(a, frozenTargets, res)) continue;
 
-    if (type === 'scan' && a.target) {
+    if (type === 'pentester_kill') {
+      const final = resolveTarget(a.target);
+      const actor = playersById.get(a.actor);
+      const target = playersById.get(final);
+      recordVisit(a.actor, final);
+      if (actor && target?.isAlive) {
+        const sameTeam = target.team === actor.team && actor.team === Team.SYSTEM;
+        const killed = tryKill(final, state, res, `pentester ${a.actor}`, protections, wormImmune);
+        if (killed) {
+          processHoneypotDrag(final, state, res, protections, wormImmune);
+          if (sameTeam) {
+            actor.isAlive = false;
+            res.kills.push(a.actor);
+            res.logs.push(`Pentester ${a.actor} died of guilt`);
+          }
+        }
+      }
+    } else if (type === 'worm_kill') {
+      const final = resolveTarget(a.target);
+      recordVisit(a.actor, final);
+      if (tryKill(final, state, res, `worm ${a.actor}`, protections, wormImmune)) {
+        processHoneypotDrag(final, state, res, protections, wormImmune);
+      }
+    } else if (type === 'ransomware') {
+      const final = resolveTarget(a.target);
+      recordVisit(a.actor, final);
+      const target = playersById.get(final);
+      if (target?.isAlive) {
+        getMeta(target).silencedUntilDay = state.dayNumber + 1;
+        res.silenced.push(final);
+        res.logs.push(`Ransomware silenced ${final} until day ${state.dayNumber + 1}`);
+      }
+    }
+  }
+
+  // ── Fase 3: investigaciones (resultados privados tras ataques) ──
+  for (const a of actions) {
+    const type = actionType(a);
+    if (!a.target || isActorBlocked(a, frozenTargets, res)) continue;
+
+    if (type === 'scan') {
       const finalTarget = resolveTarget(a.target);
+      recordVisit(a.actor, finalTarget);
       const targetPlayer = playersById.get(finalTarget);
       const result = scanResult(targetPlayer?.role as RoleName);
       res.privateResults.push({
         playerId: a.actor,
         payload: { type: 'scan', targetId: finalTarget, result },
       });
-      recordVisit(a.actor, finalTarget);
-    } else if (type === 'spy' && a.target) {
+    } else if (type === 'spy') {
       const finalTarget = resolveTarget(a.target);
       recordVisit(a.actor, finalTarget);
-    } else if (type === 'ransomware' && a.target) {
-      const finalTarget = resolveTarget(a.target);
-      const target = playersById.get(finalTarget);
-      if (target?.isAlive) {
-        getMeta(target).silencedUntilDay = state.dayNumber + 1;
-        res.silenced.push(finalTarget);
-        res.logs.push(`Ransomware silenced ${finalTarget} until day ${state.dayNumber + 1}`);
-      }
-      recordVisit(a.actor, finalTarget);
-    } else if (type === 'zero_day_assume' && a.target) {
+    } else if (type === 'zero_day_assume') {
       applyZeroDayAssume(state, a.actor, a.target);
       const assumedRole = playersById.get(a.actor)?.role as RoleName | undefined;
       if (assumedRole) {
@@ -225,47 +277,12 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
   for (const [target, visitors] of visitLog) {
     for (const a of actions) {
-      if ((a.type || '').toLowerCase() === 'spy' && a.target && resolveTarget(a.target) === target) {
-        res.privateResults.push({
-          playerId: a.actor,
-          payload: { type: 'spy', targetId: target, visitors: [...new Set(visitors)] },
-        });
-      }
-    }
-  }
-
-  const hackerKillTarget = resolveHackerConsensus(actions, state);
-  if (hackerKillTarget) {
-    const final = resolveTarget(hackerKillTarget);
-    tryKill(final, state, res, 'hacker consensus', protections, wormImmune);
-    if (res.kills.includes(final)) processHoneypotDrag(final, state, res, protections, wormImmune);
-  }
-
-  for (const a of actions) {
-    const type = (a.type || '').toLowerCase();
-    if (frozenTargets.has(a.actor)) continue;
-
-    if (type === 'pentester_kill' && a.target) {
-      const final = resolveTarget(a.target);
-      const actor = playersById.get(a.actor);
-      const target = playersById.get(final);
-      if (actor && target?.isAlive) {
-        const sameTeam = target.team === actor.team && actor.team === Team.SYSTEM;
-        const killed = tryKill(final, state, res, `pentester ${a.actor}`, protections, wormImmune);
-        if (killed) {
-          processHoneypotDrag(final, state, res, protections, wormImmune);
-          if (sameTeam) {
-            actor.isAlive = false;
-            res.kills.push(a.actor);
-            res.logs.push(`Pentester ${a.actor} died of guilt`);
-          }
-        }
-      }
-    } else if (type === 'worm_kill' && a.target) {
-      const final = resolveTarget(a.target);
-      if (tryKill(final, state, res, `worm ${a.actor}`, protections, wormImmune)) {
-        processHoneypotDrag(final, state, res, protections, wormImmune);
-      }
+      if (actionType(a) !== 'spy' || !a.target) continue;
+      if (resolveTarget(a.target) !== target) continue;
+      res.privateResults.push({
+        playerId: a.actor,
+        payload: { type: 'spy', targetId: target, visitors: [...new Set(visitors)] },
+      });
     }
   }
 
