@@ -1,7 +1,16 @@
+/**
+ * Puente eventos internos `Room` → emisiones Socket.IO.
+ *
+ * - Móvil: `roomState` personalizado por jugador; `nightResolved` reducido (sin spoilers)
+ * - Dashboard: `publicState` agregado; `nightResolved` completo
+ *
+ * `attachRoomBridge` se llama una vez por sala al crear o restaurar.
+ */
 import { Namespace } from 'socket.io';
 import Room from '../game/Room';
 import { toPublicNightResolution } from '../types/events.types';
 
+/** Envía `roomState` filtrado a cada jugador conectado de la sala. */
 export function broadcastRoomState(gameNs: Namespace, room: Room) {
   for (const p of room.state.players) {
     if (p.socketId && p.isConnected) {
@@ -15,6 +24,7 @@ function broadcastPublicState(dashboardNs: Namespace | undefined, room: Room) {
   dashboardNs.to(room.id).emit('publicState', room.state.toPublicState());
 }
 
+/** Suscribe listeners de dominio en `Room` y reenvía a namespaces game/dashboard. */
 export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
   if ((room as any)._bridged) return;
   (room as any)._bridged = true;

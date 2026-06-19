@@ -1,3 +1,9 @@
+/**
+ * Deep Freeze y BGP: jugadores con acciones anuladas por congelamiento.
+ *
+ * Usado en RuleEngine (resolución) y ActionValidator (rechazar acción si actor frozen).
+ * Respeta redirecciones BGP al calcular quién queda congelado.
+ */
 import { PlayerAction } from '../types/events.types';
 
 function actionType(a: PlayerAction) {

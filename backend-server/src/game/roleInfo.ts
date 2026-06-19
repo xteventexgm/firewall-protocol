@@ -1,3 +1,9 @@
+/**
+ * Textos de rol para el móvil (`privateResult` type `role_assigned`).
+ *
+ * Combina catálogo (`ROLE_CATALOG`), acciones nocturnas y hints en español
+ * alineados con mecánicas reales del RuleEngine.
+ */
 import { PrivateResultPayload } from '../types/events.types';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
@@ -29,6 +35,7 @@ const NIGHT_ACTION_HINTS: Record<string, string> = {
 const PASSIVE_NIGHT_HINT =
   'No tienes acción nocturna. Participa en el debate diurno y en las votaciones.';
 
+/** Construye payload de asignación de rol (inicio de partida o Zero-Day asume). */
 export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateResultPayload {
   const catalog = ROLE_CATALOG[role];
   const resolvedTeam = team ?? catalog.team;

@@ -1,3 +1,10 @@
+/**
+ * Persistencia de partidas en disco (JSON).
+ *
+ * Cada sala se guarda en `GAMES_DIR/<roomId>.json`.
+ * Invocado vía `config/database.ts` (adapter). Migración futura a MongoDB
+ * reemplazará este módulo manteniendo la interfaz `DBAdapter`.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { GAMES_DIR } from '../utils/constants';
@@ -7,6 +14,7 @@ function ensureGamesDir() {
   if (!fs.existsSync(GAMES_DIR)) fs.mkdirSync(GAMES_DIR, { recursive: true });
 }
 
+/** Serializa y escribe el estado de la partida. @returns false si falla el filesystem. */
 export function saveGameState(roomId: string, state: any) {
   try {
     ensureGamesDir();
@@ -20,6 +28,7 @@ export function saveGameState(roomId: string, state: any) {
   }
 }
 
+/** Carga JSON de partida o null si no existe / parse error. */
 export function loadGameState(roomId: string): any | null {
   try {
     ensureGamesDir();
@@ -37,6 +46,7 @@ export function loadGameState(roomId: string): any | null {
   }
 }
 
+/** Elimina el archivo JSON de una sala. */
 export function deleteGameState(roomId: string) {
   try {
     const file = path.join(GAMES_DIR, `${roomId}.json`);
@@ -49,6 +59,7 @@ export function deleteGameState(roomId: string) {
   }
 }
 
+/** Lista roomIds con JSON persistido (sin extensión). */
 export function listSavedGames(): string[] {
   try {
     ensureGamesDir();

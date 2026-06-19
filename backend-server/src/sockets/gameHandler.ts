@@ -1,8 +1,15 @@
+/**
+ * Handlers socket móvil: gameplay en partida activa.
+ *
+ * Eventos: `playerAction`, `startGame`, `advancePhase`, `submitVote`.
+ * Delega validación y mutación de estado a `Room`.
+ */
 import { Socket } from 'socket.io';
 import RoomManager from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
+/** Registra handlers de juego en namespace `/game`. */
 export default function registerGameHandlers(socket: Socket) {
   socket.on('playerAction', (roomId: string, action: any) => {
     try {

@@ -1,3 +1,13 @@
+/**
+ * Reparto aleatorio de roles al iniciar partida.
+ *
+ * Divide jugadores en pools hacker / caótico / system según proporciones,
+ * luego asigna roles sin repetir dentro de cada pool hasta agotar catálogo.
+ *
+ * Proporciones:
+ * - Hackers: `playersPerBlackHat` (`balance.ts`)
+ * - Caóticos: `PLAYERS_PER_CHAOTIC_ROLE` (`constants.ts`)
+ */
 import { Player } from '../models/PlayerProfile';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { RoleId } from '../types';

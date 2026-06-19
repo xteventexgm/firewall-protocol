@@ -1,5 +1,12 @@
+/**
+ * Modelo de jugador en memoria y en JSON persistido.
+ *
+ * Un jugador pertenece a `GameStateModel.players`. La cola de acciones nocturnas
+ * vive a nivel de sala (`actionQueue`), no en el perfil del jugador.
+ */
 import { PlayerId, RoleId } from '../types';
 
+/** Forma serializable del jugador (persistencia / tipos compartidos). */
 export interface PlayerProfile {
   id: PlayerId;
   name: string;
@@ -9,9 +16,11 @@ export interface PlayerProfile {
   isAlive: boolean;
   isConnected: boolean;
   joinedAt: number;
+  /** Flags por rol: cooldowns, infección, escudos, etc. Ver `player-metadata.types.ts`. */
   metadata?: Record<string, any>;
 }
 
+/** Instancia mutable de jugador en runtime. */
 export class Player implements PlayerProfile {
   id: PlayerId;
   name: string;

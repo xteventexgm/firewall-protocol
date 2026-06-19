@@ -1,3 +1,14 @@
+/**
+ * Orquestador de partida: una instancia por sala.
+ *
+ * Responsabilidades:
+ * - Ciclo join / reconnect / leave / startGame / advancePhase
+ * - Validar y encolar acciones; resolver votos; emitir eventos internos
+ * - Persistir en JSON tras cambios relevantes
+ * - Delegar resolución nocturna a RuleEngine y victoria a VictoryChecker
+ *
+ * Eventos internos consumidos por `sockets/roomBridge.ts` → clientes.
+ */
 import { EventEmitter } from 'events';
 import StateMachine from './StateMachine';
 import { GameStateModel } from '../models/GameState';
@@ -24,6 +35,7 @@ import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
 import { computeVoteResolution } from './voteResolution';
 
+/** Intento de unirse a partida ya iniciada (solo LOBBY acepta nuevos jugadores). */
 export class RoomJoinDeniedError extends Error {
   constructor(message: string) {
     super(message);
@@ -31,10 +43,12 @@ export class RoomJoinDeniedError extends Error {
   }
 }
 
+/** Resultado de submitAction / submitVote hacia handlers socket. */
 export type ActionSubmitResult = { ok: true } | { ok: false; reason: string };
 
 export type { VoteResolution } from './voteResolution';
 
+/** Opciones de construcción de sala (timers, maxPlayers, restauración desde disco). */
 export interface RoomOptions {
   nightDurationMs?: number;
   dayDurationMs?: number;
@@ -45,6 +59,7 @@ export interface RoomOptions {
   restore?: boolean;
 }
 
+/** Sala de juego activa; emite eventos de dominio y persiste estado. */
 export class Room extends EventEmitter {
   id: string;
   state: GameStateModel;
@@ -89,6 +104,7 @@ export class Room extends EventEmitter {
     });
   }
 
+  /** Añade jugador en LOBBY; persiste y emite `playerJoined`. */
   addPlayer(p: Player) {
     if (this.sm.getPhase() !== GamePhase.LOBBY) {
       throw new RoomJoinDeniedError(
@@ -103,6 +119,7 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on addPlayer', e); }
   }
 
+  /** Reasigna socket tras reconexión; reenvía rol privado si aplica. */
   reconnectPlayer(playerId: string, socketId: string, name?: string) {
     const existing = this.state.getPlayer(playerId);
     if (!existing) return false;
@@ -115,6 +132,7 @@ export class Room extends EventEmitter {
     return true;
   }
 
+  /** Marca jugador desconectado por socketId; emite `playerDisconnected`. */
   markPlayerDisconnected(socketId: string): boolean {
     const player = this.state.players.find(p => p.socketId === socketId);
     if (!player) return false;
@@ -131,6 +149,7 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on removePlayer', e); }
   }
 
+  /** LOBBY → REPARTO → DIA: asigna roles, metadata inicial y equipo hacker. */
   startGame() {
     if (this.sm.getPhase() !== GamePhase.LOBBY) {
       throw new Error('Game can only be started from LOBBY');
@@ -184,6 +203,7 @@ export class Room extends EventEmitter {
     });
   }
 
+  /** Encola acción nocturna tras validación; reemplaza acción previa del mismo actor. */
   submitAction(action: any): ActionSubmitResult {
     if (this.sm.getPhase() !== GamePhase.NOCHE) {
       return { ok: false, reason: 'Not accepting actions outside NOCHE' };
@@ -211,6 +231,7 @@ export class Room extends EventEmitter {
     return { ok: true };
   }
 
+  /** Registra voto diurno; aplica peso DDoS y redirección Phisher. */
   submitVote(voter: string, target: string | null): ActionSubmitResult {
     if (this.sm.getPhase() !== GamePhase.VOTACION) {
       return { ok: false, reason: 'Voting only allowed during VOTACION' };
@@ -323,6 +344,10 @@ export class Room extends EventEmitter {
     return true;
   }
 
+  /**
+   * Avanza máquina de estados: resuelve noche, votación o verificación de victoria.
+   * Retorna fase resultante o null si no hay transición.
+   */
   async advancePhase() {
     if (this.sm.getPhase() === GamePhase.FIN) return null;
 

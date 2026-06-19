@@ -1,3 +1,9 @@
+/**
+ * Catálogo de roles, equipos y textos orientados al jugador (`playerGuide`).
+ *
+ * 16 roles en tres bandos: System (7), Black Hat (5), Caótico (4).
+ * `ROLE_CATALOG` alimenta Matchmaking, roleInfo (móvil) y RuleEngine (scan).
+ */
 export enum Team {
   SYSTEM = 'system',
   BLACK_HAT = 'black_hat',

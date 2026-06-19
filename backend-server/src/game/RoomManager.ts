@@ -1,3 +1,10 @@
+/**
+ * Registro global de salas en memoria + restauración desde JSON.
+ *
+ * - `createRoom`: solo dashboard (sala nueva)
+ * - `getOrRestoreRoom`: móvil/dashboard se unen o rehidratan tras reinicio servidor
+ * - Singleton exportado como default
+ */
 import Room from './Room';
 import { Player } from '../models/PlayerProfile';
 import { attachRoomBridge } from '../sockets/roomBridge';
@@ -7,6 +14,7 @@ import { logRoom } from '../utils/socketLog';
 import { GamePhase } from '../types';
 import { normalizeRoomMaxPlayers } from '../utils/roomCapacity';
 
+/** Sala en fase FIN — no admite nuevos joins. */
 export class RoomClosedError extends Error {
   constructor(message = 'Room has ended') {
     super(message);
@@ -14,6 +22,7 @@ export class RoomClosedError extends Error {
   }
 }
 
+/** Mapa roomId → Room activa en este proceso Node. */
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
 

@@ -1,3 +1,9 @@
+/**
+ * Handlers socket móvil: unirse/reconectar/salir de sala.
+ *
+ * Eventos entrantes: `joinRoom`, `leaveRoom`, `reconnectPlayer`.
+ * Tras join exitoso emite `roomState` y adjunta bridge si hace falta.
+ */
 import { Socket, Namespace } from 'socket.io';
 import RoomManager, { RoomClosedError } from '../game/RoomManager';
 import { RoomJoinDeniedError } from '../game/Room';
@@ -5,6 +11,7 @@ import { Player } from '../models/PlayerProfile';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
+/** Registra handlers de lobby/conexión en namespace `/game`. */
 export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, dashboardNs: Namespace) {
   logClient('mobile', 'connected', socket.id);
 

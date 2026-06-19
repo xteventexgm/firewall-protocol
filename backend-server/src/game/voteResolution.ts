@@ -1,5 +1,12 @@
+/**
+ * Resolución de votación diurna (fase VOTACION).
+ *
+ * Extraído de Room para testear empates y mayoría sin socket.
+ * Empate o sin votos → `voteTied`; mayoría simple → un eliminado.
+ */
 import { VoteTiedPayload } from '../types/events.types';
 
+/** Resultado de conteo de votos diurnos. */
 export type VoteResolution = {
   eliminated: string | null;
   tied: boolean;
@@ -9,6 +16,7 @@ export type VoteResolution = {
   reason: 'eliminated' | 'tie' | 'no_votes';
 };
 
+/** Eventos derivados del conteo (empate o eliminado). */
 export type VoteResolutionEvents = {
   voteTied?: VoteTiedPayload;
   eliminatedPlayerId?: string;

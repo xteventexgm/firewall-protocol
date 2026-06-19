@@ -1,8 +1,15 @@
+/**
+ * Handlers socket dashboard (host / pantalla pública).
+ *
+ * Eventos: `joinDashboard`, `leaveDashboard`, `createRoom`, `advancePhase`,
+ * `startGame`, `kickPlayer`. Emite `publicState` y `roomCreated` al crear lobby.
+ */
 import { Socket, Namespace } from 'socket.io';
 import RoomManager, { RoomClosedError } from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
+/** Registra handlers de host en namespace `/dashboard`. */
 export default function registerDashboardHandlers(socket: Socket, dashboardNs: Namespace, gameNs: Namespace) {
   logClient('dashboard', 'connected', socket.id);
 

@@ -1,8 +1,16 @@
+/**
+ * Condiciones de victoria y efectos post-noche (cooldowns).
+ *
+ * Orden en `checkAnyWin`: primero solitarias (Troll, Gusano, Minero), luego bando.
+ * Black Hat gana con strictly más hackers que System (`>`).
+ * Zero-Day puede heredar victoria System si asumió rol System y no quedan hackers.
+ */
 import { SoloWinner } from '../types';
 import { RoleName, Team, ROLE_CATALOG } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
 import { getMeta } from './playerMetadata';
 
+/** Resultado de comprobar fin de partida. */
 export type WinResult =
   | { over: true; type: 'team'; winner: Team }
   | { over: true; type: 'solo'; solo: SoloWinner }
@@ -69,12 +77,14 @@ function checkTeamWin(state: GameStateModel): WinResult {
   return { over: false };
 }
 
+/** Punto de entrada: victoria solitaria tiene prioridad sobre victoria de bando. */
 export function checkAnyWin(state: GameStateModel, context: { justVotedOut?: string } = {}): WinResult {
   const solo = checkSoloWin(state, context);
   if (solo.over) return solo;
   return checkTeamWin(state);
 }
 
+/** Decrementa ransomwareCooldown de todos los jugadores al iniciar cada NOCHE. */
 export function tickRansomwareCooldowns(state: GameStateModel) {
   for (const p of state.players) {
     const meta = getMeta(p);
@@ -84,6 +94,7 @@ export function tickRansomwareCooldowns(state: GameStateModel) {
   }
 }
 
+/** Mutación de rol/equipo Zero-Day tras acción `zero_day_assume` (RuleEngine fase 3). */
 export function applyZeroDayAssume(state: GameStateModel, actorId: string, deadPlayerId: string) {
   const actor = state.getPlayer(actorId);
   const dead = state.getPlayer(deadPlayerId);

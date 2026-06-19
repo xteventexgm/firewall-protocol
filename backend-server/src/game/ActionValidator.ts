@@ -1,3 +1,11 @@
+/**
+ * Valida acciones nocturnas antes de encolarlas en `GameStateModel.actionQueue`.
+ *
+ * Reglas: fase NOCHE, actor vivo, no silenciado/congelado, una acción/noche,
+ * tipo acorde al rol, cooldowns y usos (Pentester, Antivirus, Ransomware, Zero-Day).
+ *
+ * Errores legibles para móvil vía `formatActionValidationError`.
+ */
 import { PlayerAction, GamePhase } from '../types';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { RoleName, Team } from '../types/roles.types';
@@ -6,6 +14,7 @@ import { Player } from '../models/PlayerProfile';
 import { getMeta, isSilenced } from './playerMetadata';
 import { ransomwareCooldownNights } from './balance';
 
+/** Códigos de error machine-readable (también en mensaje al cliente entre paréntesis). */
 export type ActionValidationError =
   | 'wrong_phase'
   | 'actor_not_found'
@@ -22,6 +31,7 @@ export type ActionValidationError =
   | 'role_mismatch'
   | 'zero_day_already_used';
 
+/** Valida acción entrante; retorna null si es aceptable. */
 export function validateNightAction(
   action: PlayerAction,
   state: GameStateModel,
@@ -92,6 +102,7 @@ export function validateNightAction(
 }
 
 /** Deshace marcas de cooldown/usos de una acción encolada que se va a reemplazar. */
+/** Deshace metadata consumida si se retira acción de la cola antes de resolver noche. */
 export function revertQueuedActionMetadata(actor: Player, actionType: string, targetId?: string | null) {
   const meta = getMeta(actor);
   const type = (actionType || '').toLowerCase();
@@ -107,6 +118,7 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   }
 }
 
+/** Marca metadata post-validación (cooldowns, usos, flags de noche) al encolar acción. */
 export function markActionSubmitted(
   actor: Player,
   actionType: string,
@@ -153,6 +165,7 @@ export function formatActionValidationError(err: ActionValidationError): string 
   return `${message} (${err})`;
 }
 
+/** Lista de IDs Black Hat vivos (para evento `hacker_team` al inicio). */
 export function getHackerTeam(state: GameStateModel): string[] {
   return state.players
     .filter(p => p.isAlive && p.team === Team.BLACK_HAT)

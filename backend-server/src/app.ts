@@ -1,3 +1,8 @@
+/**
+ * Aplicación Express mínima del backend.
+ * Expone `/health` (monitorización) y `/` (confirmación de servicio).
+ * La lógica realtime vive en Socket.io (`server.ts` → `sockets/`).
+ */
 import express from 'express';
 import bodyParser from 'body-parser';
 

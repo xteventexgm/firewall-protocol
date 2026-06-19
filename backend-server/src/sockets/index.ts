@@ -1,3 +1,11 @@
+/**
+ * Punto de entrada Socket.IO: namespaces `/game` (móvil) y `/dashboard` (host).
+ *
+ * - `/game`: join, acciones, votos, desconexión → `roomHandler` + `gameHandler`
+ * - `/dashboard`: crear sala, unirse como espectador → `dashboardHandler`
+ *
+ * La sincronización estado ↔ clientes pasa por `roomBridge.attachRoomBridge`.
+ */
 import * as http from 'http';
 import { Server as IOServer, Namespace } from 'socket.io';
 import RoomManager from '../game/RoomManager';
@@ -8,6 +16,7 @@ import { broadcastRoomState } from './roomBridge';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
+/** Crea servidor Socket.IO y registra handlers por namespace. */
 export function initSockets(server: http.Server) {
   const io = new IOServer(server, { cors: { origin: '*' } });
   const gameNs: Namespace = io.of('/game');

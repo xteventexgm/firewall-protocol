@@ -1,3 +1,14 @@
+/**
+ * Estado central de una partida (sala).
+ *
+ * Responsabilidades:
+ * - Persistencia (`toPlain` / `fromObject`)
+ * - Vistas filtradas: `toPlainForPlayer` (móvil), `toPublicState` (dashboard)
+ * - Cola de acciones nocturnas (`actionQueue`), votos, contadores día/noche
+ * - Redirección Phisher en votación diurna (`resolvePhisherRedirect`)
+ *
+ * La orquestación de fases y eventos socket está en `game/Room.ts`.
+ */
 import { GamePhase, PlayerAction, PublicGameState, SoloWinner } from '../types';
 import { Team } from '../types/roles.types';
 import { Player, PlayerProfile } from './PlayerProfile';
@@ -12,14 +23,17 @@ export interface GameState {
   players: PlayerProfile[];
   dayNumber: number;
   nightNumber: number;
+  /** Acciones nocturnas pendientes de resolver al avanzar desde NOCHE. */
   actionQueue: PlayerAction[];
   votes: Record<string, string[]>;
   logs: string[];
   winner?: Team | null;
   soloWinner?: SoloWinner | null;
+  /** IDs eliminados en la última noche resuelta (también en incidentReport). */
   lastNightKills: string[];
 }
 
+/** Modelo mutable del estado de sala; una instancia por `Room`. */
 export class GameStateModel implements GameState {
   roomId: string;
   phase: GamePhase = GamePhase.LOBBY;
@@ -39,6 +53,7 @@ export class GameStateModel implements GameState {
     this.roomId = roomId;
   }
 
+  /** Rehidrata estado desde JSON tras reinicio del servidor. Jugadores quedan desconectados hasta reconnect. */
   static fromObject(obj: any) {
     const s = new GameStateModel(obj.roomId || '');
     s.phase = obj.phase;
@@ -65,6 +80,7 @@ export class GameStateModel implements GameState {
     return s;
   }
 
+  /** Snapshot completo para disco (`database.save`). */
   toPlain() {
     return {
       roomId: this.roomId,
@@ -83,6 +99,10 @@ export class GameStateModel implements GameState {
     };
   }
 
+  /**
+   * Estado enviado a un jugador móvil (`roomState`).
+   * Oculta rol/equipo ajenos; sanitiza metadata según viewer.
+   */
   toPlainForPlayer(viewerId: string) {
     // Durante la partida oculta rol/team de otros vivos y eliminados. El dashboard (publicState) sí revela rol de eliminados.
     const hideRoles = this.phase !== GamePhase.LOBBY && this.phase !== GamePhase.REPARTO && this.phase !== GamePhase.FIN;
@@ -112,6 +132,10 @@ export class GameStateModel implements GameState {
     };
   }
 
+  /**
+   * Topología pública para dashboard (`publicState`).
+   * Revela rol de jugadores eliminados; no expone metadata secreta.
+   */
   toPublicState(): PublicGameState {
     return {
       roomId: this.roomId,
@@ -135,6 +159,7 @@ export class GameStateModel implements GameState {
     };
   }
 
+  /** Oculta campos sensibles de metadata ajena (infección, Phisher, objetivos internos). */
   private sanitizeMetadata(metadata: any, isSelf = false) {
     if (!metadata || isSelf) return metadata;
     const {
@@ -206,6 +231,7 @@ export class GameStateModel implements GameState {
     this.logs.push(`[${new Date().toISOString()}] ${entry}`);
   }
 
+  /** Aplica mapas Phisher activos: si `voterId` fue engañado, sustituye su objetivo de voto. */
   resolvePhisherRedirect(voterId: string, targetId: string | null): string | null {
     for (const p of this.players) {
       const redirects = getMeta(p).phisherRedirects;

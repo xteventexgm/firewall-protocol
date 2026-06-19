@@ -1,3 +1,9 @@
+/**
+ * Ciclo de vida de infecciones (Gusano).
+ *
+ * `INFECTION_ROUNDS` controla cuántas noches tras infectar puede matar la infección madura.
+ * Resolución en RuleEngine fase 2 (`processMatureInfections`); cura en Antivirus fase 1.
+ */
 import { Player } from '../models/PlayerProfile';
 import { PlayerInfection } from '../types/player-metadata.types';
 import { getMeta } from './playerMetadata';

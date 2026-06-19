@@ -1,3 +1,14 @@
+/**
+ * Motor de resolución nocturna por fases (regla de oro estilo Mafia/Werewolf).
+ *
+ * Fases de `resolveNightActions`:
+ * 0. Preparación — BGP, Deep Freeze, Honeypot, Phisher
+ * 1. Protecciones — Antivirus protect/cure
+ * 2. Ataques — infecciones maduras, consenso hacker, Pentester, Gusano, Ransomware
+ * 3. Investigaciones — SOC scan, Spyware, Zero-Day assume
+ *
+ * Balance detallado: ver `balance.ts` y comentarios en `tryKill` / `scanResult`.
+ */
 import { NightActionBatch, NightResolution, PlayerAction, ScanResult } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
 import { Player } from '../models/PlayerProfile';
@@ -194,6 +205,7 @@ function processHoneypotDrag(
  * 2. Ataques — consenso hacker, Pentester, Gusano, Ransomware
  * 3. Investigaciones — Analista SOC (scan), Spyware (spy), Zero-Day
  */
+/** Resuelve batch nocturno en fases 0→3; retorna kills, scans y efectos para `nightResolved`. */
 export function resolveNightActions(batch: NightActionBatch, state: GameStateModel): NightResolution {
   const res: NightResolution = {
     kills: [],

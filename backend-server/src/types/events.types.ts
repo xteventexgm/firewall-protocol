@@ -1,3 +1,14 @@
+/**
+ * Contrato Socket.io y tipos de dominio del juego.
+ *
+ * Referencia compartida con mobile-terminal y web-dashboard.
+ * Ver también `../SOCKET_CONTRACT.md` en la raíz del monorepo.
+ *
+ * Secciones principales:
+ * - Fases (`GamePhase`), acciones (`PlayerAction`), votos
+ * - Payloads S→C: `PrivateResultPayload`, `IncidentReport`, `NightResolution`
+ * - Interfaces de eventos tipados para socket.io (documentación)
+ */
 import { RoleId, Team } from './roles.types';
 
 export enum GamePhase {

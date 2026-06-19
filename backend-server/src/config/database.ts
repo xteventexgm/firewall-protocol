@@ -1,6 +1,13 @@
+/**
+ * Adaptador de persistencia de partidas.
+ *
+ * Abstrae `dbSyncService` (JSON en disco hoy) para migrar a MongoDB sin cambiar
+ * `Room` ni `RoomManager`. Métodos `delete` y `list` preparados para admin futuro.
+ */
 import dbSync from '../services/dbSyncService';
 import { logger } from '../utils/logger';
 
+/** Contrato de persistencia; implementación actual: JSON vía dbSyncService. */
 export interface DBAdapter {
 	save(roomId: string, state: any): boolean;
 	load(roomId: string): any | null;

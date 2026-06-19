@@ -1,6 +1,13 @@
+/**
+ * Metadata por jugador y mapa acción-nocturna ↔ rol.
+ *
+ * `PlayerMetadata` se guarda en `player.metadata` (JSON persistido).
+ * `ROLE_NIGHT_ACTIONS` define qué `type` acepta ActionValidator por rol.
+ */
 import { PlayerId } from './events.types';
 import { RoleName } from './roles.types';
 
+/** Estado de infección (Gusano u otra fuente) sobre un nodo. */
 export interface PlayerInfection {
   sourcePlayerId: PlayerId;
   /** Origen de la infección: worm, etc. */
@@ -9,6 +16,10 @@ export interface PlayerInfection {
   maturesAfterNight: number;
 }
 
+/**
+ * Flags runtime por jugador. Inicializados en `initRoleMetadata` (`playerMetadata.ts`).
+ * Algunos campos se ocultan a otros clientes vía `GameStateModel.sanitizeMetadata`.
+ */
 export interface PlayerMetadata {
   actedThisNight?: boolean;
   lastProtectedTarget?: PlayerId | null;
@@ -24,6 +35,7 @@ export interface PlayerMetadata {
   infection?: PlayerInfection;
 }
 
+/** Tipos de acción nocturna permitidos por rol (validados en ActionValidator). */
 export const ROLE_NIGHT_ACTIONS: Partial<Record<RoleName, string[]>> = {
   [RoleName.SOC_ANALYST]: ['scan'],
   [RoleName.ANTIVIRUS]: ['protect', 'cure'],
