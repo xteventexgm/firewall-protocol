@@ -22,13 +22,22 @@ export function checkSoloWin(state: GameStateModel, context: { justVotedOut?: st
     }
   }
 
-  const worm = alive.find(p => p.role === RoleName.WORM);
-  if (worm && alive.length === 1) {
-    return {
-      over: true,
-      type: 'solo',
-      solo: { playerId: worm.id, role: RoleName.WORM, reason: 'worm_last_standing' },
-    };
+  if (alive.length === 1) {
+    const sole = alive[0];
+    if (sole.role === RoleName.WORM) {
+      return {
+        over: true,
+        type: 'solo',
+        solo: { playerId: sole.id, role: RoleName.WORM, reason: 'worm_last_standing' },
+      };
+    }
+    if (sole.role === RoleName.CRYPTO_MINER) {
+      return {
+        over: true,
+        type: 'solo',
+        solo: { playerId: sole.id, role: RoleName.CRYPTO_MINER, reason: 'miner_survived' },
+      };
+    }
   }
 
   return { over: false };
@@ -40,14 +49,6 @@ export function checkTeamWin(state: GameStateModel): WinResult {
   const systemSide = alive.filter(p => p.team === Team.SYSTEM);
 
   if (hackers.length === 0 && systemSide.length > 0) {
-    const miner = alive.find(p => p.role === RoleName.CRYPTO_MINER);
-    if (miner && alive.length === 1) {
-      return {
-        over: true,
-        type: 'solo',
-        solo: { playerId: miner.id, role: RoleName.CRYPTO_MINER, reason: 'miner_survived' },
-      };
-    }
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 

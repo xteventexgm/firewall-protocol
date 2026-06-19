@@ -25,6 +25,7 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
 
   room.on('phaseChanged', ({ roomId, to }) => {
     gameNs.to(roomId).emit('phaseChanged', roomId, to);
+    dashboardNs?.to(room.id).emit('phaseChanged', roomId, to);
     refresh();
   });
 
