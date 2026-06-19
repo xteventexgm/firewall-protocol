@@ -50,9 +50,68 @@
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
 
+/* Scroll fiable en Capacitor/Android */
+ion-content.scroll-page {
+  --overflow: hidden;
+  height: 100%;
+}
+
+ion-content.scroll-page::part(scroll) {
+  overflow: hidden !important;
+  height: 100%;
+  max-height: 100%;
+  touch-action: pan-y;
+}
+
+.page-scroll {
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  transform: translateZ(0);
+  will-change: scroll-position;
+}
+
+html.plt-android .page-scroll,
+html.plt-capacitor .page-scroll {
+  overflow-y: scroll;
+}
+
+html.plt-android ion-content.scroll-page::part(scroll),
+html.plt-capacitor ion-content.scroll-page::part(scroll) {
+  overscroll-behavior: none;
+}
+
+html,
+body,
+ion-app {
+  height: 100%;
+  width: 100%;
+}
+
+ion-router-outlet {
+  display: block;
+  height: 100%;
+}
+
 html,
 body {
   font-family: var(--font-mono);
   background: var(--color-cyber-bg);
+  overflow: hidden;
+}
+
+ion-content:not(.scroll-page) {
+  --overflow: auto;
+}
+
+ion-content:not(.scroll-page)::part(scroll) {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
 }
 

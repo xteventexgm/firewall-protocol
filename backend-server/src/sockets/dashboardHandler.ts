@@ -92,9 +92,14 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
         socket.emit('error', 'room not found');
         return;
       }
-      void room.advancePhase().then((next) => {
-        logClient('dashboard', 'advancePhase OK', socket.id, { roomId, from, to: next });
-      });
+      void room.advancePhase()
+        .then((next) => {
+          logClient('dashboard', 'advancePhase OK', socket.id, { roomId, from, to: next });
+        })
+        .catch((err: any) => {
+          logger.error('[dashboard] advancePhase FAIL', err.message || err);
+          socket.emit('error', err.message || String(err));
+        });
     } catch (err: any) {
       logger.error('[dashboard] advancePhase FAIL', err.message || err);
       socket.emit('error', err.message || String(err));

@@ -1,18 +1,10 @@
 import {
-  GameOverSummary,
   GamePhase,
-  IncidentDisplay,
-  MAX_PLAYERS,
-  MIN_PLAYERS_TO_START,
+  IncidentReport,
   PublicGameState,
   PublicPlayer,
-  ServerIncidentReport,
-  SoloWinner,
-  Team,
   VoteEdge,
 } from '../models/game-state.model';
-
-export { MIN_PLAYERS_TO_START, MAX_PLAYERS };
 
 export function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -31,11 +23,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,
     joinedAt: p.joinedAt ?? Date.now(),
-    role: p.role,
-    team: p.team,
   }));
-
-  const playerCount = raw?.playerCount ?? players.length;
 
   return {
     roomId: raw?.roomId ?? '',
@@ -44,8 +32,6 @@ export function sanitizeGameState(raw: any): PublicGameState {
     players,
     dayNumber: raw?.dayNumber ?? 0,
     nightNumber: raw?.nightNumber ?? 0,
-    maxPlayers: raw?.maxPlayers ?? MAX_PLAYERS,
-    playerCount,
     votes: raw?.votes ?? {},
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
@@ -64,12 +50,31 @@ export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
   return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
 }
 
+export function detectIncidents(
+  previous: PublicGameState | null,
+  current: PublicGameState,
+): IncidentReport[] {
+  if (!previous) return [];
+
+  const prevById = new Map(previous.players.map((p) => [p.id, p]));
+  const incidents: IncidentReport[] = [];
+
+  for (const player of current.players) {
+    const prev = prevById.get(player.id);
+    if (prev?.isAlive && !player.isAlive) {
+      incidents.push({ playerId: player.id, playerName: player.name });
+    }
+  }
+
+  return incidents;
+}
+
 export function incidentsFromServerReport(
-  report: ServerIncidentReport,
+  disconnected: string[],
   state: PublicGameState | null,
-): IncidentDisplay[] {
+): IncidentReport[] {
   const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
-  return report.disconnected.map((id) => ({
+  return disconnected.map((id) => ({
     playerId: id,
     playerName: byId.get(id)?.name ?? id,
   }));
@@ -86,65 +91,6 @@ export function phaseLabel(phase: GamePhase): string {
     FIN: 'FIN — Partida terminada',
   };
   return labels[phase] ?? phase;
-}
-
-export function winnerLabel(
-  winner: Team | null | undefined,
-  soloWinner?: SoloWinner | null,
-  players?: PublicPlayer[],
-): string {
-  return buildGameOverSummary({
-    roomId: '',
-    phase: 'FIN',
-    phaseStartedAt: 0,
-    players: players ?? [],
-    dayNumber: 0,
-    nightNumber: 0,
-    maxPlayers: MAX_PLAYERS,
-    playerCount: players?.length ?? 0,
-    votes: {},
-    winner: winner ?? null,
-    soloWinner: soloWinner ?? null,
-  })?.headline ?? 'Partida terminada';
-}
-
-export function buildGameOverSummary(
-  state: PublicGameState | null,
-): GameOverSummary | null {
-  if (!state) return null;
-
-  if (state.soloWinner) {
-    const name =
-      state.players.find((p) => p.id === state.soloWinner!.playerId)?.name ??
-      state.soloWinner.playerId;
-    return {
-      teamLabel: 'CAÓTICOS',
-      headline: 'Victoria de los CAÓTICOS',
-      winners: [{ playerName: name, role: state.soloWinner.role }],
-    };
-  }
-
-  if (state.winner === 'system') {
-    return {
-      teamLabel: 'BLUE TEAM',
-      headline: 'Victoria del BLUE TEAM',
-      winners: state.players
-        .filter((p) => p.team === 'system')
-        .map((p) => ({ playerName: p.name, role: p.role ?? 'Desconocido' })),
-    };
-  }
-
-  if (state.winner === 'black_hat') {
-    return {
-      teamLabel: 'RED TEAM',
-      headline: 'Victoria del RED TEAM',
-      winners: state.players
-        .filter((p) => p.team === 'black_hat')
-        .map((p) => ({ playerName: p.name, role: p.role ?? 'Desconocido' })),
-    };
-  }
-
-  return null;
 }
 
 export function isNodeCritical(player: PublicPlayer): boolean {

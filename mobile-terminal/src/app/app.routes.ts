@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { roomGuard } from './core/guards/room.guard';
 
 export const routes: Routes = [
   {
@@ -12,6 +13,7 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
-    loadComponent: () => import('./pages/dashboard/dashboard.page').then( m => m.DashboardPage)
+    loadComponent: () => import('./pages/dashboard/dashboard.page').then( m => m.DashboardPage),
+    canActivate: [roomGuard],
   }
 ];
