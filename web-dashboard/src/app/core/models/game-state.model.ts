@@ -86,7 +86,28 @@ export interface GameOverPayload {
 
 export interface GameOverSummary {
   headline: string;
+  message?: string;
   winners: { playerName: string; role: string }[];
+  reveals?: GameOverReveal[];
+}
+
+export interface GameOverReveal {
+  title: string;
+  items: string[];
+}
+
+export interface NightResolution {
+  kills: string[];
+  prevented: { actionId: string; reason: string }[];
+  redirects: { actionId: string; from: string; to: string }[];
+  logs: string[];
+  silenced: string[];
+  honeypotDrags?: { honeypotId: string; draggedId: string }[];
+}
+
+export interface RoomCreatedPayload {
+  roomId: string;
+  maxPlayers: number;
 }
 
 export interface SavedRoom {

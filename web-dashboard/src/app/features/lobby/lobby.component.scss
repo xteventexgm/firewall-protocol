@@ -150,3 +150,13 @@
     border-color: #00f0ff44;
   }
 }
+
+.join-code-input {
+  font-family: inherit;
+  letter-spacing: 0.08em;
+
+  &::placeholder {
+    color: #4a6a7a;
+    text-transform: none;
+  }
+}

@@ -8,6 +8,7 @@ import {
   Team,
   VoteEdge,
 } from '../models/game-state.model';
+import { buildHostGameOverFromState, buildHostGameOverSummary } from './game-over.utils';
 
 export function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -25,7 +26,6 @@ export function sanitizeGameState(raw: any): PublicGameState {
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,
-    joinedAt: p.joinedAt ?? Date.now(),
     role: p.role ?? undefined,
   }));
 
@@ -47,10 +47,9 @@ export function sanitizeGameState(raw: any): PublicGameState {
 export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
   const lastVote = new Map<string, string>();
   for (const [target, voters] of Object.entries(votes)) {
-    const resolvedTarget = target === 'null' ? '' : target;
-    if (!resolvedTarget) continue;
+    if (target === 'null' || target === 'skip') continue;
     for (const voter of voters) {
-      lastVote.set(voter, resolvedTarget);
+      lastVote.set(voter, target);
     }
   }
   return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
@@ -92,15 +91,32 @@ export function incidentsFromServerReport(
 
 export function phaseLabel(phase: GamePhase): string {
   const labels: Record<GamePhase, string> = {
-    LOBBY: 'LOBBY — Esperando conexiones',
-    REPARTO: 'REPARTO — Asignando roles',
-    NOCHE: 'NOCHE — Operaciones encubiertas',
-    DIA: 'DÍA — Auditoría de seguridad',
-    VOTACION: 'VOTACIÓN — Debate activo',
-    VERIFICACION: 'VERIFICACIÓN — Conteo de votos',
-    FIN: 'FIN — Partida terminada',
+    LOBBY: 'EN ESPERA',
+    REPARTO: 'REPARTO DE ROLES',
+    NOCHE: 'OPERACIÓN NOCTURNA',
+    DIA: 'AUDITORÍA DIURNA',
+    VOTACION: 'VOTACIÓN PÚBLICA',
+    VERIFICACION: 'VERIFICACIÓN',
+    FIN: 'PARTIDA TERMINADA',
   };
   return labels[phase] ?? phase;
+}
+
+export function translateEliminationReason(reason: string): string {
+  const labels: Record<string, string> = {
+    vote: 'votación',
+    honeypot_drag: 'arrastre honeypot',
+  };
+  return labels[reason] ?? reason;
+}
+
+export function teamLabelFromKey(team: string | undefined): string {
+  const labels: Record<string, string> = {
+    system: 'Equipo Sistema',
+    black_hat: 'Equipo Black Hat',
+    chaotic: 'Equipo Caótico',
+  };
+  return team ? (labels[team] ?? team) : '';
 }
 
 export function isNodeCritical(player: PublicPlayer): boolean {
@@ -129,34 +145,11 @@ export function buildGameOverSummaryFromPayload(
   payload: GameOverPayload,
   state: PublicGameState | null,
 ): GameOverSummary {
-  const players = state?.players ?? [];
-
-  if (payload.soloWinner) {
-    const player = players.find((p) => p.id === payload.soloWinner!.playerId);
-    const playerName = player?.name ?? payload.soloWinner.playerId;
-    return {
-      headline: `Victoria solitaria — ${playerName}`,
-      winners: [{ playerName, role: payload.soloWinner.role }],
-    };
-  }
-
-  if (payload.winner) {
-    return {
-      headline: winnerLabel(payload.winner),
-      winners: [{ playerName: winnerTeamName(payload.winner), role: 'Equipo ganador' }],
-    };
-  }
-
-  return { headline: 'Partida terminada', winners: [] };
+  return buildHostGameOverSummary(payload, state);
 }
 
 export function buildGameOverSummary(state: PublicGameState | null): GameOverSummary | null {
-  if (!state || state.phase !== 'FIN') return null;
-
-  return buildGameOverSummaryFromPayload(
-    { roomId: state.roomId, winner: state.winner, soloWinner: state.soloWinner },
-    state,
-  );
+  return buildHostGameOverFromState(state);
 }
 
 export function detectPlayerStatusChanges(

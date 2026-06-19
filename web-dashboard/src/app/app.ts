@@ -13,6 +13,7 @@ import {
   buildGameOverSummary,
   buildGameOverSummaryFromPayload,
   detectPlayerStatusChanges,
+  translateEliminationReason,
 } from './core/utils/game.utils';
 import { loadSavedRooms, removeRoom, saveRoom } from './core/utils/room-storage.utils';
 import { LobbyComponent } from './features/lobby/lobby.component';
@@ -113,17 +114,47 @@ export class App implements OnInit, OnDestroy {
         this.phaseFlash = transition.to;
         setTimeout(() => (this.phaseFlash = ''), 2000);
       }),
-      this.gameSocket.voteTied$.subscribe(({ voteCount, candidates, reason }) => {
+      this.gameSocket.voteTied$.subscribe(({ voteCount, candidates, reason, skipVotes }) => {
         if (!this.inRoom || this.gameOverActive) return;
         if (reason === 'no_votes') {
-          this.voteTiedMessage = 'Sin votos de eliminación — avanzando a noche';
+          const skipNote = skipVotes > 0 ? ` (${skipVotes} abstenciones)` : '';
+          this.voteTiedMessage = `Sin votos de eliminación${skipNote} — avanzando a noche`;
         } else {
           this.voteTiedMessage = `Empate — ${candidates.length} candidatos con ${voteCount} votos`;
         }
         setTimeout(() => (this.voteTiedMessage = ''), 5000);
       }),
+      this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
+        if (!this.inRoom || this.gameOverActive) return;
+        const parts: string[] = [];
+        if (resolution.kills?.length) parts.push(`${resolution.kills.length} eliminado(s)`);
+        if (resolution.silenced?.length) parts.push(`${resolution.silenced.length} silenciado(s)`);
+        if (parts.length) {
+          this.showStatusMessage(`Noche resuelta: ${parts.join(', ')}`, 'warn');
+        }
+      }),
+      this.gameSocket.playerEliminated$.subscribe(({ playerId, reason }) => {
+        if (!this.inRoom || this.gameOverActive) return;
+        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
+        const role = this.state?.players.find((p) => p.id === playerId)?.role;
+        const rolePart = role ? ` — ${role}` : '';
+        this.showStatusMessage(
+          `Nodo eliminado: ${name}${rolePart} (${translateEliminationReason(reason)})`,
+          'error',
+        );
+      }),
+      this.gameSocket.playerDisconnected$.subscribe(({ playerId }) => {
+        if (!this.inRoom || this.gameOverActive) return;
+        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
+        this.showStatusMessage(`Nodo desconectado: ${name}`, 'warn');
+      }),
+      this.gameSocket.playerReconnected$.subscribe(({ playerId }) => {
+        if (!this.inRoom || this.gameOverActive) return;
+        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
+        this.showStatusMessage(`Nodo reconectado: ${name}`, 'success');
+      }),
       this.gameSocket.voteTrace$.subscribe((trace) => {
-        if (!this.inRoom) return;
+        if (!this.inRoom || this.gameOverActive) return;
         this.highlightTrace = trace;
         setTimeout(() => {
           if (this.highlightTrace === trace) {
