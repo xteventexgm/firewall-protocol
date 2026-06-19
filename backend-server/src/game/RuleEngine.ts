@@ -1,4 +1,4 @@
-import { NightActionBatch, PlayerAction, PrivateResultPayload, ScanResult } from '../types/events.types';
+import { NightActionBatch, NightResolution, PlayerAction, PrivateResultPayload, ScanResult } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { getMeta } from './playerMetadata';
@@ -14,18 +14,7 @@ import {
   infectionSourceLabel,
 } from './infection';
 
-export type NightResolution = {
-  kills: string[];
-  prevented: { actionId: string; reason: string }[];
-  redirects: { actionId: string; from: string; to: string }[];
-  logs: string[];
-  privateResults: { playerId: string; payload: PrivateResultPayload }[];
-  silenced: string[];
-  honeypotDrags: { honeypotId: string; draggedId: string }[];
-  infections: string[];
-  cures: string[];
-  infectionKills: string[];
-};
+export type { NightResolution };
 
 function actionType(a: PlayerAction) {
   return (a.type || '').toLowerCase();

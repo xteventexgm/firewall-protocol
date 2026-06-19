@@ -85,6 +85,7 @@ export class GameStateModel implements GameState {
   }
 
   toPlainForPlayer(viewerId: string) {
+    // Durante la partida oculta rol/team de otros vivos y eliminados. El dashboard (publicState) sí revela rol de eliminados.
     const hideRoles = this.phase !== GamePhase.LOBBY && this.phase !== GamePhase.REPARTO && this.phase !== GamePhase.FIN;
     return {
       roomId: this.roomId,
@@ -137,7 +138,15 @@ export class GameStateModel implements GameState {
 
   private sanitizeMetadata(metadata: any, isSelf = false) {
     if (!metadata || isSelf) return metadata;
-    const { phisherRedirects, infection, ...rest } = metadata;
+    const {
+      phisherRedirects,
+      infection,
+      lastProtectedTarget,
+      lastCuredTarget,
+      assumedFromPlayerId,
+      honeypotDragTarget,
+      ...rest
+    } = metadata;
     return rest;
   }
 

@@ -154,7 +154,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     team: Team.CHAOTIC,
     displayName: 'Gusano',
     description: 'Se propaga y causa colisiones',
-    playerGuide: 'Amenaza autónoma. Infectas a un jugador de noche; muere en la ronda siguiente si no lo curan. Eres inmune al primer ataque y ganas en solitario si quedas como último en pie.',
+    playerGuide: 'Amenaza autónoma. Infectas a un jugador de noche; muere en la ronda siguiente si no lo curan. Eres inmune a cualquier eliminación mientras vivas y ganas en solitario si quedas como último en pie.',
     priority: 28,
   },
   [RoleName.CRYPTO_MINER]: {

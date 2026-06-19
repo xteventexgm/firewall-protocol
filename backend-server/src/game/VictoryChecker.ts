@@ -56,6 +56,8 @@ export function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 
+  // Zero-Day edge case: asumió rol System y no quedan hackers → victoria System.
+  // No hay victoria de equipo caótico (Team.CHAOTIC); roles caóticos ganan en solitario.
   const zeroDay = alive.find(p => p.role === RoleName.ZERO_DAY && getMeta(p).assumedFromPlayerId);
   if (zeroDay && hackers.length === 0) {
     const assumedTeam = zeroDay.team as Team;

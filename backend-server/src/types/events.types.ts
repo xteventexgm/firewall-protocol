@@ -35,9 +35,20 @@ export interface NightActionBatch {
   actions: PlayerAction[];
 }
 
+/**
+ * Reporte de amanecer tras resolver la noche.
+ * `eliminatedPlayerIds` = jugadores eliminados esa noche (kills nocturnos).
+ * `disconnected` es alias histórico del mismo array — NO son desconexiones de socket.
+ */
 export interface IncidentReport {
   roomId: RoomId;
   nightNumber: number;
+  /** IDs eliminados durante la noche (consenso hacker, Pentester, infección madura, etc.). */
+  eliminatedPlayerIds: PlayerId[];
+  /**
+   * @deprecated Usar `eliminatedPlayerIds`. Mantiene compatibilidad con clientes antiguos.
+   * No representa jugadores con `isConnected: false`.
+   */
   disconnected: PlayerId[];
 }
 
@@ -115,6 +126,59 @@ export interface PhaseTransition {
   at: number;
 }
 
+/** Resolución completa de la noche (dashboard / depuración). */
+export interface NightResolution {
+  kills: PlayerId[];
+  prevented: { actionId: string; reason: string }[];
+  redirects: { actionId: string; from: string; to: string }[];
+  logs: string[];
+  privateResults: { playerId: string; payload: PrivateResultPayload }[];
+  silenced: PlayerId[];
+  honeypotDrags: { honeypotId: string; draggedId: string }[];
+  infections: PlayerId[];
+  cures: PlayerId[];
+  infectionKills: PlayerId[];
+}
+
+/** Payload reducido de `nightResolved` para namespace `/game` (sin logs ni privateResults). */
+export type PublicNightResolution = Omit<NightResolution, 'logs' | 'privateResults'>;
+
+export function toPublicNightResolution(resolution: NightResolution): PublicNightResolution {
+  const { logs: _logs, privateResults: _privateResults, ...publicResolution } = resolution;
+  return publicResolution;
+}
+
+/** Estado de sala enviado a cada jugador vía `roomState` (filtrado por viewer). */
+export interface PlayerRoomState {
+  roomId: RoomId;
+  phase: GamePhase;
+  phaseStartedAt: number;
+  maxPlayers: number;
+  playerCount: number;
+  players: Array<{
+    id: PlayerId;
+    name: string;
+    isAlive: boolean;
+    isConnected: boolean;
+    role?: RoleId;
+    team?: Team;
+    metadata?: Record<string, unknown>;
+    pendingActions?: PlayerAction[];
+  }>;
+  dayNumber: number;
+  nightNumber: number;
+  votes: Record<string, PlayerId[]>;
+  logs: string[];
+  winner: Team | null;
+  soloWinner: SoloWinner | null;
+  lastNightKills: PlayerId[];
+}
+
+export interface RoomCreatedPayload {
+  roomId: RoomId;
+  maxPlayers: number;
+}
+
 export interface ClientToServerEvents {
   joinRoom: (roomId: RoomId, playerId: PlayerId, name?: string) => void;
   leaveRoom: (roomId: RoomId, playerId: PlayerId) => void;
@@ -134,7 +198,7 @@ export interface DashboardClientEvents {
 }
 
 export interface ServerToClientEvents {
-  roomState: (roomId: RoomId, state: any) => void;
+  roomState: (roomId: RoomId, state: PlayerRoomState) => void;
   phaseChanged: (roomId: RoomId, phase: GamePhase) => void;
   phaseTransition: (payload: PhaseTransition) => void;
   actionAccepted: (actionId: string) => void;
@@ -143,10 +207,16 @@ export interface ServerToClientEvents {
   publicState: (state: PublicGameState) => void;
   voteTrace: (trace: VoteTrace) => void;
   voteTied: (payload: VoteTiedPayload) => void;
-  nightResolved: (roomId: RoomId, resolution: any) => void;
+  /** `/game`: payload reducido (`PublicNightResolution`). `/dashboard`: resolución completa. */
+  nightResolved: (roomId: RoomId, resolution: NightResolution | PublicNightResolution) => void;
   playerReconnected: (roomId: RoomId, playerId: PlayerId) => void;
   playerDisconnected: (roomId: RoomId, playerId: PlayerId) => void;
   playerEliminated: (roomId: RoomId, playerId: PlayerId, reason: string) => void;
   gameOver: (roomId: RoomId, winner: Team | null, soloWinner?: SoloWinner | null) => void;
   error: (msg: string) => void;
+}
+
+/** Eventos exclusivos del namespace `/dashboard` (además de los compartidos). */
+export interface DashboardServerToClientEvents {
+  roomCreated: (payload: RoomCreatedPayload) => void;
 }

@@ -1,4 +1,4 @@
-import { PlayerAction, GamePhase, SoloWinner } from '../types';
+import { PlayerAction, GamePhase } from '../types';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { RoleName, Team } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
@@ -120,6 +120,28 @@ export function markActionSubmitted(actor: Player, actionType: string, targetId?
   if (actionType === 'cure') {
     meta.lastCuredTarget = targetId ?? null;
   }
+}
+
+const ACTION_VALIDATION_MESSAGES: Record<ActionValidationError, string> = {
+  wrong_phase: 'Solo puedes actuar durante la noche (NOCHE)',
+  actor_not_found: 'Jugador no encontrado en la sala',
+  actor_dead: 'No puedes actuar si estás eliminado',
+  actor_silenced: 'Estás silenciado y no puedes actuar esta noche',
+  actor_frozen: 'Estás congelado y no puedes actuar esta noche',
+  already_acted: 'Ya enviaste una acción esta noche',
+  invalid_action_type: 'Acción no válida para tu rol',
+  no_uses_left: 'No te quedan usos de esta habilidad',
+  antivirus_cooldown: 'No puedes proteger al mismo jugador dos noches seguidas',
+  antivirus_cure_cooldown: 'No puedes curar al mismo jugador dos noches seguidas',
+  ransomware_cooldown: 'Debes esperar antes de volver a usar Ransomware',
+  invalid_target: 'Objetivo no válido',
+  role_mismatch: 'El rol indicado no coincide con tu rol asignado',
+};
+
+/** Mensaje legible para el móvil; incluye código entre paréntesis para parsing opcional. */
+export function formatActionValidationError(err: ActionValidationError): string {
+  const message = ACTION_VALIDATION_MESSAGES[err] ?? 'Acción rechazada';
+  return `${message} (${err})`;
 }
 
 export function getHackerTeam(state: GameStateModel): string[] {

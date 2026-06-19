@@ -19,8 +19,8 @@ const NIGHT_ACTION_HINTS: Record<string, string> = {
   hacker_vote: 'Vota con el equipo hacker a quién eliminar. Hace falta mayoría simple entre los hackers vivos.',
   ransomware: 'Silencia a un jugador hasta el día siguiente: no podrá actuar de noche ni votar de día.',
   spy: 'Espía a un jugador y descubre quién lo visitó esa noche.',
-  phisher_redirect: 'Redirige las acciones nocturnas de un jugador hacia otro objetivo.',
-  worm_infect: 'Infecta a un jugador: morirá al resolver la siguiente noche si no lo curan. Eres inmune al primer ataque dirigido contra ti.',
+  phisher_redirect: 'Redirige el voto diurno de un jugador hacia otro objetivo (fase VOTACION).',
+  worm_infect: 'Infecta a un jugador: morirá al resolver la siguiente noche si no lo curan. Eres inmune a cualquier eliminación mientras vivas.',
   worm_kill: 'Alias de worm_infect: infecta al objetivo en lugar de eliminarlo al instante.',
   zero_day_assume: 'Asume el rol de un jugador ya eliminado (el objetivo debe estar muerto).',
 };

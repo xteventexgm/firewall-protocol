@@ -1,5 +1,6 @@
 import { Namespace } from 'socket.io';
 import Room from '../game/Room';
+import { toPublicNightResolution } from '../types/events.types';
 
 export function broadcastRoomState(gameNs: Namespace, room: Room) {
   for (const p of room.state.players) {
@@ -41,7 +42,7 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
   });
 
   room.on('nightResolved', ({ roomId, resolution }) => {
-    gameNs.to(roomId).emit('nightResolved', roomId, resolution);
+    gameNs.to(roomId).emit('nightResolved', roomId, toPublicNightResolution(resolution));
     dashboardNs?.to(roomId).emit('nightResolved', roomId, resolution);
     refresh();
   });

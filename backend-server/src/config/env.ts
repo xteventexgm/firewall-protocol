@@ -6,9 +6,29 @@ export const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
 export const DATA_DIRECTORY = process.env.DATA_DIRECTORY || path.join(process.cwd(), 'data');
 
+/** Duración de la fase NOCHE antes de auto-avance (ms). */
+export const NIGHT_DURATION_MS = Number(process.env.NIGHT_DURATION_MS || 60_000);
+
+/** Duración de la fase DIA antes de auto-avance (ms). */
+export const DAY_DURATION_MS = Number(process.env.DAY_DURATION_MS || 60_000);
+
+/** Si true, las fases NOCHE y DIA avanzan automáticamente tras el timeout configurado. */
+export const AUTO_ADVANCE = process.env.AUTO_ADVANCE === 'true' || process.env.AUTO_ADVANCE === '1';
+
+export function defaultRoomOptions() {
+  return {
+    nightDurationMs: NIGHT_DURATION_MS,
+    dayDurationMs: DAY_DURATION_MS,
+    autoAdvance: AUTO_ADVANCE,
+  };
+}
+
 export default {
 	NODE_ENV,
 	PORT,
 	LOG_LEVEL,
 	DATA_DIRECTORY,
+	NIGHT_DURATION_MS,
+	DAY_DURATION_MS,
+	AUTO_ADVANCE,
 };

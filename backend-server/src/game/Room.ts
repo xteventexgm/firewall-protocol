@@ -15,10 +15,12 @@ import {
   markActionSubmitted,
   revertQueuedActionMetadata,
   getHackerTeam,
+  formatActionValidationError,
 } from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
 import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
 import { buildRoleAssignedPayload } from './roleInfo';
+import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
 
 export class RoomJoinDeniedError extends Error {
@@ -64,7 +66,7 @@ export class Room extends EventEmitter {
       this.state.maxPlayers = options.maxPlayers;
     }
     this.sm = new StateMachine();
-    this.options = Object.assign({ nightDurationMs: 60_000, dayDurationMs: 60_000, autoAdvance: false }, options);
+    this.options = { ...defaultRoomOptions(), ...options };
 
     try {
       if (options.restore !== false) {
@@ -195,7 +197,7 @@ export class Room extends EventEmitter {
     const frozen = frozenActorsForValidation(this.state.actionQueue, action);
     const err = validateNightAction(action, this.state, this.sm.getPhase(), frozen);
     if (err) {
-      return { ok: false, reason: `Action rejected: ${err}` };
+      return { ok: false, reason: formatActionValidationError(err) };
     }
 
     const actor = this.state.getPlayer(action.actor)!;
@@ -403,10 +405,12 @@ export class Room extends EventEmitter {
       if (!nextPhase) return null;
 
       if (nextPhase === GamePhase.DIA) {
+        const eliminated = [...this.state.lastNightKills];
         const report: IncidentReport = {
           roomId: this.id,
           nightNumber: this.state.nightNumber,
-          disconnected: [...this.state.lastNightKills],
+          eliminatedPlayerIds: eliminated,
+          disconnected: eliminated,
         };
         this.emit('incidentReport', report);
       }
