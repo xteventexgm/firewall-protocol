@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
-import { GamePhase, IncidentDisplay } from '../../core/models/game-state.model';
+import { GamePhase, IncidentDisplay, PublicPlayer } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
 
 @Component({
@@ -12,6 +12,7 @@ export class PhaseOverlayComponent implements OnChanges {
   @Input() phase: GamePhase = 'LOBBY';
   @Input() phaseFlash: GamePhase | '' = '';
   @Input() incidents: IncidentDisplay[] = [];
+  @Input() players: PublicPlayer[] = [];
   @Input() showIncidentReport = false;
   @Input() incidentNightNumber = 0;
 
@@ -35,6 +36,13 @@ export class PhaseOverlayComponent implements OnChanges {
   }
 
   phaseLabel = phaseLabel;
+
+  roleFor(playerId: string): string | undefined {
+    return (
+      this.players.find((p) => p.id === playerId)?.role ??
+      this.incidents.find((i) => i.playerId === playerId)?.role
+    );
+  }
 
   private triggerDawnFlash(): void {
     this.showDawnFlash = true;

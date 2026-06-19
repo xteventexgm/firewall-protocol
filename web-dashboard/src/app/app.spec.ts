@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { App } from './app';
 import { GameSocketService } from './core/services/game-socket.service';
-import { BehaviorSubject } from 'rxjs';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -12,10 +12,20 @@ describe('App', () => {
           provide: GameSocketService,
           useValue: {
             connect: () => undefined,
+            createLobby: () => 'FIRE-TEST',
+            joinRoom: () => undefined,
+            softLeave: () => undefined,
+            leaveLobby: () => undefined,
+            startGame: () => undefined,
+            advancePhase: () => undefined,
             connected$: new BehaviorSubject(false),
             roomState$: new BehaviorSubject(null),
-            incidents$: new BehaviorSubject([]),
-            error$: new BehaviorSubject(''),
+            incidents$: new Subject(),
+            phaseTransition$: new Subject(),
+            gameOver$: new Subject(),
+            voteTied$: new Subject(),
+            voteTrace$: new Subject(),
+            error$: new Subject(),
           },
         },
       ],

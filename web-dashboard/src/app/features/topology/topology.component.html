@@ -33,7 +33,13 @@
         </text>
         <text y="42" text-anchor="middle" class="node-name">{{ node.player.name }}</text>
         @if (nodeStatusLabel(node.player); as label) {
-          <text y="-36" text-anchor="middle" class="node-status dead">{{ label }}</text>
+          <text
+            y="-36"
+            text-anchor="middle"
+            class="node-status"
+            [class.dead]="!node.player.isAlive || !node.player.isConnected"
+            [class.silenced]="node.player.silenced && node.player.isAlive"
+          >{{ label }}</text>
         }
       </g>
     }

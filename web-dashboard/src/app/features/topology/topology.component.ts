@@ -9,7 +9,6 @@ import {
   HostListener,
 } from '@angular/core';
 import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
-import { isNodeCritical } from '../../core/utils/game.utils';
 import { computeCircularLayout, NodePosition } from '../../core/utils/layout.utils';
 
 @Component({
@@ -53,14 +52,16 @@ export class TopologyComponent implements OnChanges, AfterViewInit {
   }
 
   nodeClass(player: PublicPlayer): string {
-    if (isNodeCritical(player)) return 'node-dead';
+    if (!player.isAlive || !player.isConnected) return 'node-dead';
+    if (player.silenced) return 'node-silenced';
     if (this.phase === 'VOTACION' || this.phase === 'DIA') return 'node-active';
     return 'node-online';
   }
 
   nodeStatusLabel(player: PublicPlayer): string | null {
-    if (!player.isAlive) return 'BANEADO';
+    if (!player.isAlive) return player.role ? `BANEADO · ${player.role}` : 'BANEADO';
     if (!player.isConnected) return 'DESCONECTADO';
+    if (player.silenced) return 'SILENCIADO';
     return null;
   }
 

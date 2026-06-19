@@ -74,6 +74,22 @@
     letter-spacing: 0.1em;
   }
 
+  .node-status.silenced {
+    fill: #ffd000;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  &.node-silenced .node-ring {
+    stroke: #ffd00088;
+  }
+
+  &.node-silenced .node-core {
+    fill: #1a1808;
+    stroke: #ffd000;
+  }
+
   &.node-online .node-ring {
     stroke: #00f0ff66;
   }

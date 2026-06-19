@@ -7,6 +7,8 @@ export type GamePhase =
   | 'VERIFICACION'
   | 'FIN';
 
+export type Team = 'system' | 'black_hat' | 'chaotic';
+
 export interface PublicPlayer {
   id: string;
   name: string;
@@ -14,6 +16,13 @@ export interface PublicPlayer {
   isConnected: boolean;
   silenced?: boolean;
   joinedAt?: number;
+  role?: string;
+}
+
+export interface SoloWinner {
+  playerId: string;
+  role: string;
+  reason: string;
 }
 
 export interface PublicGameState {
@@ -23,9 +32,11 @@ export interface PublicGameState {
   players: PublicPlayer[];
   dayNumber: number;
   nightNumber: number;
+  maxPlayers: number;
+  playerCount: number;
   votes: Record<string, string[]>;
-  winner?: string | null;
-  soloWinner?: { playerId: string; role: string; reason: string } | null;
+  winner: Team | null;
+  soloWinner: SoloWinner | null;
 }
 
 export interface VoteEdge {
@@ -33,9 +44,55 @@ export interface VoteEdge {
   to: string;
 }
 
-export interface IncidentReport {
+export interface ServerIncidentReport {
+  roomId: string;
+  nightNumber: number;
+  disconnected: string[];
+}
+
+export interface IncidentDisplay {
   playerId: string;
   playerName: string;
+  role?: string;
+}
+
+export interface PhaseTransition {
+  roomId: string;
+  from: GamePhase;
+  to: GamePhase;
+  at: number;
+}
+
+export interface VoteTrace {
+  roomId: string;
+  voter: string;
+  target: string | null;
+  timestamp: number;
+}
+
+export interface VoteTiedPayload {
+  roomId: string;
+  voteCount: number;
+  candidates: string[];
+  skipVotes: number;
+  reason: 'tie' | 'no_votes';
+}
+
+export interface GameOverPayload {
+  roomId: string;
+  winner: Team | null;
+  soloWinner?: SoloWinner | null;
+}
+
+export interface GameOverSummary {
+  headline: string;
+  winners: { playerName: string; role: string }[];
+}
+
+export interface SavedRoom {
+  roomId: string;
+  maxPlayers: number;
+  savedAt: number;
 }
 
 export const MIN_PLAYERS_TO_START = 5;

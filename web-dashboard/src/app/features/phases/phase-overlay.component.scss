@@ -133,6 +133,16 @@
   color: #ffb800;
 }
 
+.incident-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.incident-role {
+  color: #00f0ff;
+  font-weight: 600;
+}
+
 .incident-tag {
   margin-left: auto;
   font-size: 9px;
