@@ -7,6 +7,9 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:prod": "ng build --configuration production",
+    "android:sync": "npm run build:prod && npx cap sync android",
+    "android:open": "npx cap open android",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint"

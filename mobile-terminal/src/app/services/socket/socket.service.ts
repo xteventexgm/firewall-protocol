@@ -68,12 +68,17 @@ export class SocketService {
     }
 
     const url = `${environment.apiUrl}${environment.socketNamespace}`;
-    this.socket = io(url, {
+    const socketOptions: Parameters<typeof io>[1] = {
       transports: ['websocket', 'polling'],
-      extraHeaders: {
+    };
+
+    if (!environment.production) {
+      socketOptions.extraHeaders = {
         'Bypass-Tunnel-Reminder': 'true',
-      },
-    });
+      };
+    }
+
+    this.socket = io(url, socketOptions);
 
     this.socket.on('connect', () => {
       console.log('[socket] conectado');
