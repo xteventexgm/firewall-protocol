@@ -4,17 +4,17 @@
       class="shrink-0"
       [class.home-mode]="!inRoom"
       [inRoom]="inRoom"
-    [roomCode]="roomCode"
-    [state]="state"
-    [connected]="connected"
-    [savedRooms]="savedRooms"
-    [gameOverActive]="gameOverActive"
-    (createLobby)="onCreateLobby($event)"
-    (rejoinRoom)="onRejoinRoom($event)"
-    (removeSavedRoom)="onRemoveSavedRoom($event)"
-    (backToLobby)="onBackToLobby()"
-    (startGame)="onStartGame()"
-    (advancePhase)="onAdvancePhase()"
+      [roomCode]="roomCode"
+      [state]="state"
+      [connected]="connected"
+      [savedRooms]="savedRooms"
+      [gameOverActive]="gameOverActive"
+      (createLobby)="onCreateLobby($event)"
+      (rejoinRoom)="onRejoinRoom($event)"
+      (removeSavedRoom)="onRemoveSavedRoom($event)"
+      (backToLobby)="onBackToLobby()"
+      (startGame)="onStartGame()"
+      (advancePhase)="onAdvancePhase()"
     />
   </div>
 
@@ -22,17 +22,40 @@
     <main class="main-stage flex-1 relative overflow-hidden">
       <div class="grid-bg absolute inset-0 pointer-events-none"></div>
 
+      @if (state) {
+        <header class="stage-hud">
+          <div class="hud-phase">
+            <span class="hud-dot" [attr.data-phase]="state.phase"></span>
+            <span class="hud-label">{{ state.phase }}</span>
+            @if (phaseElapsed) {
+              <span class="hud-timer">{{ phaseElapsed }}</span>
+            }
+          </div>
+          <div class="hud-meta">
+            Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}
+            · {{ state.playerCount }}/{{ state.maxPlayers }} nodos
+          </div>
+        </header>
+      }
+
       <app-topology
         class="absolute inset-0"
         [state]="state"
         [phase]="state?.phase ?? 'LOBBY'"
         [glitchPlayerIds]="glitchPlayerIds"
+        [skipVotes]="lastVoteTiedSkipVotes"
       />
 
       <app-vote-lines
         [state]="state"
         [phase]="state?.phase ?? 'LOBBY'"
         [highlightTrace]="highlightTrace"
+      />
+
+      <app-night-resolution-panel
+        [resolution]="nightResolution"
+        [state]="state"
+        [visible]="showNightResolution"
       />
 
       <app-phase-overlay
@@ -42,25 +65,28 @@
         [players]="state?.players ?? []"
         [showIncidentReport]="showIncidentReport"
         [incidentNightNumber]="incidentNightNumber"
+        [voteTiedMessage]="voteTiedMessage"
       />
 
       @if (showGameOver && gameOverSummary) {
         <app-game-over-overlay
           [summary]="gameOverSummary"
           (exitRoom)="onBackToLobby()"
-        ></app-game-over-overlay>
+        />
       }
 
       @if (errorMessage) {
-        <div class="error-toast">{{ errorMessage }}</div>
-      }
-
-      @if (voteTiedMessage) {
-        <div class="vote-tied-toast">{{ voteTiedMessage }}</div>
+        <div class="toast error-toast">
+          <span class="toast-prefix">!</span>
+          {{ errorMessage }}
+        </div>
       }
 
       @if (statusMessage) {
-        <div class="status-toast" [class]="'status-' + statusMessageType">{{ statusMessage }}</div>
+        <div class="toast status-toast" [attr.data-type]="statusMessageType">
+          <span class="toast-prefix">&gt;</span>
+          {{ statusMessage }}
+        </div>
       }
     </main>
   }

@@ -23,6 +23,12 @@
   animation: fade-in-line 0.4s ease-out forwards;
 }
 
+.vote-line-skip {
+  stroke: #ffd000;
+  stroke-opacity: 0.55;
+  stroke-dasharray: 4 6;
+}
+
 .vote-line-pulse {
   stroke: #00ffcc;
   stroke-opacity: 1;

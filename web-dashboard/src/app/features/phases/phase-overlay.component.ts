@@ -15,6 +15,7 @@ export class PhaseOverlayComponent implements OnChanges {
   @Input() players: PublicPlayer[] = [];
   @Input() showIncidentReport = false;
   @Input() incidentNightNumber = 0;
+  @Input() voteTiedMessage = '';
 
   showNightOverlay = false;
   showDawnFlash = false;

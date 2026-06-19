@@ -5,6 +5,7 @@ import {
   GameOverSummary,
   GamePhase,
   IncidentDisplay,
+  NightResolution,
   PublicGameState,
   SavedRoom,
   VoteTrace,
@@ -12,15 +13,19 @@ import {
 import {
   buildGameOverSummary,
   buildGameOverSummaryFromPayload,
-  detectPlayerStatusChanges,
+  formatNightResolutionToast,
+  formatVoteTiedMessage,
+  playerNameById,
   translateEliminationReason,
 } from './core/utils/game.utils';
+import { hasNightResolutionContent } from './core/utils/night-resolution.utils';
 import { loadSavedRooms, removeRoom, saveRoom } from './core/utils/room-storage.utils';
 import { LobbyComponent } from './features/lobby/lobby.component';
 import { TopologyComponent } from './features/topology/topology.component';
 import { PhaseOverlayComponent } from './features/phases/phase-overlay.component';
 import { VoteLinesComponent } from './features/votes/vote-lines.component';
 import { GameOverOverlayComponent } from './features/game-over/game-over-overlay.component';
+import { NightResolutionPanelComponent } from './features/night-resolution/night-resolution-panel.component';
 
 @Component({
   selector: 'app-root',
@@ -31,6 +36,7 @@ import { GameOverOverlayComponent } from './features/game-over/game-over-overlay
     PhaseOverlayComponent,
     VoteLinesComponent,
     GameOverOverlayComponent,
+    NightResolutionPanelComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -38,8 +44,8 @@ import { GameOverOverlayComponent } from './features/game-over/game-over-overlay
 export class App implements OnInit, OnDestroy {
   private readonly gameSocket = inject(GameSocketService);
   private subs: Subscription[] = [];
-  private previousState: PublicGameState | null = null;
   private statusTimeout: ReturnType<typeof setTimeout> | null = null;
+  private nightPanelTimeout: ReturnType<typeof setTimeout> | null = null;
 
   inRoom = false;
   roomCode = '';
@@ -53,11 +59,17 @@ export class App implements OnInit, OnDestroy {
   errorMessage = '';
   voteTiedMessage = '';
   statusMessage = '';
-  statusMessageType: 'warn' | 'success' | 'error' = 'warn';
+  statusMessageType: 'info' | 'warn' | 'success' | 'error' = 'warn';
   showGameOver = false;
   gameOverSummary: GameOverSummary | null = null;
   phaseFlash: GamePhase | '' = '';
   highlightTrace: VoteTrace | null = null;
+  nightResolution: NightResolution | null = null;
+  showNightResolution = false;
+  lastVoteTiedSkipVotes = 0;
+  phaseElapsed = '';
+
+  private phaseTimerInterval: ReturnType<typeof setInterval> | null = null;
 
   get gameOverActive(): boolean {
     return this.showGameOver || this.state?.phase === 'FIN' || this.gameSocket.isGameEnded;
@@ -66,25 +78,16 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.savedRooms = loadSavedRooms();
     this.gameSocket.connect();
+    this.startPhaseTimer();
 
     this.subs.push(
       this.gameSocket.connected$.subscribe((c) => (this.connected = c)),
       this.gameSocket.roomState$.subscribe((s) => {
-        if (s && this.inRoom) {
-          const statusChanges = detectPlayerStatusChanges(this.previousState, s);
-          for (const msg of statusChanges) {
-            if (msg.startsWith('Nodo desconectado')) {
-              this.showStatusMessage(msg, 'warn');
-            } else if (msg.startsWith('Nodo reconectado')) {
-              this.showStatusMessage(msg, 'success');
-            } else if (msg.startsWith('Nodo eliminado')) {
-              this.showStatusMessage(msg, 'error');
-            }
-          }
-        }
-        this.previousState = s;
         this.state = s;
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;
+        if (s?.phase === 'VOTACION') {
+          this.lastVoteTiedSkipVotes = 0;
+        }
         if (s?.phase === 'FIN') {
           this.refreshGameOverSummary();
         }
@@ -106,36 +109,54 @@ export class App implements OnInit, OnDestroy {
         this.gameOverSummary = buildGameOverSummaryFromPayload(payload, this.state);
         this.showGameOver = true;
         if (this.state && this.state.phase !== 'FIN') {
-          this.state = { ...this.state, phase: 'FIN', winner: payload.winner, soloWinner: payload.soloWinner ?? null };
+          this.state = {
+            ...this.state,
+            phase: 'FIN',
+            winner: payload.winner,
+            soloWinner: payload.soloWinner ?? null,
+          };
         }
       }),
       this.gameSocket.phaseTransition$.subscribe((transition) => {
         if (!this.inRoom || this.gameOverActive) return;
         this.phaseFlash = transition.to;
+        if (transition.to === 'VOTACION') {
+          this.voteTiedMessage = '';
+        }
         setTimeout(() => (this.phaseFlash = ''), 2000);
       }),
-      this.gameSocket.voteTied$.subscribe(({ voteCount, candidates, reason, skipVotes }) => {
+      this.gameSocket.voteTied$.subscribe((payload) => {
         if (!this.inRoom || this.gameOverActive) return;
-        if (reason === 'no_votes') {
-          const skipNote = skipVotes > 0 ? ` (${skipVotes} abstenciones)` : '';
-          this.voteTiedMessage = `Sin votos de eliminación${skipNote} — avanzando a noche`;
-        } else {
-          this.voteTiedMessage = `Empate — ${candidates.length} candidatos con ${voteCount} votos`;
-        }
-        setTimeout(() => (this.voteTiedMessage = ''), 5000);
+        const candidateNames = payload.candidates.map((id) =>
+          playerNameById(this.state, id),
+        );
+        this.lastVoteTiedSkipVotes = payload.skipVotes ?? 0;
+        this.voteTiedMessage = formatVoteTiedMessage({
+          reason: payload.reason,
+          candidates: candidateNames,
+          skipVotes: payload.skipVotes ?? 0,
+        });
+        this.showStatusMessage(this.voteTiedMessage, 'warn');
       }),
       this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
         if (!this.inRoom || this.gameOverActive) return;
-        const parts: string[] = [];
-        if (resolution.kills?.length) parts.push(`${resolution.kills.length} eliminado(s)`);
-        if (resolution.silenced?.length) parts.push(`${resolution.silenced.length} silenciado(s)`);
-        if (parts.length) {
-          this.showStatusMessage(`Noche resuelta: ${parts.join(', ')}`, 'warn');
+        const toast = formatNightResolutionToast(resolution);
+        if (toast) {
+          this.showStatusMessage(toast, 'warn');
+        }
+        if (hasNightResolutionContent(resolution)) {
+          this.nightResolution = resolution;
+          this.showNightResolution = true;
+          if (this.nightPanelTimeout) clearTimeout(this.nightPanelTimeout);
+          this.nightPanelTimeout = setTimeout(() => {
+            this.showNightResolution = false;
+            this.nightPanelTimeout = null;
+          }, 12000);
         }
       }),
       this.gameSocket.playerEliminated$.subscribe(({ playerId, reason }) => {
         if (!this.inRoom || this.gameOverActive) return;
-        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
+        const name = playerNameById(this.state, playerId);
         const role = this.state?.players.find((p) => p.id === playerId)?.role;
         const rolePart = role ? ` — ${role}` : '';
         this.showStatusMessage(
@@ -145,13 +166,17 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.playerDisconnected$.subscribe(({ playerId }) => {
         if (!this.inRoom || this.gameOverActive) return;
-        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
-        this.showStatusMessage(`Nodo desconectado: ${name}`, 'warn');
+        this.showStatusMessage(
+          `Nodo desconectado: ${playerNameById(this.state, playerId)}`,
+          'warn',
+        );
       }),
       this.gameSocket.playerReconnected$.subscribe(({ playerId }) => {
         if (!this.inRoom || this.gameOverActive) return;
-        const name = this.state?.players.find((p) => p.id === playerId)?.name ?? playerId;
-        this.showStatusMessage(`Nodo reconectado: ${name}`, 'success');
+        this.showStatusMessage(
+          `Nodo reconectado: ${playerNameById(this.state, playerId)}`,
+          'success',
+        );
       }),
       this.gameSocket.voteTrace$.subscribe((trace) => {
         if (!this.inRoom || this.gameOverActive) return;
@@ -164,13 +189,14 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.error$.subscribe((msg) => {
         this.errorMessage = msg;
-        setTimeout(() => (this.errorMessage = ''), 5000);
+        setTimeout(() => {
+          if (this.errorMessage === msg) this.errorMessage = '';
+        }, 6000);
       }),
     );
   }
 
   onCreateLobby(maxPlayers: number): void {
-    this.previousState = null;
     const code = this.gameSocket.createLobby(maxPlayers);
     saveRoom({ roomId: code, maxPlayers, savedAt: Date.now() });
     this.savedRooms = loadSavedRooms();
@@ -182,7 +208,6 @@ export class App implements OnInit, OnDestroy {
   }
 
   onRejoinRoom(roomId: string): void {
-    this.previousState = null;
     this.gameSocket.joinRoom(roomId);
     this.inRoom = true;
     this.roomCode = roomId.toUpperCase().trim();
@@ -195,7 +220,6 @@ export class App implements OnInit, OnDestroy {
     this.gameSocket.softLeave();
     this.inRoom = false;
     this.roomCode = '';
-    this.previousState = null;
     this.state = null;
     this.showGameOver = false;
     this.gameOverSummary = null;
@@ -226,6 +250,13 @@ export class App implements OnInit, OnDestroy {
     this.statusMessage = '';
     this.phaseFlash = '';
     this.highlightTrace = null;
+    this.nightResolution = null;
+    this.showNightResolution = false;
+    this.lastVoteTiedSkipVotes = 0;
+    if (this.nightPanelTimeout) {
+      clearTimeout(this.nightPanelTimeout);
+      this.nightPanelTimeout = null;
+    }
   }
 
   private refreshGameOverSummary(): void {
@@ -248,18 +279,39 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  private showStatusMessage(msg: string, type: 'warn' | 'success' | 'error'): void {
+  private showStatusMessage(
+    msg: string,
+    type: 'info' | 'warn' | 'success' | 'error',
+  ): void {
     if (this.statusTimeout) clearTimeout(this.statusTimeout);
     this.statusMessage = msg;
     this.statusMessageType = type;
     this.statusTimeout = setTimeout(() => {
-      this.statusMessage = '';
-      this.statusTimeout = null;
-    }, 4000);
+      if (this.statusMessage === msg) {
+        this.statusMessage = '';
+        this.statusTimeout = null;
+      }
+    }, 6000);
+  }
+
+  private startPhaseTimer(): void {
+    this.phaseTimerInterval = setInterval(() => {
+      const startedAt = this.state?.phaseStartedAt;
+      if (!startedAt || !this.inRoom) {
+        this.phaseElapsed = '';
+        return;
+      }
+      const secs = Math.floor((Date.now() - startedAt) / 1000);
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      this.phaseElapsed = `${m}:${s.toString().padStart(2, '0')}`;
+    }, 1000);
   }
 
   ngOnDestroy(): void {
     if (this.statusTimeout) clearTimeout(this.statusTimeout);
+    if (this.nightPanelTimeout) clearTimeout(this.nightPanelTimeout);
+    if (this.phaseTimerInterval) clearInterval(this.phaseTimerInterval);
     this.subs.forEach((s) => s.unsubscribe());
   }
 }

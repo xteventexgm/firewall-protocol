@@ -32,6 +32,7 @@ export function buildHostGameOverSummary(
       message: `${soloWinner.role}. ${reason}`,
       winners: [{ playerName, role: soloWinner.role }],
       reveals: buildHostReveals(winner, soloWinner, players),
+      outcome: 'neutral',
     };
   }
 
@@ -41,6 +42,7 @@ export function buildHostGameOverSummary(
       message: teamWinMessage(winner),
       winners: [{ playerName: winnerTeamName(winner), role: 'Equipo ganador' }],
       reveals: buildHostReveals(winner, null, players),
+      outcome: winner === 'system' ? 'win' : 'loss',
     };
   }
 
@@ -49,6 +51,7 @@ export function buildHostGameOverSummary(
     message: 'La partida ha concluido.',
     winners: [],
     reveals: buildHostReveals(null, null, players),
+    outcome: 'neutral',
   };
 }
 

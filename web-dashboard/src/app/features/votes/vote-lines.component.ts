@@ -9,8 +9,13 @@ import {
   HostListener,
 } from '@angular/core';
 import { GamePhase, PublicGameState, VoteTrace } from '../../core/models/game-state.model';
-import { toVoteEdges } from '../../core/utils/game.utils';
-import { computeCircularLayout, NodePosition } from '../../core/utils/layout.utils';
+import { countSkipVotes, skipVoterIds, toVoteEdges } from '../../core/utils/game.utils';
+import {
+  computeCircularLayout,
+  edgePointToward,
+  hubPoint,
+  NodePosition,
+} from '../../core/utils/layout.utils';
 
 interface VoteLine {
   from: string;
@@ -20,6 +25,7 @@ interface VoteLine {
   x2: number;
   y2: number;
   strokeWidth: number;
+  isSkip: boolean;
 }
 
 @Component({
@@ -36,6 +42,8 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
   @ViewChild('container', { static: true }) container!: ElementRef<HTMLElement>;
 
   lines: VoteLine[] = [];
+  skipLines: VoteLine[] = [];
+  skipCount = 0;
   width = 800;
   height = 600;
   visible = false;
@@ -56,8 +64,13 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
   }
 
   isHighlighted(line: VoteLine): boolean {
-    if (!this.highlightTrace?.target) return false;
-    return line.from === this.highlightTrace.voter && line.to === this.highlightTrace.target;
+    if (!this.highlightTrace) return false;
+    if (line.isSkip) {
+      return this.highlightTrace.target === null && line.from === this.highlightTrace.voter;
+    }
+    return (
+      line.from === this.highlightTrace.voter && line.to === this.highlightTrace.target
+    );
   }
 
   private rebuild(): void {
@@ -70,13 +83,17 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
 
     if (!this.visible || !this.state) {
       this.lines = [];
+      this.skipLines = [];
+      this.skipCount = 0;
       return;
     }
 
     const players = this.state.players;
     const positions: NodePosition[] = computeCircularLayout(players, this.width, this.height);
     const posMap = new Map(positions.map((p) => [p.id, p]));
+    const hub = hubPoint(this.width, this.height);
     const edges = toVoteEdges(this.state.votes);
+    this.skipCount = countSkipVotes(this.state.votes);
 
     const targetCounts = new Map<string, number>();
     for (const edge of edges) {
@@ -89,15 +106,42 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
         const to = posMap.get(edge.to);
         if (!from || !to) return null;
 
+        const fromEdge = edgePointToward(from, to.x, to.y, 28);
+        const toEdge = edgePointToward(to, from.x, from.y, 28);
         const count = targetCounts.get(edge.to) ?? 1;
         return {
           from: edge.from,
           to: edge.to,
-          x1: from.x,
-          y1: from.y,
-          x2: to.x,
-          y2: to.y,
+          x1: fromEdge.x,
+          y1: fromEdge.y,
+          x2: toEdge.x,
+          y2: toEdge.y,
           strokeWidth: Math.min(2 + count * 0.8, 6),
+          isSkip: false,
+        };
+      })
+      .filter((l): l is VoteLine => l !== null);
+
+    this.skipLines = skipVoterIds(this.state.votes)
+      .map((voterId) => {
+        const from = posMap.get(voterId);
+        if (!from) return null;
+        const fromEdge = edgePointToward(from, hub.x, hub.y, 28);
+        const hubEdge = edgePointToward(
+          { ...from, x: hub.x, y: hub.y, angle: 0 },
+          from.x,
+          from.y,
+          20,
+        );
+        return {
+          from: voterId,
+          to: 'skip',
+          x1: fromEdge.x,
+          y1: fromEdge.y,
+          x2: hubEdge.x,
+          y2: hubEdge.y,
+          strokeWidth: 1.5,
+          isSkip: true,
         };
       })
       .filter((l): l is VoteLine => l !== null);

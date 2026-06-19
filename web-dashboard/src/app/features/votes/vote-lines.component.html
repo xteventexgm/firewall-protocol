@@ -3,7 +3,24 @@
     <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
       <polygon points="0 0, 8 3, 0 6" fill="#00ff88" opacity="0.8" />
     </marker>
+    <marker id="arrowhead-skip" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+      <polygon points="0 0, 6 2.5, 0 5" fill="#ffd000" opacity="0.7" />
+    </marker>
   </defs>
+
+  @for (line of skipLines; track line.from) {
+    <line
+      class="vote-line vote-line-skip"
+      [class.vote-line-pulse]="isHighlighted(line)"
+      [attr.x1]="line.x1"
+      [attr.y1]="line.y1"
+      [attr.x2]="line.x2"
+      [attr.y2]="line.y2"
+      [attr.stroke-width]="line.strokeWidth"
+      marker-end="url(#arrowhead-skip)"
+    />
+  }
+
   @for (line of lines; track line.from + '-' + line.to) {
     <line
       class="vote-line"

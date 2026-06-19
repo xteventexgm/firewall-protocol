@@ -1,5 +1,12 @@
-<div class="gameover-overlay">
+<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
   <div class="gameover-content">
+    <div class="gameover-badge">
+      @switch (summary.outcome) {
+        @case ('win') { ✓ VICTORIA }
+        @case ('loss') { ✕ DERROTA }
+        @default { ◈ FIN }
+      }
+    </div>
     <h2 class="gameover-title">PARTIDA TERMINADA</h2>
     <p class="gameover-headline">{{ summary.headline }}</p>
 

@@ -101,6 +101,11 @@
 
     <section class="phase-indicator text-xs text-cyber-muted border-t border-cyber-border pt-3">
       <p>{{ phaseText }}</p>
+      @if (state?.phase === 'REPARTO') {
+        <p class="mt-1 text-cyber-accent reparthint">
+          El reparto es automático tras iniciar — avanza cuando todos tengan rol.
+        </p>
+      }
       @if (state) {
         <p class="mt-1">Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}</p>
       }

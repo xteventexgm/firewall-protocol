@@ -1,17 +1,18 @@
-import { PublicPlayer } from '../../core/models/game-state.model';
+import { PublicPlayer } from '../models/game-state.model';
 
 export interface NodePosition {
   id: string;
   x: number;
   y: number;
   player: PublicPlayer;
+  angle: number;
 }
 
 export function computeCircularLayout(
   players: PublicPlayer[],
   width: number,
   height: number,
-  padding = 80,
+  padding = 96,
 ): NodePosition[] {
   if (!players.length) return [];
 
@@ -28,15 +29,27 @@ export function computeCircularLayout(
       x: cx + radius * Math.cos(angle),
       y: cy + radius * Math.sin(angle),
       player,
+      angle,
     };
   });
 }
 
-export function getNodeCenter(positions: NodePosition[], id: string): { x: number; y: number } | null {
-  const node = positions.find((p) => p.id === id);
-  return node ? { x: node.x, y: node.y } : null;
+export function hubPoint(width: number, height: number): { x: number; y: number } {
+  return { x: width / 2, y: height / 2 };
 }
 
-export function countVotesPerTarget(votes: Record<string, string[]>, targetId: string): number {
-  return (votes[targetId] ?? []).length;
+/** Punto en el borde del nodo hacia el hub (para líneas). */
+export function edgePointToward(
+  node: NodePosition,
+  targetX: number,
+  targetY: number,
+  nodeRadius = 32,
+): { x: number; y: number } {
+  const dx = targetX - node.x;
+  const dy = targetY - node.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return {
+    x: node.x + (dx / len) * nodeRadius,
+    y: node.y + (dy / len) * nodeRadius,
+  };
 }

@@ -10,7 +10,7 @@ import {
   PhaseTransition,
   PublicGameState,
   RoomCreatedPayload,
-  ServerIncidentReport,
+  SocketIncidentReport,
   SoloWinner,
   Team,
   VoteTiedPayload,
@@ -31,7 +31,6 @@ export class GameSocketService implements OnDestroy {
   private pendingCreateCode: string | null = null;
 
   readonly roomState$ = new BehaviorSubject<PublicGameState | null>(null);
-  readonly phaseChanged$ = new Subject<{ roomId: string; phase: GamePhase }>();
   readonly phaseTransition$ = new Subject<PhaseTransition>();
   readonly gameOver$ = new Subject<GameOverPayload>();
   readonly voteTied$ = new Subject<VoteTiedPayload>();
@@ -40,7 +39,6 @@ export class GameSocketService implements OnDestroy {
   readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
   readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string }>();
   readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string }>();
-  readonly roomCreated$ = new Subject<RoomCreatedPayload>();
   readonly error$ = new Subject<string>();
   readonly incidents$ = new Subject<{ incidents: IncidentDisplay[]; nightNumber: number }>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
@@ -146,10 +144,6 @@ export class GameSocketService implements OnDestroy {
     return this.gameEnded || this.roomState$.value?.phase === 'FIN';
   }
 
-  getRealPlayerCount(state: PublicGameState | null): number {
-    return state?.playerCount ?? state?.players.length ?? 0;
-  }
-
   ngOnDestroy(): void {
     this.leaveLobby();
     this.socket?.disconnect();
@@ -182,7 +176,6 @@ export class GameSocketService implements OnDestroy {
     this.listenersAttached = true;
 
     this.socket.on('roomCreated', (payload: RoomCreatedPayload) => {
-      this.roomCreated$.next(payload);
       const code = payload.roomId.toUpperCase();
       if (this.pendingCreateCode === code || this.roomId === code) {
         this.pendingCreateCode = null;
@@ -203,7 +196,6 @@ export class GameSocketService implements OnDestroy {
     this.socket.on('phaseChanged', (rid: string, phase: GamePhase) => {
       if (!this.matchesRoom(rid)) return;
       this.patchRoomState({ phase });
-      this.phaseChanged$.next({ roomId: rid.toUpperCase(), phase });
     });
 
     this.socket.on('phaseTransition', (transition: PhaseTransition) => {
@@ -212,10 +204,10 @@ export class GameSocketService implements OnDestroy {
       this.phaseTransition$.next(transition);
     });
 
-    this.socket.on('incidentReport', (report: ServerIncidentReport) => {
+    this.socket.on('incidentReport', (report: SocketIncidentReport) => {
       if (!this.matchesRoom(report.roomId)) return;
       if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
-      const incidents = incidentsFromServerReport(report.disconnected, this.roomState$.value);
+      const incidents = incidentsFromServerReport(report, this.roomState$.value);
       if (incidents.length) {
         this.incidents$.next({ incidents, nightNumber: report.nightNumber });
       }
@@ -224,7 +216,19 @@ export class GameSocketService implements OnDestroy {
     this.socket.on('nightResolved', (roomId: string, resolution: NightResolution) => {
       if (!this.matchesRoom(roomId)) return;
       if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
-      this.nightResolved$.next({ roomId: roomId.toUpperCase(), resolution });
+      const full: NightResolution = {
+        kills: resolution.kills ?? [],
+        prevented: resolution.prevented ?? [],
+        redirects: resolution.redirects ?? [],
+        logs: resolution.logs ?? [],
+        privateResults: resolution.privateResults ?? [],
+        silenced: resolution.silenced ?? [],
+        honeypotDrags: resolution.honeypotDrags ?? [],
+        infections: resolution.infections ?? [],
+        cures: resolution.cures ?? [],
+        infectionKills: resolution.infectionKills ?? [],
+      };
+      this.nightResolved$.next({ roomId: roomId.toUpperCase(), resolution: full });
     });
 
     this.socket.on('playerEliminated', (roomId: string, playerId: string, reason: string) => {
