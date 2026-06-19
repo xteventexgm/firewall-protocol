@@ -22,10 +22,14 @@ import {
 import {
   deadPlayerRoleLabel,
   formatVoteTiedMessage,
+  getEliminatedIdsFromIncident,
+  infectionSourceLabel,
   isNodeCritical,
   phaseLabel,
   translateEliminationReason,
 } from '../../core/utils/game.utils';
+import { formatServerErrorForToast } from '../../core/utils/error.utils';
+import { playersPerBlackHatForTable } from '../../core/utils/room-code.utils';
 import { buildGameOverView, GameOverView } from '../../core/utils/game-over.utils';
 import {
   buildPendingReport,
@@ -35,7 +39,7 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_BLACK_HAT, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -47,14 +51,15 @@ import { Subscription } from 'rxjs';
 })
 export class DashboardPage implements OnInit, OnDestroy {
   readonly minPlayers = MIN_PLAYERS_TO_START;
-  readonly playersPerBlackHat = PLAYERS_PER_BLACK_HAT;
   readonly playersPerChaotic = PLAYERS_PER_CHAOTIC_ROLE;
   maxPlayers = MAX_PLAYERS;
   myInfectionMaturesAfterNight: number | null = null;
+  myInfectionSource: string | null = null;
   myRoleMeta: PlayerRoleMeta | undefined;
   roleStatusLines: string[] = [];
   voteTiedMessage = '';
   lastNightKillNames: string[] = [];
+  topologyOpen = true;
 
   playerName = 'Esperando red...';
   playerRole = 'Desconocido';
@@ -159,6 +164,8 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.lastNightKillNames = state.lastNightKills.map(
             (id) => this.players.find((p) => p.id === id)?.name ?? id,
           );
+        } else if (state.phase === 'DIA') {
+          this.lastNightKillNames = [];
         }
       }),
     );
@@ -189,8 +196,13 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.privateResult$.subscribe((payload) => {
         if (payload.type === 'scan') {
-          const result = payload.result === 'malicious' ? 'MALICIOSO' : 'SEGURO';
-          this.setStatus(`Escaneo completado: ${result}`, 'info');
+          const labels: Record<string, string> = {
+            malicious: 'MALICIOSO',
+            suspicious: 'SOSPECHOSO',
+            safe: 'SEGURO',
+          };
+          const result = labels[payload.result ?? 'safe'] ?? payload.result;
+          this.setStatus(`Escaneo: ${result}`, 'info');
         }
         if (payload.type === 'hacker_team') {
           this.hackerTeamMemberIds = payload.members ?? [];
@@ -217,10 +229,11 @@ export class DashboardPage implements OnInit, OnDestroy {
           }
         }
         if (payload.type === 'infection_warning') {
+          this.myInfectionSource = payload.infectionSource ?? 'worm';
           this.setStatus(
             payload.critical
               ? '☣ Infección crítica — caerás al amanecer si no te curaron'
-              : '☣ Has sido infectado — busca cura de un Antivirus',
+              : `☣ Infectado por ${infectionSourceLabel(payload.infectionSource)} — busca Antivirus`,
             'error',
           );
         }
@@ -233,6 +246,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.setStatus(`Infección curada en ${name}`, 'success');
           if (payload.targetId === this.myPlayerId) {
             this.myInfectionMaturesAfterNight = null;
+            this.myInfectionSource = null;
           }
         }
 
@@ -270,10 +284,12 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.incidentReport$.subscribe((report) => {
-        const names = report.disconnected
+        const ids = getEliminatedIdsFromIncident(report);
+        if (!ids.length) return;
+
+        this.incidentNames = ids
           .map((id) => this.players.find((p) => p.id === id)?.name ?? id)
           .filter(Boolean);
-        this.incidentNames = names;
         this.showIncidentReport = true;
         clearTimeout(this.incidentTimer);
         this.incidentTimer = setTimeout(() => {
@@ -299,7 +315,6 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.nightActionReport = buildResolvedReport(
             this.pendingNightAction,
             resolution,
-            resolution.logs ?? [],
             this.myPlayerId,
             this.players,
           );
@@ -307,11 +322,16 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
 
         if (resolution.infectionKills?.includes(this.myPlayerId)) {
-          this.setStatus('Tu nodo cayó por infección del Gusano', 'error');
+          this.setStatus(
+            `Tu nodo cayó por infección de ${infectionSourceLabel(this.myInfectionSource ?? 'worm')}`,
+            'error',
+          );
           this.myInfectionMaturesAfterNight = null;
+          this.myInfectionSource = null;
         } else if (resolution.cures?.includes(this.myPlayerId)) {
           this.setStatus('Un Antivirus curó tu infección', 'success');
           this.myInfectionMaturesAfterNight = null;
+          this.myInfectionSource = null;
           this.nightActionReport = null;
         }
       }),
@@ -386,7 +406,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.error$.subscribe((msg) => {
-        this.setStatus(msg, 'error');
+        this.setStatus(formatServerErrorForToast(msg), 'error');
       }),
     );
   }
@@ -413,7 +433,19 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   deadPlayerRole(player: RoomPlayer): string | null {
-    return deadPlayerRoleLabel(player);
+    return deadPlayerRoleLabel(player, this.gamePhase);
+  }
+
+  get playersPerBlackHat(): number {
+    return playersPerBlackHatForTable(this.maxPlayers);
+  }
+
+  get infectionSourceText(): string {
+    return infectionSourceLabel(this.myInfectionSource ?? 'worm');
+  }
+
+  toggleTopology(): void {
+    this.topologyOpen = !this.topologyOpen;
   }
 
   get isNightPhase(): boolean {
@@ -540,9 +572,13 @@ export class DashboardPage implements OnInit, OnDestroy {
   private syncInfectionFromState(me: RoomPlayer | undefined): void {
     if (!me?.infected) {
       this.myInfectionMaturesAfterNight = null;
+      this.myInfectionSource = null;
       return;
     }
     this.myInfectionMaturesAfterNight = me.infectionMaturesAfterNight ?? null;
+    if (!this.myInfectionSource) {
+      this.myInfectionSource = 'worm';
+    }
     if (
       !this.nightActionReport ||
       !this.nightActionReport.headline.toLowerCase().includes('infect')
@@ -552,7 +588,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         status: 'resolved',
         headline: '☣ Infección activa',
         details: [
-          'Fuente: Gusano',
+          `Fuente: ${infectionSourceLabel(this.myInfectionSource)}`,
           this.myInfectionMaturesAfterNight != null
             ? `Madura tras resolver la noche N${this.myInfectionMaturesAfterNight} sin cura.`
             : 'Un Antivirus puede curarte de noche.',
@@ -564,7 +600,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private syncRoleMeta(me: RoomPlayer | undefined): void {
     this.myRoleMeta = me?.meta;
     const roleKey = this.socketService.getMyRole() ?? me?.role;
-    this.roleStatusLines = getRoleStatusLines(roleKey, this.myRoleMeta);
+    this.roleStatusLines = getRoleStatusLines(roleKey, this.myRoleMeta, this.players.length);
   }
 
   private setStatus(msg: string, type: 'info' | 'success' | 'error' | 'warn'): void {

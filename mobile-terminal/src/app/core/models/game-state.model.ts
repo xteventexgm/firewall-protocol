@@ -7,6 +7,8 @@ export type GamePhase =
   | 'VERIFICACION'
   | 'FIN';
 
+export type ScanResult = 'safe' | 'suspicious' | 'malicious';
+
 /** Metadata propia visible en roomState (backend sanitizeMetadata isSelf). */
 export interface PlayerRoleMeta {
   pentesterUsesLeft?: number;
@@ -39,11 +41,17 @@ export type PrivateResultType =
   | 'cured'
   | 'infection_warning';
 
+export interface VisitorActivity {
+  playerId: string;
+  activity: string;
+}
+
 export interface PrivateResultPayload {
   type: PrivateResultType;
   targetId?: string;
-  result?: 'safe' | 'malicious';
+  result?: ScanResult;
   visitors?: string[];
+  visitorActivities?: VisitorActivity[];
   members?: string[];
   role?: string;
   team?: string;
@@ -73,9 +81,13 @@ export interface PlayerRoomState {
   lastNightKills?: string[];
 }
 
-export interface IncidentReport {
-  playerId: string;
-  playerName: string;
+/** Payload socket `incidentReport` (backend events.types.ts). */
+export interface SocketIncidentReport {
+  roomId: string;
+  nightNumber: number;
+  eliminatedPlayerIds: string[];
+  /** @deprecated alias de eliminatedPlayerIds — no son desconexiones socket */
+  disconnected?: string[];
 }
 
 export interface VoteTiedPayload {
@@ -93,11 +105,11 @@ export interface PhaseTransition {
   at: number;
 }
 
-export interface NightResolution {
+/** Payload reducido de nightResolved en namespace /game (sin logs ni privateResults). */
+export interface PublicNightResolution {
   kills: string[];
   prevented: { actionId: string; reason: string }[];
   redirects: { actionId: string; from: string; to: string }[];
-  logs: string[];
   silenced: string[];
   infections?: string[];
   cures?: string[];
@@ -140,7 +152,4 @@ export interface TargetOption {
 
 export const MIN_PLAYERS_TO_START = 5;
 export const MAX_PLAYERS = 15;
-
-/** Mismas proporciones que backend-server/src/utils/constants.ts */
-export const PLAYERS_PER_BLACK_HAT = 3;
 export const PLAYERS_PER_CHAOTIC_ROLE = 5;

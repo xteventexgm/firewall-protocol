@@ -1,3 +1,5 @@
+import { PlayerRoleMeta } from './models/game-state.model';
+
 /** Mapeo rol → acción nocturna por defecto (contrato backend). */
 export const ROLE_NIGHT_ACTION: Record<string, string> = {
   'Analista SOC': 'scan',
@@ -19,7 +21,7 @@ export const ROLE_NIGHT_ACTION: Record<string, string> = {
 export const ROLE_NIGHT_VARIANTS: Record<string, { value: string; label: string }[]> = {
   Antivirus: [
     { value: 'protect', label: 'Proteger (bloquear kill)' },
-    { value: 'cure', label: 'Curar infección (Gusano)' },
+    { value: 'cure', label: 'Curar infección' },
   ],
 };
 
@@ -40,27 +42,39 @@ export function needsSecondaryTarget(role: string | undefined): boolean {
 
 export function getSecondaryTargetLabel(role: string | undefined): string {
   if (role === 'Enrutador BGP') return 'Nodo destino (intercambio)';
-  if (role === 'Phisher') return 'Redirigir voto hacia';
+  if (role === 'Phisher') return 'Redirigir voto diurno hacia';
   return 'Segundo objetivo';
 }
 
-import { PlayerRoleMeta } from './models/game-state.model';
+function pentesterMaxUses(playerCount: number): number {
+  return playerCount <= 7 ? 1 : 2;
+}
+
+function minerMaxShields(playerCount: number): number {
+  return playerCount <= 7 ? 2 : 3;
+}
 
 /** Líneas de estado dinámico según metadata del backend (solo jugador local). */
-export function getRoleStatusLines(role: string | undefined, meta: PlayerRoleMeta | undefined): string[] {
+export function getRoleStatusLines(
+  role: string | undefined,
+  meta: PlayerRoleMeta | undefined,
+  playerCount = 15,
+): string[] {
   if (!meta) return [];
   const lines: string[] = [];
   if (meta.pentesterUsesLeft != null) {
-    lines.push(`Eliminaciones restantes: ${meta.pentesterUsesLeft}/2`);
+    lines.push(`Eliminaciones restantes: ${meta.pentesterUsesLeft}/${pentesterMaxUses(playerCount)}`);
   }
   if (meta.shieldCharges != null) {
-    lines.push(`Escudos cripto: ${meta.shieldCharges}/3 (bloquean un kill cada uno)`);
+    lines.push(
+      `Escudos cripto: ${meta.shieldCharges}/${minerMaxShields(playerCount)} (no bloquean infección madura)`,
+    );
   }
   if (meta.ransomwareCooldown != null && meta.ransomwareCooldown > 0) {
     lines.push(`Secuestro en cooldown: ${meta.ransomwareCooldown} noche(s)`);
   }
   if (meta.isWormImmune && role === 'Gusano') {
-    lines.push('Inmunidad activa — no puedes ser eliminado mientras vivas');
+    lines.push('Inmunidad al primer ataque — se consumirá al recibir un kill');
   }
   if (meta.assumedFromPlayerId) {
     lines.push('Identidad asumida — actúas con el rol del nodo caído');
@@ -80,7 +94,7 @@ export function getNightActionLabel(role: string | undefined, actionType?: strin
     hacker_vote: 'Votar eliminación',
     ransomware: 'Secuestrar nodo',
     spy: 'Espionar nodo',
-    phisher_redirect: 'Redirigir víctima',
+    phisher_redirect: 'Redirigir voto diurno',
     worm_infect: 'Infectar nodo',
     worm_kill: 'Infectar nodo',
     zero_day_assume: 'Asumir identidad (muerto)',
@@ -101,7 +115,7 @@ export function getNightActionLabel(role: string | undefined, actionType?: strin
     Rootkit: 'Votar eliminación',
     Ransomware: 'Secuestrar nodo',
     Spyware: 'Espionar nodo',
-    Phisher: 'Redirigir víctima',
+    Phisher: 'Redirigir voto diurno',
     Gusano: 'Infectar nodo',
     'Zero-Day': 'Asumir identidad (muerto)',
   };

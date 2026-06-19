@@ -4,6 +4,8 @@ import { IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
+import { QrScannerService } from '../../services/qr-scanner.service';
+import { formatServerErrorForToast } from '../../core/utils/error.utils';
 import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
 
 @Component({
@@ -17,13 +19,16 @@ export class LoginPage implements OnInit, OnDestroy {
   roomCode = '';
   playerName = '';
   connecting = false;
+  scanning = false;
   connected = false;
   errorMessage = '';
+  step: 'room' | 'alias' = 'room';
 
   private subs = new Subscription();
 
   constructor(
     private socketService: SocketService,
+    private qrScanner: QrScannerService,
     private router: Router,
   ) {
     this.subs.add(
@@ -41,16 +46,60 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    const savedCode = localStorage.getItem('roomCode');
+    const savedName = localStorage.getItem('playerName');
+    if (savedCode) {
+      this.roomCode = savedCode;
+      this.step = 'alias';
+    }
+    if (savedName) this.playerName = savedName;
     this.socketService.connect();
   }
 
   ngOnDestroy(): void {
+    void this.qrScanner.stop();
     this.subs.unsubscribe();
+  }
+
+  get canProceedToAlias(): boolean {
+    return !!this.roomCode.trim();
+  }
+
+  goToAliasStep(): void {
+    if (!this.canProceedToAlias) {
+      this.errorMessage = 'Ingresa o escanea un código de sala.';
+      return;
+    }
+    this.roomCode = this.roomCode.toUpperCase().trim();
+    this.errorMessage = '';
+    this.step = 'alias';
+  }
+
+  backToRoomStep(): void {
+    this.step = 'room';
+    this.errorMessage = '';
+  }
+
+  async scanQr(): Promise<void> {
+    if (this.scanning || this.connecting) return;
+    this.scanning = true;
+    this.errorMessage = '';
+
+    const result = await this.qrScanner.scanRoomCode();
+    this.scanning = false;
+
+    if (!result.ok) {
+      this.errorMessage = result.error;
+      return;
+    }
+
+    this.roomCode = result.roomCode;
+    this.step = 'alias';
   }
 
   joinNetwork(): void {
     if (!this.roomCode.trim() || !this.playerName.trim()) {
-      this.errorMessage = 'Completa el código de sala y tu nombre.';
+      this.errorMessage = 'Completa el código de sala y tu alias.';
       return;
     }
 
@@ -102,7 +151,7 @@ export class LoginPage implements OnInit, OnDestroy {
           .pipe(take(1), timeout(6000))
           .subscribe((msg) => {
             this.connecting = false;
-            this.errorMessage = msg;
+            this.errorMessage = formatServerErrorForToast(msg);
           });
 
         this.subs.add(stateSub);

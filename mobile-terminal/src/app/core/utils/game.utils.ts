@@ -1,9 +1,9 @@
 import {
   GamePhase,
-  IncidentReport,
   PlayerRoleMeta,
   PlayerRoomState,
   RoomPlayer,
+  SocketIncidentReport,
 } from '../models/game-state.model';
 
 function extractRoleMeta(metadata: any): PlayerRoleMeta | undefined {
@@ -56,12 +56,21 @@ export function isPlayerSilenced(player: any, dayNumber: number): boolean {
   return untilDay >= dayNumber;
 }
 
+export function infectionSourceLabel(source: string | undefined): string {
+  if (source === 'worm') return 'Gusano';
+  return source ?? 'origen desconocido';
+}
+
+export function getEliminatedIdsFromIncident(report: SocketIncidentReport): string[] {
+  return report.eliminatedPlayerIds ?? report.disconnected ?? [];
+}
+
 export function incidentsFromServerReport(
-  disconnected: string[],
+  report: SocketIncidentReport,
   state: PlayerRoomState | null,
-): IncidentReport[] {
+): { playerId: string; playerName: string }[] {
   const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
-  return disconnected.map((id) => ({
+  return getEliminatedIdsFromIncident(report).map((id) => ({
     playerId: id,
     playerName: byId.get(id)?.name ?? id,
   }));
@@ -106,8 +115,8 @@ export function formatVoteTiedMessage(payload: {
   return `Empate entre ${names}${skip} — no hubo expulsión.`;
 }
 
-export function deadPlayerRoleLabel(player: RoomPlayer): string | null {
-  if (player.isAlive || !player.role) return null;
+export function deadPlayerRoleLabel(player: RoomPlayer, phase: GamePhase | 'ELIMINATED'): string | null {
+  if (phase !== 'FIN' || player.isAlive || !player.role) return null;
   return player.role;
 }
 
