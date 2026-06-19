@@ -14,6 +14,8 @@ export interface RoomPlayer {
   isConnected: boolean;
   silenced?: boolean;
   joinedAt?: number;
+  role?: string;
+  team?: string;
 }
 
 export interface PlayerRoomState {
