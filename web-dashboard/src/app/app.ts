@@ -59,7 +59,7 @@ export class App implements OnInit, OnDestroy {
   highlightTrace: VoteTrace | null = null;
 
   get gameOverActive(): boolean {
-    return this.showGameOver || this.state?.phase === 'FIN';
+    return this.showGameOver || this.state?.phase === 'FIN' || this.gameSocket.isGameEnded;
   }
 
   ngOnInit(): void {
@@ -84,12 +84,12 @@ export class App implements OnInit, OnDestroy {
         this.previousState = s;
         this.state = s;
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;
-        if (s?.phase === 'FIN' && (s.winner || s.soloWinner)) {
+        if (s?.phase === 'FIN') {
           this.refreshGameOverSummary();
         }
       }),
       this.gameSocket.incidents$.subscribe(({ incidents, nightNumber }) => {
-        if (!this.inRoom) return;
+        if (!this.inRoom || this.gameOverActive) return;
         this.incidents = incidents;
         this.incidentNightNumber = nightNumber;
         this.glitchPlayerIds = incidents.map((i) => i.playerId);
@@ -100,18 +100,21 @@ export class App implements OnInit, OnDestroy {
           this.incidentNightNumber = 0;
         }, 8000);
       }),
-      this.gameSocket.phaseTransition$.subscribe((transition) => {
-        if (!this.inRoom) return;
-        this.phaseFlash = transition.to;
-        setTimeout(() => (this.phaseFlash = ''), 2000);
-      }),
       this.gameSocket.gameOver$.subscribe((payload) => {
         if (!this.inRoom) return;
         this.gameOverSummary = buildGameOverSummaryFromPayload(payload, this.state);
         this.showGameOver = true;
+        if (this.state && this.state.phase !== 'FIN') {
+          this.state = { ...this.state, phase: 'FIN', winner: payload.winner, soloWinner: payload.soloWinner ?? null };
+        }
+      }),
+      this.gameSocket.phaseTransition$.subscribe((transition) => {
+        if (!this.inRoom || this.gameOverActive) return;
+        this.phaseFlash = transition.to;
+        setTimeout(() => (this.phaseFlash = ''), 2000);
       }),
       this.gameSocket.voteTied$.subscribe(({ voteCount, candidates, reason }) => {
-        if (!this.inRoom) return;
+        if (!this.inRoom || this.gameOverActive) return;
         if (reason === 'no_votes') {
           this.voteTiedMessage = 'Sin votos de eliminación — avanzando a noche';
         } else {
@@ -198,6 +201,18 @@ export class App implements OnInit, OnDestroy {
     const summary = buildGameOverSummary(this.state);
     if (summary) {
       this.gameOverSummary = summary;
+      this.showGameOver = true;
+      return;
+    }
+    if (this.state?.phase === 'FIN') {
+      this.gameOverSummary = buildGameOverSummaryFromPayload(
+        {
+          roomId: this.state.roomId,
+          winner: this.state.winner,
+          soloWinner: this.state.soloWinner,
+        },
+        this.state,
+      );
       this.showGameOver = true;
     }
   }
