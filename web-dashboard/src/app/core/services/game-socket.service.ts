@@ -6,8 +6,10 @@ import {
   GameOverPayload,
   GamePhase,
   IncidentDisplay,
+  NightResolution,
   PhaseTransition,
   PublicGameState,
+  RoomCreatedPayload,
   ServerIncidentReport,
   SoloWinner,
   Team,
@@ -26,6 +28,7 @@ export class GameSocketService implements OnDestroy {
   private roomId: string | null = null;
   private listenersAttached = false;
   private gameEnded = false;
+  private pendingCreateCode: string | null = null;
 
   readonly roomState$ = new BehaviorSubject<PublicGameState | null>(null);
   readonly phaseChanged$ = new Subject<{ roomId: string; phase: GamePhase }>();
@@ -33,6 +36,11 @@ export class GameSocketService implements OnDestroy {
   readonly gameOver$ = new Subject<GameOverPayload>();
   readonly voteTied$ = new Subject<VoteTiedPayload>();
   readonly voteTrace$ = new Subject<VoteTrace>();
+  readonly nightResolved$ = new Subject<{ roomId: string; resolution: NightResolution }>();
+  readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
+  readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string }>();
+  readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string }>();
+  readonly roomCreated$ = new Subject<RoomCreatedPayload>();
   readonly error$ = new Subject<string>();
   readonly incidents$ = new Subject<{ incidents: IncidentDisplay[]; nightNumber: number }>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
@@ -86,11 +94,17 @@ export class GameSocketService implements OnDestroy {
     this.connect();
     const code = generateRoomCode();
     this.roomId = code;
+    this.pendingCreateCode = code;
     this.gameEnded = false;
     this.roomState$.next(null);
 
     this.socket?.emit('createRoom', code, maxPlayers);
-    this.socket?.emit('joinDashboard', code);
+    setTimeout(() => {
+      if (this.pendingCreateCode === code && this.roomId === code) {
+        this.pendingCreateCode = null;
+        this.socket?.emit('joinDashboard', code);
+      }
+    }, 800);
     return code;
   }
 
@@ -167,6 +181,16 @@ export class GameSocketService implements OnDestroy {
     if (!this.socket || this.listenersAttached) return;
     this.listenersAttached = true;
 
+    this.socket.on('roomCreated', (payload: RoomCreatedPayload) => {
+      this.roomCreated$.next(payload);
+      const code = payload.roomId.toUpperCase();
+      if (this.pendingCreateCode === code || this.roomId === code) {
+        this.pendingCreateCode = null;
+        this.roomId = code;
+        this.socket?.emit('joinDashboard', code);
+      }
+    });
+
     this.socket.on('publicState', (state: unknown) => {
       const sanitized = sanitizeGameState(state);
       if (!this.matchesRoom(sanitized.roomId)) return;
@@ -195,6 +219,27 @@ export class GameSocketService implements OnDestroy {
       if (incidents.length) {
         this.incidents$.next({ incidents, nightNumber: report.nightNumber });
       }
+    });
+
+    this.socket.on('nightResolved', (roomId: string, resolution: NightResolution) => {
+      if (!this.matchesRoom(roomId)) return;
+      if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
+      this.nightResolved$.next({ roomId: roomId.toUpperCase(), resolution });
+    });
+
+    this.socket.on('playerEliminated', (roomId: string, playerId: string, reason: string) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.playerEliminated$.next({ roomId: roomId.toUpperCase(), playerId, reason });
+    });
+
+    this.socket.on('playerDisconnected', (roomId: string, playerId: string) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.playerDisconnected$.next({ roomId: roomId.toUpperCase(), playerId });
+    });
+
+    this.socket.on('playerReconnected', (roomId: string, playerId: string) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.playerReconnected$.next({ roomId: roomId.toUpperCase(), playerId });
     });
 
     this.socket.on('voteTrace', (trace: VoteTrace) => {

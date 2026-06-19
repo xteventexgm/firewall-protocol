@@ -3,6 +3,10 @@
     <h2 class="gameover-title">PARTIDA TERMINADA</h2>
     <p class="gameover-headline">{{ summary.headline }}</p>
 
+    @if (summary.message) {
+      <p class="gameover-message">{{ summary.message }}</p>
+    }
+
     @if (summary.winners.length) {
       <ul class="winner-list">
         @for (winner of summary.winners; track winner.playerName) {
@@ -12,6 +16,21 @@
           </li>
         }
       </ul>
+    }
+
+    @if (summary.reveals?.length) {
+      <div class="reveal-sections">
+        @for (reveal of summary.reveals; track reveal.title) {
+          <section class="reveal-block">
+            <h3 class="reveal-title">{{ reveal.title }}</h3>
+            <ul class="reveal-list">
+              @for (item of reveal.items; track item) {
+                <li class="reveal-item">{{ item }}</li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
     }
 
     <button type="button" class="btn-exit-room" (click)="onExitRoom()">

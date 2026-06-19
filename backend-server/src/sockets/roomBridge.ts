@@ -42,6 +42,7 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
 
   room.on('nightResolved', ({ roomId, resolution }) => {
     gameNs.to(roomId).emit('nightResolved', roomId, resolution);
+    dashboardNs?.to(roomId).emit('nightResolved', roomId, resolution);
     refresh();
   });
 
@@ -70,16 +71,19 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
 
   room.on('playerReconnected', ({ roomId, playerId }) => {
     gameNs.to(roomId).emit('playerReconnected', roomId, playerId);
+    dashboardNs?.to(roomId).emit('playerReconnected', roomId, playerId);
     refresh();
   });
 
   room.on('playerDisconnected', ({ roomId, playerId }) => {
     gameNs.to(roomId).emit('playerDisconnected', roomId, playerId);
+    dashboardNs?.to(roomId).emit('playerDisconnected', roomId, playerId);
     refresh();
   });
 
   room.on('playerEliminated', ({ roomId, playerId, reason }) => {
     gameNs.to(roomId).emit('playerEliminated', roomId, playerId, reason);
+    dashboardNs?.to(roomId).emit('playerEliminated', roomId, playerId, reason);
     refresh();
   });
 

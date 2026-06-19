@@ -150,7 +150,7 @@
                   {{ player.isConnected ? 'CONECTADO' : 'DESCONECTADO' }}
                 </span>
               </span>
-              @if (!player.isAlive && player.role) {
+              @if ((!player.isAlive || state.phase === 'FIN') && player.role) {
                 <span class="player-role">{{ player.role }}</span>
               }
             </span>

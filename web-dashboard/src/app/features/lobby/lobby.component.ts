@@ -72,7 +72,8 @@ export class LobbyComponent implements OnChanges {
       !this.gameOverActive &&
       !!this.state &&
       this.state.phase !== 'LOBBY' &&
-      this.state.phase !== 'FIN'
+      this.state.phase !== 'FIN' &&
+      this.state.phase !== 'REPARTO'
     );
   }
 
