@@ -25,6 +25,7 @@ export class GameSocketService implements OnDestroy {
   private socket: Socket | null = null;
   private roomId: string | null = null;
   private listenersAttached = false;
+  private gameEnded = false;
 
   readonly roomState$ = new BehaviorSubject<PublicGameState | null>(null);
   readonly phaseChanged$ = new Subject<{ roomId: string; phase: GamePhase }>();
@@ -66,7 +67,12 @@ export class GameSocketService implements OnDestroy {
 
     this.socket = io(url, socketOptions);
 
-    this.socket.on('connect', () => this.connected$.next(true));
+    this.socket.on('connect', () => {
+      this.connected$.next(true);
+      if (this.roomId) {
+        this.socket?.emit('joinDashboard', this.roomId);
+      }
+    });
     this.socket.on('disconnect', () => this.connected$.next(false));
     this.socket.on('connect_error', (err: Error) => {
       this.connected$.next(false);
@@ -80,6 +86,7 @@ export class GameSocketService implements OnDestroy {
     this.connect();
     const code = generateRoomCode();
     this.roomId = code;
+    this.gameEnded = false;
     this.roomState$.next(null);
 
     this.socket?.emit('createRoom', code, maxPlayers);
@@ -91,6 +98,7 @@ export class GameSocketService implements OnDestroy {
     this.connect();
     const code = roomId.toUpperCase().trim();
     this.roomId = code;
+    this.gameEnded = false;
     this.roomState$.next(null);
     this.socket?.emit('joinDashboard', code);
   }
@@ -100,6 +108,7 @@ export class GameSocketService implements OnDestroy {
       this.socket?.emit('leaveDashboard', this.roomId);
     }
     this.roomId = null;
+    this.gameEnded = false;
     this.roomState$.next(null);
   }
 
@@ -108,13 +117,19 @@ export class GameSocketService implements OnDestroy {
   }
 
   startGame(): void {
-    if (!this.roomId) return;
+    if (!this.roomId || this.gameEnded) return;
     this.socket?.emit('startGame', this.roomId);
   }
 
   advancePhase(): void {
-    if (!this.roomId) return;
+    if (!this.roomId || this.gameEnded) return;
+    const phase = this.roomState$.value?.phase;
+    if (phase === 'FIN') return;
     this.socket?.emit('advancePhase', this.roomId);
+  }
+
+  get isGameEnded(): boolean {
+    return this.gameEnded || this.roomState$.value?.phase === 'FIN';
   }
 
   getRealPlayerCount(state: PublicGameState | null): number {
@@ -154,22 +169,28 @@ export class GameSocketService implements OnDestroy {
 
     this.socket.on('publicState', (state: unknown) => {
       const sanitized = sanitizeGameState(state);
-      if (this.roomId && sanitized.roomId !== this.roomId) return;
+      if (!this.matchesRoom(sanitized.roomId)) return;
+      if (sanitized.phase === 'FIN') {
+        this.gameEnded = true;
+      }
       this.roomState$.next(sanitized);
     });
 
     this.socket.on('phaseChanged', (rid: string, phase: GamePhase) => {
-      if (this.roomId && rid !== this.roomId) return;
-      this.phaseChanged$.next({ roomId: rid, phase });
+      if (!this.matchesRoom(rid)) return;
+      this.patchRoomState({ phase });
+      this.phaseChanged$.next({ roomId: rid.toUpperCase(), phase });
     });
 
     this.socket.on('phaseTransition', (transition: PhaseTransition) => {
-      if (this.roomId && transition.roomId !== this.roomId) return;
+      if (!this.matchesRoom(transition.roomId)) return;
+      if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
       this.phaseTransition$.next(transition);
     });
 
     this.socket.on('incidentReport', (report: ServerIncidentReport) => {
-      if (this.roomId && report.roomId !== this.roomId) return;
+      if (!this.matchesRoom(report.roomId)) return;
+      if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
       const incidents = incidentsFromServerReport(report.disconnected, this.roomState$.value);
       if (incidents.length) {
         this.incidents$.next({ incidents, nightNumber: report.nightNumber });
@@ -177,23 +198,60 @@ export class GameSocketService implements OnDestroy {
     });
 
     this.socket.on('voteTrace', (trace: VoteTrace) => {
-      if (this.roomId && trace.roomId !== this.roomId) return;
+      if (!this.matchesRoom(trace.roomId)) return;
+      if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
       this.voteTrace$.next(trace);
     });
 
     this.socket.on('voteTied', (payload: VoteTiedPayload) => {
-      if (this.roomId && payload.roomId !== this.roomId) return;
+      if (!this.matchesRoom(payload.roomId)) return;
+      if (this.gameEnded || this.roomState$.value?.phase === 'FIN') return;
       this.voteTied$.next(payload);
     });
 
     this.socket.on(
       'gameOver',
       (roomId: string, winner: Team | null, soloWinner?: SoloWinner | null) => {
-        if (this.roomId && roomId !== this.roomId) return;
-        this.gameOver$.next({ roomId, winner, soloWinner });
+        if (!this.matchesRoom(roomId)) return;
+        this.gameEnded = true;
+        const payload: GameOverPayload = { roomId: roomId.toUpperCase(), winner, soloWinner };
+        this.patchRoomState({
+          phase: 'FIN',
+          winner: winner ?? null,
+          soloWinner: soloWinner ?? null,
+        });
+        this.gameOver$.next(payload);
       },
     );
 
     this.socket.on('error', (msg: string) => this.error$.next(msg));
+  }
+
+  private matchesRoom(roomId: string | undefined | null): boolean {
+    if (!roomId) return false;
+    if (!this.roomId) return true;
+    return roomId.toUpperCase() === this.roomId.toUpperCase();
+  }
+
+  private patchRoomState(patch: Partial<PublicGameState>): void {
+    const current = this.roomState$.value;
+    if (!current) {
+      if (!this.roomId) return;
+      this.roomState$.next({
+        roomId: this.roomId,
+        phase: (patch.phase ?? 'LOBBY') as GamePhase,
+        phaseStartedAt: Date.now(),
+        players: patch.players ?? [],
+        dayNumber: patch.dayNumber ?? 0,
+        nightNumber: patch.nightNumber ?? 0,
+        maxPlayers: patch.maxPlayers ?? 0,
+        playerCount: patch.playerCount ?? 0,
+        votes: patch.votes ?? {},
+        winner: patch.winner ?? null,
+        soloWinner: patch.soloWinner ?? null,
+      });
+      return;
+    }
+    this.roomState$.next({ ...current, ...patch });
   }
 }

@@ -18,6 +18,7 @@ describe('App', () => {
             leaveLobby: () => undefined,
             startGame: () => undefined,
             advancePhase: () => undefined,
+            isGameEnded: false,
             connected$: new BehaviorSubject(false),
             roomState$: new BehaviorSubject(null),
             incidents$: new Subject(),
