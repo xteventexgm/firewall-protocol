@@ -1,4 +1,11 @@
-<ion-content class="terminal-content" [class.phase-flash]="phaseFlash" [attr.data-phase]="gamePhase">
+<ion-content
+  class="terminal-content scroll-page"
+  [scrollY]="false"
+  [fullscreen]="true"
+  [class.phase-flash]="phaseFlash"
+  [attr.data-phase]="gamePhase"
+  [attr.data-team-theme]="teamTheme">
+  <div class="page-scroll">
   <div class="terminal-shell">
 
     <header class="terminal-header">
@@ -42,7 +49,7 @@
     <section class="panel role-panel">
       <div class="panel-header">
         <span class="panel-tag">Nivel de acceso</span>
-        <span *ngIf="playerTeamLabel" class="team-badge">{{ playerTeamLabel }}</span>
+        <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
       </div>
       <h2 class="role-name">{{ playerRole }}</h2>
       <p *ngIf="roleDescription" class="role-description">{{ roleDescription }}</p>
@@ -195,6 +202,7 @@
       </ul>
     </section>
 
+  </div>
   </div>
 
   <div *ngIf="gamePhase === 'ELIMINATED'" class="fullscreen-overlay eliminated">

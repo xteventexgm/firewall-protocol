@@ -31,6 +31,13 @@ export class LoginPage implements OnInit, OnDestroy {
         this.connected = c;
       }),
     );
+    this.subs.add(
+      this.socketService.error$.subscribe((msg) => {
+        if (!this.connected && msg.startsWith('No se pudo conectar')) {
+          this.errorMessage = msg;
+        }
+      }),
+    );
   }
 
   ngOnInit(): void {

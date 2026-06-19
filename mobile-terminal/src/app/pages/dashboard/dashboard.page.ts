@@ -513,4 +513,11 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.players,
     );
   }
+
+  get teamTheme(): 'system' | 'black_hat' | 'chaotic' | null {
+    if (this.myTeam === 'system' || this.myTeam === 'black_hat' || this.myTeam === 'chaotic') {
+      return this.myTeam;
+    }
+    return null;
+  }
 }
