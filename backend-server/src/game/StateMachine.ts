@@ -1,8 +1,6 @@
 import { EventEmitter } from 'events';
 import { GamePhase } from '../types';
 
-type PhaseCallback = (from: GamePhase, to: GamePhase) => void;
-
 const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.LOBBY]: [GamePhase.REPARTO],
   [GamePhase.REPARTO]: [GamePhase.DIA],
@@ -25,10 +23,6 @@ export class StateMachine extends EventEmitter {
 
   getPhase() {
     return this.phase;
-  }
-
-  getPhaseStartedAt() {
-    return this.phaseStartedAt;
   }
 
   /** Restaura fase desde persistencia sin emitir eventos ni validar transiciones. */
@@ -54,10 +48,6 @@ export class StateMachine extends EventEmitter {
     // emit a typed event
     this.emit('phaseChanged', { from, to: target, at: this.phaseStartedAt });
     return true;
-  }
-
-  onPhaseChanged(cb: PhaseCallback) {
-    this.on('phaseChanged', ({ from, to }: any) => cb(from, to));
   }
 
   // helper for forcing a next logical phase (used by Room manager)

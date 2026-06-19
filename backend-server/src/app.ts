@@ -1,6 +1,5 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { logger } from './utils/logger';
 
 const app = express();
 app.use(bodyParser.json());

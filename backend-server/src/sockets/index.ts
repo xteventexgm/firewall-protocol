@@ -15,7 +15,7 @@ export function initSockets(server: http.Server) {
 
   gameNs.on('connection', (socket) => {
     registerRoomHandlers(socket, gameNs, dashboardNs);
-    registerGameHandlers(socket, gameNs);
+    registerGameHandlers(socket);
 
     socket.on('disconnect', (reason) => {
       const found = RoomManager.findPlayerBySocketId(socket.id);

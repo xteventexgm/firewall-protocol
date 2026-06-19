@@ -103,10 +103,6 @@ export class RoomManager {
     return true;
   }
 
-  listRooms() {
-    return Array.from(this.rooms.keys());
-  }
-
   findPlayerBySocketId(socketId: string): { room: Room; player: Player } | null {
     for (const room of this.rooms.values()) {
       const player = room.state.players.find(p => p.socketId === socketId);

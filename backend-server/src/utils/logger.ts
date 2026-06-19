@@ -34,5 +34,3 @@ export const logger = {
   warn: (...args: any[]) => log('warn', ...args),
   error: (...args: any[]) => log('error', ...args),
 };
-
-export default logger;

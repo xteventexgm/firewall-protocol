@@ -8,7 +8,7 @@ export type WinResult =
   | { over: true; type: 'solo'; solo: SoloWinner }
   | { over: false };
 
-export function checkSoloWin(state: GameStateModel, context: { justVotedOut?: string } = {}): WinResult {
+function checkSoloWin(state: GameStateModel, context: { justVotedOut?: string } = {}): WinResult {
   const alive = state.getAlivePlayers();
 
   if (context.justVotedOut) {
@@ -43,7 +43,7 @@ export function checkSoloWin(state: GameStateModel, context: { justVotedOut?: st
   return { over: false };
 }
 
-export function checkTeamWin(state: GameStateModel): WinResult {
+function checkTeamWin(state: GameStateModel): WinResult {
   const alive = state.getAlivePlayers();
   const hackers = alive.filter(p => p.team === Team.BLACK_HAT);
   const systemSide = alive.filter(p => p.team === Team.SYSTEM);

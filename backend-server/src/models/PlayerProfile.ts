@@ -1,4 +1,4 @@
-import { PlayerAction, PlayerId, RoleId } from '../types';
+import { PlayerId, RoleId } from '../types';
 
 export interface PlayerProfile {
   id: PlayerId;
@@ -8,9 +8,8 @@ export interface PlayerProfile {
   team?: string;
   isAlive: boolean;
   isConnected: boolean;
-  joinedAt: number; // epoch ms
+  joinedAt: number;
   metadata?: Record<string, any>;
-  pendingActions?: PlayerAction[];
 }
 
 export class Player implements PlayerProfile {
@@ -23,21 +22,11 @@ export class Player implements PlayerProfile {
   isConnected = true;
   joinedAt: number;
   metadata?: Record<string, any>;
-  pendingActions: PlayerAction[] = [];
 
   constructor(id: PlayerId, name: string, socketId?: string) {
     this.id = id;
     this.name = name;
     this.socketId = socketId;
     this.joinedAt = Date.now();
-  }
-
-  addAction(action: PlayerAction) {
-    this.pendingActions = this.pendingActions || [];
-    this.pendingActions.push(action);
-  }
-
-  clearActions() {
-    this.pendingActions = [];
   }
 }

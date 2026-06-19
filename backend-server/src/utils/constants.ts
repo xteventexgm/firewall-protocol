@@ -19,7 +19,4 @@ export const PLAYERS_PER_BLACK_HAT = 3;
  */
 export const PLAYERS_PER_CHAOTIC_ROLE = 5;
 
-export const DATA_DIR = DATA_DIRECTORY;
-export const GAMES_DIR = path.join(DATA_DIR, 'games');
-
-export default { MIN_PLAYERS, MAX_PLAYERS, DATA_DIR, GAMES_DIR };
+export const GAMES_DIR = path.join(DATA_DIRECTORY, 'games');

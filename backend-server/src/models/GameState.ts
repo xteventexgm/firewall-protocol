@@ -60,7 +60,6 @@ export class GameStateModel implements GameState {
       pl.isConnected = false;
       pl.joinedAt = p.joinedAt || Date.now();
       pl.metadata = p.metadata || {};
-      pl.pendingActions = p.pendingActions || [];
       return pl;
     });
     return s;
@@ -161,7 +160,6 @@ export class GameStateModel implements GameState {
       isConnected: p.isConnected,
       joinedAt: p.joinedAt,
       metadata: p.metadata,
-      pendingActions: p.pendingActions,
     };
   }
 

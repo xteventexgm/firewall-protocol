@@ -1,4 +1,4 @@
-import { NightActionBatch, NightResolution, PlayerAction, PrivateResultPayload, ScanResult } from '../types/events.types';
+import { NightActionBatch, NightResolution, PlayerAction, ScanResult } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { getMeta } from './playerMetadata';
@@ -13,8 +13,6 @@ import {
   isInfectionMature,
   infectionSourceLabel,
 } from './infection';
-
-export type { NightResolution };
 
 function actionType(a: PlayerAction) {
   return (a.type || '').toLowerCase();

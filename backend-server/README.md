@@ -134,8 +134,6 @@ src/
 │   └── constants.ts         # MIN_PLAYERS, MAX_PLAYERS, rutas de datos
 ├── app.ts                   # Express (health, raíz)
 └── server.ts                # HTTP + Socket.io
-test/
-└── test_persistence.js      # Prueba manual de persistencia
 data/
 └── games/                   # JSON de partidas (generados en runtime)
 ```
@@ -182,14 +180,6 @@ Servidor en `http://localhost:3000` (o el `PORT` configurado).
 curl http://localhost:3000/health
 # { "status": "ok", "ts": "..." }
 ```
-
-### 5. Prueba de persistencia
-
-```bash
-node test/test_persistence.js
-```
-
-Conecta un cliente a `/game`, crea sala, inicia partida y valida el JSON en `data/games/room-test-1.json`.
 
 ---
 
@@ -399,8 +389,7 @@ Campos relevantes del JSON:
       "isConnected": false,
       "role": "SysAdmin",
       "team": "system",
-      "metadata": {},
-      "pendingActions": []
+      "metadata": {}
     }
   ],
   "actionQueue": [],

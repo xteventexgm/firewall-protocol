@@ -1,9 +1,9 @@
-import { Socket, Namespace } from 'socket.io';
+import { Socket } from 'socket.io';
 import RoomManager from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
 
-export default function registerGameHandlers(socket: Socket, ns: Namespace) {
+export default function registerGameHandlers(socket: Socket) {
   socket.on('playerAction', (roomId: string, action: any) => {
     try {
       logClient('mobile', 'playerAction', socket.id, {

@@ -163,7 +163,6 @@ export interface PlayerRoomState {
     role?: RoleId;
     team?: Team;
     metadata?: Record<string, unknown>;
-    pendingActions?: PlayerAction[];
   }>;
   dayNumber: number;
   nightNumber: number;

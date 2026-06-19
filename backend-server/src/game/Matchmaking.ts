@@ -56,14 +56,14 @@ function assignPool(
   }
 }
 
-export interface TeamBalance {
+interface TeamBalance {
   hackerCount: number;
   chaoticCount: number;
   systemCount: number;
 }
 
 /** Calcula reparto de equipos según proporciones configurables en constants.ts */
-export function computeTeamBalance(playerCount: number): TeamBalance {
+function computeTeamBalance(playerCount: number): TeamBalance {
   const hackerCount = slotsByRatio(playerCount, PLAYERS_PER_BLACK_HAT, playerCount, 1);
   const chaoticCount = slotsByRatio(
     playerCount,

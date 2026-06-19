@@ -1,0 +1,51 @@
+{
+  "roomId": "FIRE-9FME",
+  "phase": "NOCHE",
+  "phaseStartedAt": 1781875042948,
+  "maxPlayers": 5,
+  "players": [
+    {
+      "id": "usr_sb5b00jr5",
+      "name": "Kaisser",
+      "role": "Pentester",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": false,
+      "joinedAt": 1781874933198,
+      "metadata": {
+        "actedThisNight": false,
+        "pentesterUsesLeft": 2
+      }
+    },
+    {
+      "id": "usr_qke65k6mg",
+      "name": "Chamba444",
+      "role": "Rootkit",
+      "team": "black_hat",
+      "isAlive": true,
+      "isConnected": false,
+      "joinedAt": 1781874939778,
+      "metadata": {
+        "actedThisNight": false
+      }
+    }
+  ],
+  "dayNumber": 2,
+  "nightNumber": 2,
+  "actionQueue": [],
+  "votes": {},
+  "logs": [
+    "[2026-06-19T13:16:13.931Z] Assigned roles: hackers=1",
+    "[2026-06-19T13:16:25.032Z] No elimination votes (skip: 0) — proceeding to NOCHE",
+    "[2026-06-19T13:17:16.167Z] Voted out: usr_xe70ilt16 (1 votes, skip: 0)",
+    "[2026-06-19T13:17:16.169Z] Game over: solo win usr_xe70ilt16",
+    "[2026-06-19T13:17:22.946Z] No elimination votes (skip: 0) — proceeding to NOCHE"
+  ],
+  "winner": null,
+  "soloWinner": {
+    "playerId": "usr_xe70ilt16",
+    "role": "Troll",
+    "reason": "troll_banned"
+  },
+  "lastNightKills": []
+}

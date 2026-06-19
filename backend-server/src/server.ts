@@ -6,7 +6,7 @@ import { PORT } from './config/env';
 
 const server = http.createServer(app);
 
-const io = initSockets(server as any);
+initSockets(server as any);
 
 server.listen(PORT, () => {
 	logger.info(`Server listening on port ${PORT}`);

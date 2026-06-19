@@ -10,7 +10,7 @@ export function broadcastRoomState(gameNs: Namespace, room: Room) {
   }
 }
 
-export function broadcastPublicState(dashboardNs: Namespace | undefined, room: Room) {
+function broadcastPublicState(dashboardNs: Namespace | undefined, room: Room) {
   if (!dashboardNs) return;
   dashboardNs.to(room.id).emit('publicState', room.state.toPublicState());
 }

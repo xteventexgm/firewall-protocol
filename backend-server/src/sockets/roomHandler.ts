@@ -1,6 +1,6 @@
 import { Socket, Namespace } from 'socket.io';
 import RoomManager, { RoomClosedError } from '../game/RoomManager';
-import Room, { RoomJoinDeniedError } from '../game/Room';
+import { RoomJoinDeniedError } from '../game/Room';
 import { Player } from '../models/PlayerProfile';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';

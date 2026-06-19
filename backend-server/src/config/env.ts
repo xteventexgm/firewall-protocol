@@ -22,13 +22,3 @@ export function defaultRoomOptions() {
     autoAdvance: AUTO_ADVANCE,
   };
 }
-
-export default {
-	NODE_ENV,
-	PORT,
-	LOG_LEVEL,
-	DATA_DIRECTORY,
-	NIGHT_DURATION_MS,
-	DAY_DURATION_MS,
-	AUTO_ADVANCE,
-};
