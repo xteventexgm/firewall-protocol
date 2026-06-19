@@ -162,6 +162,7 @@ export class Room extends EventEmitter {
 
     const players = this.state.players as Player[];
     const playerCount = players.length;
+    this.state.initialPlayerCount = playerCount;
     const { assignments, hackerCount } = assignRoles(players);
     this.state.log(`Assigned roles: hackers=${hackerCount}`);
 

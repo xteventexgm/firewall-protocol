@@ -1,14 +1,15 @@
 /**
  * Condiciones de victoria y efectos post-noche (cooldowns).
  *
- * Orden en `checkAnyWin`: primero solitarias (Troll, Gusano, Minero), luego bando.
+ * Orden en `checkAnyWin`: solitarias (Troll, Gusano, Minero) → bando → desempate por días.
  * Black Hat gana con strictly más hackers que System (`>`).
- * Zero-Day puede heredar victoria System si asumió rol System y no quedan hackers.
+ * Zero-Day hereda victoria de bando al asumir rol (rol y team cambian).
  */
 import { SoloWinner } from '../types';
 import { RoleName, Team, ROLE_CATALOG } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
-import { getMeta } from './playerMetadata';
+import { getMeta, initRoleMetadata } from './playerMetadata';
+import { stalemateDayLimit } from './balance';
 
 /** Resultado de comprobar fin de partida. */
 export type WinResult =
@@ -51,6 +52,30 @@ function checkSoloWin(state: GameStateModel, context: { justVotedOut?: string } 
   return { over: false };
 }
 
+/** Si solo quedan caóticos tras el límite de días, gana el rol con victoria solitaria más viable. */
+function pickChaoticStalemateWinner(alive: ReturnType<GameStateModel['getAlivePlayers']>): WinResult {
+  const chaotics = alive.filter(p => p.team === Team.CHAOTIC);
+  if (chaotics.length === 0) return { over: false };
+
+  const priority: RoleName[] = [
+    RoleName.WORM,
+    RoleName.CRYPTO_MINER,
+    RoleName.TROLL,
+    RoleName.ZERO_DAY,
+  ];
+  for (const role of priority) {
+    const match = chaotics.find(p => p.role === role);
+    if (match) {
+      return {
+        over: true,
+        type: 'solo',
+        solo: { playerId: match.id, role, reason: 'chaotic_stalemate_break' },
+      };
+    }
+  }
+  return { over: false };
+}
+
 function checkTeamWin(state: GameStateModel): WinResult {
   const alive = state.getAlivePlayers();
   const hackers = alive.filter(p => p.team === Team.BLACK_HAT);
@@ -64,24 +89,44 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 
-  // Zero-Day edge case: asumió rol System y no quedan hackers → victoria System.
-  // No hay victoria de equipo caótico (Team.CHAOTIC); roles caóticos ganan en solitario.
-  const zeroDay = alive.find(p => p.role === RoleName.ZERO_DAY && getMeta(p).assumedFromPlayerId);
-  if (zeroDay && hackers.length === 0) {
-    const assumedTeam = zeroDay.team as Team;
-    if (assumedTeam === Team.SYSTEM && systemSide.length > 0 && hackers.length === 0) {
-      return { over: true, type: 'team', winner: Team.SYSTEM };
-    }
-  }
-
   return { over: false };
 }
 
-/** Punto de entrada: victoria solitaria tiene prioridad sobre victoria de bando. */
+/**
+ * Desempate por límite de días: evita partidas eternas con caóticos bloqueando mayorías.
+ * Gana Black Hat si hackers > system; en empate o ventaja system, gana System.
+ */
+function checkStalemateBreak(state: GameStateModel): WinResult {
+  const limit = stalemateDayLimit(state.initialPlayerCount || state.players.length);
+  if (state.dayNumber < limit) return { over: false };
+
+  const alive = state.getAlivePlayers();
+  const hackers = alive.filter(p => p.team === Team.BLACK_HAT);
+  const systemSide = alive.filter(p => p.team === Team.SYSTEM);
+
+  if (hackers.length === 0) {
+    if (systemSide.length > 0) {
+      return { over: true, type: 'team', winner: Team.SYSTEM };
+    }
+    const chaoticOnly = pickChaoticStalemateWinner(alive);
+    if (chaoticOnly.over) return chaoticOnly;
+    return { over: false };
+  }
+
+  if (hackers.length > systemSide.length) {
+    return { over: true, type: 'team', winner: Team.BLACK_HAT };
+  }
+
+  return { over: true, type: 'team', winner: Team.SYSTEM };
+}
+
+/** Punto de entrada: solitario > bando > desempate por días. */
 export function checkAnyWin(state: GameStateModel, context: { justVotedOut?: string } = {}): WinResult {
   const solo = checkSoloWin(state, context);
   if (solo.over) return solo;
-  return checkTeamWin(state);
+  const team = checkTeamWin(state);
+  if (team.over) return team;
+  return checkStalemateBreak(state);
 }
 
 /** Decrementa ransomwareCooldown de todos los jugadores al iniciar cada NOCHE. */
@@ -100,9 +145,15 @@ export function applyZeroDayAssume(state: GameStateModel, actorId: string, deadP
   const dead = state.getPlayer(deadPlayerId);
   if (!actor || !dead || !dead.role) return;
 
-  actor.role = dead.role;
-  actor.team = dead.team ?? ROLE_CATALOG[dead.role].team;
-  const meta = getMeta(actor);
-  meta.assumedFromPlayerId = deadPlayerId;
-  state.log(`Zero-Day ${actorId} assumed role of ${deadPlayerId}`);
+  const assumedRole = dead.role;
+  actor.role = assumedRole;
+  actor.team = dead.team ?? ROLE_CATALOG[assumedRole].team;
+
+  const tableSize = state.initialPlayerCount || state.players.length;
+  actor.metadata = {
+    ...initRoleMetadata(assumedRole, tableSize),
+    assumedFromPlayerId: deadPlayerId,
+  };
+
+  state.log(`Zero-Day ${actorId} assumed role of ${deadPlayerId} (${assumedRole})`);
 }

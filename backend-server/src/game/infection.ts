@@ -43,9 +43,9 @@ export function clearInfection(player: Player): boolean {
   return true;
 }
 
-/** Infección madura cuando la noche actual supera la noche en que se aplicó. */
+/** Infección madura al resolver la noche `maturesAfterNight` (2 noches completas sin cura). */
 export function isInfectionMature(infection: PlayerInfection, currentNight: number): boolean {
-  return currentNight > infection.appliedOnNight;
+  return currentNight >= infection.maturesAfterNight;
 }
 
 export function infectionSourceLabel(infection: PlayerInfection): string {

@@ -31,6 +31,8 @@ export interface GameState {
   soloWinner?: SoloWinner | null;
   /** IDs eliminados en la última noche resuelta (también en incidentReport). */
   lastNightKills: string[];
+  /** Jugadores al iniciar partida; fija escalado de balance y límite de días. */
+  initialPlayerCount?: number;
 }
 
 /** Modelo mutable del estado de sala; una instancia por `Room`. */
@@ -48,6 +50,7 @@ export class GameStateModel implements GameState {
   winner: Team | null = null;
   soloWinner: SoloWinner | null = null;
   lastNightKills: string[] = [];
+  initialPlayerCount = 0;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -67,6 +70,7 @@ export class GameStateModel implements GameState {
     s.winner = obj.winner ?? null;
     s.soloWinner = obj.soloWinner ?? null;
     s.lastNightKills = obj.lastNightKills || [];
+    s.initialPlayerCount = obj.initialPlayerCount ?? (obj.players?.length ?? 0);
     s.players = (obj.players || []).map((p: any) => {
       const pl = new Player(p.id, p.name, p.socketId);
       pl.role = p.role;
@@ -96,6 +100,7 @@ export class GameStateModel implements GameState {
       winner: this.winner,
       soloWinner: this.soloWinner,
       lastNightKills: this.lastNightKills,
+      initialPlayerCount: this.initialPlayerCount,
     };
   }
 

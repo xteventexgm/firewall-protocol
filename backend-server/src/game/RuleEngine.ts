@@ -170,6 +170,7 @@ function processMatureInfections(
     });
 
     if (tryKill(player.id, state, res, `infection from ${infectionSourceLabel(infection)}`, protections, {
+      bypassProtection: true,
       bypassMinerShield: true,
     })) {
       res.infectionKills.push(player.id);

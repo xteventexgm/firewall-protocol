@@ -101,7 +101,6 @@ export function validateNightAction(
   return null;
 }
 
-/** Deshace marcas de cooldown/usos de una acción encolada que se va a reemplazar. */
 /** Deshace metadata consumida si se retira acción de la cola antes de resolver noche. */
 export function revertQueuedActionMetadata(actor: Player, actionType: string, targetId?: string | null) {
   const meta = getMeta(actor);

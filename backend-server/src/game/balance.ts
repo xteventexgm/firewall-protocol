@@ -27,6 +27,9 @@
  * - **Honeypot** (`RuleEngine.ts`): arrastre ignora protección Antivirus.
  * - **Zero-Day** (`ActionValidator.ts`): una asunción de rol por partida.
  * - **SOC scan** (`RuleEngine.ts`): safe / suspicious (caótico) / malicious (hacker); Rootkit → safe.
+ * - **Límite de días** (`VictoryChecker.ts`): empate prolongado → gana quien tenga ventaja numérica
+ *   (System en empate hacker/system).
+ * - **Zero-Day assume** (`VictoryChecker.ts`): hereda metadata del rol asumido (`initRoleMetadata`).
  *
  * ── Umbrales de mesa ──────────────────────────────────────────────────
  * - **Pequeña**: 5–7 jugadores (`SMALL_TABLE_MAX`) — más recursos defensivos, menos hackers.
@@ -108,3 +111,17 @@ export function playersPerBlackHat(playerCount: number): number {
  *
  * Caóticos: floor(jugadores / 5), resto System. Ver `PLAYERS_PER_CHAOTIC_ROLE` en `constants.ts`.
  */
+
+/** Días máximos (fases DIA) antes de desempate forzado en mesas pequeñas. */
+export const STALEMATE_DAYS_SMALL = 8;
+
+/** Días máximos en mesas 8+ (más jugadores → más tiempo para converger). */
+export const STALEMATE_DAYS_LARGE = 10;
+
+/**
+ * Tras este número de días, `VictoryChecker` fuerza victoria de bando si no hay fin solitario.
+ * En empate hacker/system vivos, gana System (defensa sostenida).
+ */
+export function stalemateDayLimit(playerCount: number): number {
+  return isSmallTable(playerCount) ? STALEMATE_DAYS_SMALL : STALEMATE_DAYS_LARGE;
+}
