@@ -2,6 +2,8 @@
 
 Checklist para testers y QA jugando partidas reales. Marca cada ítem al probarlo.
 
+> Documentación general del proyecto: [`README.md`](README.md) · Cambios recientes: [`CHANGELOG.md`](CHANGELOG.md)
+
 ## Requisitos
 
 - Backend en marcha (`backend-server`)
@@ -34,10 +36,11 @@ Checklist para testers y QA jugando partidas reales. Marca cada ítem al probarl
 |---|-----------|-------|-------------------|
 | 2.1 | Inicio | Con ≥ mínimo jugadores → Iniciar | Fase REPARTO → roles asignados |
 | 2.2 | Briefing móvil | Tras reparto | Overlay de rol ~14s en cada móvil |
-| 2.3 | Briefing TV | Primer DÍA | Overlay "RED COMPROMETIDA" ~9s |
-| 2.4 | Avanzar fases | Host pulsa Avanzar fase | Transiciones: NOCHE → AMANECER → DÍA → VOTACIÓN → … |
-| 2.5 | Auto-avance | Activa timers y Aplicar | Fases avanzan solas al expirar |
-| 2.6 | Móvil no inicia | Intentar `startGame` desde cliente (devtools) | Rechazado: solo dashboard |
+| 2.3 | Briefing TV | Primer DÍA | Overlay "RED COMPROMETIDA" ~20s |
+| 2.4 | Avanzar fases | Host pulsa Avanzar fase | Transiciones: NOCHE → DÍA → VOTACIÓN → … |
+| 2.5 | Auto-avance | Activa timers y Aplicar | Fases avanzan solas al expirar; panel lateral en modo compacto |
+| 2.6 | Panel compacto | Partida iniciada (sin timer) | QR y timers ocultos; solo código, fase, Avanzar y Volver al lobby |
+| 2.7 | Móvil no inicia | Intentar `startGame` desde cliente (devtools) | Rechazado: solo dashboard |
 
 ---
 
@@ -61,8 +64,9 @@ Checklist para testers y QA jugando partidas reales. Marca cada ítem al probarl
 | 4.1 | Voto | Cada vivo vota en VOTACIÓN | Líneas de voto en topología |
 | 4.2 | Empate | Provocar empate | Mensaje de empate, sin eliminación |
 | 4.3 | Chat público | Mensaje en DÍA | Visible en feed (si fase lo permite) |
-| 4.4 | Chat hacker | Black Hat en canal hacker | Solo equipo malo lo ve |
-| 4.5 | Jugador muerto | Muerto intenta votar/actuar | Rechazado |
+| 4.4 | Chat hacker | Black Hat en NOCHE | Canal hacker visible y abierto en móvil |
+| 4.5 | Chat muertos | Jugador eliminado | Chat de espectadores en overlay *SISTEMA CAÍDO* (también en NOCHE) |
+| 4.6 | Jugador muerto | Muerto intenta votar/actuar | Rechazado |
 
 ---
 
@@ -84,10 +88,12 @@ Ver detalle en `ROLES.md`.
 
 | # | Escenario | Pasos | Resultado esperado |
 |---|-----------|-------|-------------------|
-| 6.1 | Victoria | Condición de victoria cumplida | Overlay game over + sonido + MVP |
-| 6.2 | Móvil post-FIN | Tras overlay | Redirige a login ~5s, limpia sesión |
-| 6.3 | TV post-FIN | Fase FIN | Botones deshabilitados, roles visibles |
-| 6.4 | Nueva ronda | Crear sala nueva | Código distinto, sin estado residual |
+| 6.1 | Victoria por bando | Eliminar último hacker (voto) | Un solo *Avanzar fase* desde VOTACIÓN → overlay game over en **todos** los dispositivos |
+| 6.2 | Victoria solitaria | Minero/Gusano último vivo; Troll baneado | Overlay con mensaje solitario y sonido |
+| 6.3 | Móvil post-FIN | Tras overlay | Permanece en pantalla de victoria hasta pulsar **Volver al login** |
+| 6.4 | TV post-FIN | Overlay visible | Botón *Volver al lobby*; opción replay JSON y nueva partida |
+| 6.5 | Sin fuga de roles | Observar TV durante noche | No aparecen nombres de roles internos en logs (ej. "Crypto Miner") |
+| 6.6 | Nueva ronda | Crear sala nueva | Código distinto, sin estado residual |
 
 ---
 
@@ -101,6 +107,7 @@ Ver detalle en `ROLES.md`.
 | 7.4 | Códigos en minúsculas | `fire-ab12` normalizado a `FIRE-AB12` |
 | 7.5 | Rate-limit chat | Enviar mensajes rápido → cooldown visible en botón Enviar |
 | 7.6 | Export replay | Tras FIN en TV → Descargar replay JSON |
+| 7.7 | Pantalla completa móvil | App nativa Android | Barra de estado del sistema oculta |
 
 ---
 

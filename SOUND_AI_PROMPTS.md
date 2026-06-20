@@ -4,6 +4,8 @@ Usa estos prompts en herramientas como **ElevenLabs Sound Effects**, **Stable Au
 
 **Estilo global del juego:** cyberpunk, terminal militar, datacenter oscuro, UI digital fría. Sin voces habladas salvo glitch distorsionado muy breve.
 
+Los archivos generados se colocan en `web-dashboard/public/sfx/` y `mobile-terminal/src/assets/sfx/` según la categoría. Ver también [`README.md`](README.md) y [`CHANGELOG.md`](CHANGELOG.md).
+
 ---
 
 ## UI (`ui/`)

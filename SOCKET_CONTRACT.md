@@ -2,8 +2,10 @@
 
 Documento de referencia compartido para **mobile-terminal** (`/game`) y **web-dashboard** (`/dashboard`).
 
-**Fuente canónica de tipos TypeScript:** [`backend-server/src/types/events.types.ts`](backend-server/src/types/events.types.ts)  
-**Detalle de reglas y motor:** [`backend-server/README.md`](backend-server/README.md)
+- **Índice del proyecto:** [`README.md`](README.md)
+- **Fuente canónica de tipos TypeScript:** [`backend-server/src/types/events.types.ts`](backend-server/src/types/events.types.ts)
+- **Detalle de reglas y motor:** [`backend-server/README.md`](backend-server/README.md)
+- **Historial de cambios:** [`CHANGELOG.md`](CHANGELOG.md)
 
 **URL base:** `http://<IP_SERVIDOR>:3000` (misma red LAN para móviles y PC).
 

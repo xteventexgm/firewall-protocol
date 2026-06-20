@@ -1,59 +1,135 @@
-# WebDashboard
+# Web Dashboard — Firewall Protocol
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.28.
+Centro de mando para el **host** de la partida. Se ejecuta en PC o TV conectada a la misma red que el servidor y los móviles de los jugadores.
 
-## Development server
+<p align="center">
+  <img src="public/icon.png" alt="Firewall Protocol" width="64" height="64" />
+</p>
 
-To start a local development server, run:
+## Qué hace
+
+| Función | Descripción |
+|---------|-------------|
+| **Crear sala** | Genera código `FIRE-XXXX`, capacidad 5–15, QR para móviles |
+| **Control de fases** | Iniciar partida, avanzar noche/día/votación (solo el host) |
+| **Topología** | Vista 3D de nodos: vivos, muertos, desconectados, infecciones |
+| **Votación** | Líneas animadas entre votante y objetivo |
+| **Logs públicos** | Feed SIEM de eventos nocturnos (sin filtrar roles vivos) |
+| **Chat** | Mensajes del canal público |
+| **Victoria** | Overlay con ganadores, revelación de roles, MVP y export replay |
+| **Sonido** | Ambiente y SFX por fase, incidente, voto y game over |
+
+Los jugadores **no** usan esta app; cada uno juega desde [`mobile-terminal`](../mobile-terminal/).
+
+---
+
+## Requisitos
+
+- Node.js 18+
+- Backend en marcha ([`backend-server`](../backend-server/))
+- Navegador moderno (Chrome, Edge, Firefox)
+
+---
+
+## Desarrollo
 
 ```bash
+cd web-dashboard
+npm install
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Abre `http://localhost:4200`.
 
-## Code scaffolding
+### URL del servidor
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Configura el endpoint Socket.io en:
 
-```bash
-ng generate component component-name
+`src/environments/environment.ts` (y `environment.prod.ts` para build de producción).
+
+```typescript
+export const environment = {
+  production: false,
+  socketUrl: 'http://localhost:3000',
+};
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+En red LAN, usa la IP de la máquina que ejecuta el backend (ej. `http://192.168.1.10:3000`).
 
-```bash
-ng generate --help
-```
+---
 
-## Building
+## Uso como host
 
-To build the project run:
+### Antes de empezar
+
+1. Conecta el dashboard al servidor (indicador verde en el panel).
+2. Crea sala y comparte QR o código `FIRE-XXXX`.
+3. Espera al menos **5 jugadores** conectados.
+4. Opcional: configura timers de noche/día y auto-avance.
+
+### Durante la partida
+
+- El panel lateral pasa a **modo compacto**: solo código, fase actual, *Avanzar fase* y *Volver al lobby*.
+- El QR y la configuración de timers se ocultan para dar espacio a la topología.
+- *Volver al lobby* cierra la vista de partida en TV **sin** borrar la sala en el servidor.
+
+### Tras el fin
+
+- Overlay de victoria con botones: *Volver al lobby*, *Iniciar nueva partida*, *Descargar replay JSON*.
+- Los roles de todos los jugadores quedan visibles en la lista del panel (fase `FIN`).
+
+---
+
+## Build de producción
 
 ```bash
 ng build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Artefactos en `dist/web-dashboard/`. Sirve la carpeta con cualquier servidor estático o integra en tu pipeline.
 
-## Running unit tests
+---
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## Estructura relevante
 
-```bash
-ng test
+```
+src/app/
+├── app.ts / app.html          # Shell: lobby + escenario principal
+├── core/
+│   ├── models/                # Tipos alineados con SOCKET_CONTRACT
+│   ├── services/              # game-socket, game-sound
+│   └── utils/                 # game, layout, replay, night-resolution
+└── features/
+    ├── lobby/                 # Crear sala, QR, controles host
+    ├── topology/              # Vista 2D/3D de la red
+    ├── votes/                 # Líneas de votación
+    ├── phases/                # Overlays de fase, briefing, progreso noche
+    ├── game-over/             # Pantalla de victoria
+    ├── public-logs/           # Logs SIEM nocturnos
+    └── chat/                  # Feed de chat público
 ```
 
-## Running end-to-end tests
+---
 
-For end-to-end (e2e) testing, run:
+## Sonidos
+
+Los assets SFX viven en `public/sfx/` (o rutas configuradas en `GameSoundService`). Para generar nuevos sonidos con IA, ver [`SOUND_AI_PROMPTS.md`](../SOUND_AI_PROMPTS.md) en la raíz del monorepo.
+
+---
+
+## Pruebas
+
+Checklist manual compartido: [`TESTING.md`](../TESTING.md).
 
 ```bash
-ng e2e
+ng test    # unit tests Karma (si están configurados)
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+---
 
-## Additional Resources
+## Documentación relacionada
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- [README principal](../README.md)
+- [Contrato socket](../SOCKET_CONTRACT.md)
+- [Condiciones de victoria](../WIN_CONDITIONS.md)
+- [Changelog](../CHANGELOG.md)

@@ -3,7 +3,8 @@
 Referencia de los **16 roles** del juego: equipo, descripción, habilidades y condición de victoria.  
 Sincronizado con `backend-server/src/types/roles.types.ts`, `roleInfo.ts` y `VictoryChecker.ts`.
 
-Condiciones de fin de partida detalladas → [`WIN_CONDITIONS.md`](./WIN_CONDITIONS.md).
+- Condiciones de fin de partida → [`WIN_CONDITIONS.md`](./WIN_CONDITIONS.md)
+- Índice del proyecto → [`README.md`](./README.md)
 
 ---
 
