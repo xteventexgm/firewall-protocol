@@ -16,6 +16,42 @@ export interface PlayerRoleMeta {
   ransomwareCooldown?: number;
   isWormImmune?: boolean;
   assumedFromPlayerId?: string | null;
+  emergencyPatchUsed?: boolean;
+}
+
+export interface PublicLogEntry {
+  id: string;
+  timestamp: number;
+  message: string;
+  severity: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  channel: string;
+  timestamp: number;
+}
+
+export interface NightProgress {
+  acted: number;
+  total: number;
+}
+
+export interface MinigameChallenge {
+  token: string;
+  type: string;
+  prompt: string;
+  options?: string[];
+  expiresAt: number;
+}
+
+export interface GameStatsEntry {
+  label: string;
+  value: string;
+  detail?: string;
 }
 
 export interface RoomPlayer {
@@ -39,7 +75,8 @@ export type PrivateResultType =
   | 'role_assigned'
   | 'infected'
   | 'cured'
-  | 'infection_warning';
+  | 'infection_warning'
+  | 'miner_update';
 
 export interface VisitorActivity {
   playerId: string;
@@ -60,9 +97,14 @@ export interface PrivateResultPayload {
   teamLabel?: string;
   nightAction?: string | null;
   nightActionHint?: string;
+  victoryHint?: string;
   infectionSource?: string;
   maturesAfterNight?: number;
   critical?: boolean;
+  shieldCharges?: number;
+  minedTargetId?: string;
+  bribedTargetId?: string;
+  bribeKilled?: boolean;
 }
 
 export interface PlayerRoomState {
@@ -76,6 +118,10 @@ export interface PlayerRoomState {
   playerCount: number;
   votes: Record<string, string[]>;
   logs: string[];
+  publicLogs?: PublicLogEntry[];
+  chatMessages?: ChatMessage[];
+  nightProgress?: NightProgress;
+  gameStats?: GameStatsEntry[];
   winner?: string | null;
   soloWinner?: { playerId: string; role: string; reason: string } | null;
   lastNightKills?: string[];

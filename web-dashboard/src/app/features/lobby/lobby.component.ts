@@ -13,8 +13,10 @@ import {
   MAX_PLAYERS,
   PublicGameState,
   SavedRoom,
+  PhaseConfig,
 } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
+import { GameSoundService } from '../../core/services/game-sound.service';
 
 @Component({
   selector: 'app-lobby',
@@ -30,6 +32,7 @@ export class LobbyComponent implements OnChanges {
   @Input() connected = false;
   @Input() savedRooms: SavedRoom[] = [];
   @Input() gameOverActive = false;
+  @Input() soundMuted = false;
 
   @Output() startGame = new EventEmitter<void>();
   @Output() advancePhase = new EventEmitter<void>();
@@ -37,6 +40,14 @@ export class LobbyComponent implements OnChanges {
   @Output() backToLobby = new EventEmitter<void>();
   @Output() rejoinRoom = new EventEmitter<string>();
   @Output() removeSavedRoom = new EventEmitter<string>();
+  @Output() setPhaseConfig = new EventEmitter<Partial<PhaseConfig>>();
+  @Output() toggleSound = new EventEmitter<void>();
+
+  autoAdvance = false;
+  nightMinutes = 1.5;
+  dayMinutes = 2;
+
+  constructor(private readonly gameSound: GameSoundService) {}
 
   qrDataUrl = '';
   selectedMaxPlayers = MIN_PLAYERS_TO_START;
@@ -85,29 +96,55 @@ export class LobbyComponent implements OnChanges {
     if (changes['roomCode'] && this.roomCode && this.inRoom) {
       void this.generateQr(this.roomCode);
     }
+    if (changes['state'] && this.state?.phaseConfig) {
+      this.autoAdvance = this.state.phaseConfig.autoAdvance;
+      this.nightMinutes = this.state.phaseConfig.nightDurationMs / 60_000;
+      this.dayMinutes = this.state.phaseConfig.dayDurationMs / 60_000;
+    }
+  }
+
+  onToggleSound(): void {
+    this.gameSound.playUi('click');
+    this.toggleSound.emit();
+  }
+
+  onApplyPhaseConfig(): void {
+    this.gameSound.playUi('confirm');
+    this.setPhaseConfig.emit({
+      autoAdvance: this.autoAdvance,
+      nightDurationMs: Math.round(this.nightMinutes * 60_000),
+      dayDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.nightMinutes * 60_000),
+    });
   }
 
   onCreateLobby(): void {
+    this.gameSound.playUi('confirm');
     this.createLobby.emit(this.selectedMaxPlayers);
   }
 
   onStartGame(): void {
+    this.gameSound.playUi('confirm');
     this.startGame.emit();
   }
 
   onAdvancePhase(): void {
+    this.gameSound.playUi('click');
     this.advancePhase.emit();
   }
 
   onBackToLobby(): void {
+    this.gameSound.playUi('click');
     this.backToLobby.emit();
   }
 
   onRejoinRoom(roomId: string): void {
+    this.gameSound.playUi('confirm');
     this.rejoinRoom.emit(roomId);
   }
 
   onRemoveSavedRoom(roomId: string): void {
+    this.gameSound.playUi('click');
     this.removeSavedRoom.emit(roomId);
   }
 

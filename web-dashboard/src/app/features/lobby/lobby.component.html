@@ -1,8 +1,11 @@
 <aside class="lobby-panel flex flex-col gap-4 p-5 border border-cyber-border bg-cyber-panel/90 backdrop-blur-sm">
   <header class="flex items-center justify-between gap-3">
-    <div>
-      <p class="text-xs uppercase tracking-[0.3em] text-cyber-muted">Centro de Mando</p>
-      <h1 class="text-lg font-bold text-cyber-accent">Firewall Protocol</h1>
+    <div class="flex items-center gap-3">
+      <img src="icon.png" alt="Firewall Protocol" class="lobby-app-icon" width="40" height="40" />
+      <div>
+        <p class="text-xs uppercase tracking-[0.3em] text-cyber-muted">Centro de Mando</p>
+        <h1 class="text-lg font-bold text-cyber-accent">Firewall Protocol</h1>
+      </div>
     </div>
     <span
       class="status-dot"
@@ -10,6 +13,9 @@
       [class.offline]="!connected"
       [title]="connected ? 'Conectado al servidor' : 'Desconectado'"
     ></span>
+    <button type="button" class="sound-btn" (click)="onToggleSound()" [title]="soundMuted ? 'Activar sonido' : 'Silenciar'">
+      {{ soundMuted ? '🔇' : '🔊' }}
+    </button>
   </header>
 
   @if (!inRoom) {
@@ -80,6 +86,18 @@
       <p class="text-center text-xs text-cyber-muted">Escanea o ingresa el código en la Terminal Móvil</p>
     }
 
+    <details class="host-guide text-xs border border-cyber-border rounded p-2">
+      <summary class="cursor-pointer text-cyber-muted uppercase tracking-widest">Guía rápida del host</summary>
+      <ol class="mt-2 pl-4 list-decimal text-cyber-muted space-y-1">
+        <li>Espera a que todos escaneen el QR o ingresen el código.</li>
+        <li>Verifica jugadores conectados (mín. {{ minPlayers }}).</li>
+        <li>Pulsa <strong class="text-cyber-accent">Iniciar partida</strong> — el reparto es automático.</li>
+        <li>Tras el briefing, avanza fases con el botón o activa auto-avance.</li>
+        <li>En NOCHE observa el progreso; en VOTACIÓN revisa las líneas de voto.</li>
+        <li>Al terminar (FIN), crea una sala nueva para otra ronda.</li>
+      </ol>
+    </details>
+
     <section class="stats grid grid-cols-2 gap-2 text-sm">
       <div class="stat-box">
         <span class="label">Jugadores</span>
@@ -115,6 +133,24 @@
     </section>
 
     <div class="actions flex flex-col gap-2">
+      <section class="phase-config border border-cyber-border rounded p-2 text-xs">
+        <p class="text-cyber-muted uppercase tracking-widest mb-2">Ritmo de partida</p>
+        <label class="flex items-center gap-2 mb-2">
+          <input type="checkbox" [(ngModel)]="autoAdvance" />
+          <span>Auto-avance con timer</span>
+        </label>
+        <label class="flex flex-col gap-1 mb-1">
+          <span>Noche (min)</span>
+          <input type="number" min="0.5" max="10" step="0.5" [(ngModel)]="nightMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
+        </label>
+        <label class="flex flex-col gap-1 mb-2">
+          <span>Día (min)</span>
+          <input type="number" min="0.5" max="15" step="0.5" [(ngModel)]="dayMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
+        </label>
+        <button type="button" class="btn-secondary btn-sm w-full" (click)="onApplyPhaseConfig()">
+          Aplicar timers
+        </button>
+      </section>
       <button
         type="button"
         class="btn-primary"

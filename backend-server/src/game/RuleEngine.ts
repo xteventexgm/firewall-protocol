@@ -25,6 +25,7 @@ import {
   isInfectionMature,
   infectionSourceLabel,
 } from './infection';
+import { MINER_MAX_SHIELDS } from './balance';
 
 function actionType(a: PlayerAction) {
   return (a.type || '').toLowerCase();
@@ -97,6 +98,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
   honeypot_drag: 'señuelo',
   phisher_redirect: 'engaño social',
   zero_day_assume: 'exploit 0-day',
+  mine_crypto: 'cryptojacking',
+  crypto_bribe: 'soborno cripto',
 };
 
 function activityLabel(actionType: string): string {
@@ -163,6 +166,7 @@ function processMatureInfections(
       playerId: player.id,
       payload: {
         type: 'infection_warning',
+        targetId: player.id,
         infectionSource: infection.source,
         maturesAfterNight: currentNight,
         critical: true,
@@ -389,10 +393,47 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
         playerId: final,
         payload: {
           type: 'infection_warning',
+          targetId: final,
           infectionSource: 'worm',
           maturesAfterNight: infection.maturesAfterNight,
         },
       });
+    } else if (type === 'mine_crypto') {
+      const final = resolveTarget(a.target);
+      const actor = playersById.get(a.actor);
+      if (actor?.isAlive) {
+        const meta = getMeta(actor);
+        if ((meta.shieldCharges ?? 0) < MINER_MAX_SHIELDS) {
+          meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
+          meta.lastMinedTarget = final;
+          res.logs.push(`Crypto Miner ${a.actor} mined ${final} (+1 shield → ${meta.shieldCharges}/${MINER_MAX_SHIELDS})`);
+          res.privateResults.push({
+            playerId: a.actor,
+            payload: {
+              type: 'miner_update',
+              shieldCharges: meta.shieldCharges,
+              minedTargetId: final,
+            },
+          });
+        }
+      }
+    } else if (type === 'crypto_bribe') {
+      const final = resolveTarget(a.target);
+      recordVisit(a.actor, final, activityLabel(type));
+      const actor = playersById.get(a.actor);
+      const killed = tryKill(final, state, res, `crypto bribe by ${a.actor}`, protections);
+      if (killed) processHoneypotDrag(final, state, res, protections);
+      if (actor) {
+        res.privateResults.push({
+          playerId: a.actor,
+          payload: {
+            type: 'miner_update',
+            shieldCharges: getMeta(actor).shieldCharges ?? 0,
+            bribedTargetId: final,
+            bribeKilled: killed,
+          },
+        });
+      }
     } else if (type === 'ransomware') {
       const final = resolveTarget(a.target);
       recordVisit(a.actor, final, activityLabel(type));
@@ -414,7 +455,12 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const finalTarget = resolveTarget(a.target);
       recordVisit(a.actor, finalTarget, activityLabel(type));
       const targetPlayer = playersById.get(finalTarget);
-      const result = scanResult(targetPlayer?.role as RoleName);
+      let result = scanResult(targetPlayer?.role as RoleName);
+      const minigame = a.meta?.minigameResult;
+      if (minigame === 'failed' && result === 'malicious') {
+        result = 'suspicious';
+        res.logs.push(`SOC scan on ${finalTarget} degraded by failed skill check`);
+      }
       res.privateResults.push({
         playerId: a.actor,
         payload: { type: 'scan', targetId: finalTarget, result },

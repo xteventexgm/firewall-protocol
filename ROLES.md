@@ -35,9 +35,9 @@ Condiciones de fin de partida detalladas → [`WIN_CONDITIONS.md`](./WIN_CONDITI
 | **Ransomware** | Black Hat | `ransomware` | Debate y votación | Gana con **Black Hat** |
 | **Spyware** | Black Hat | `spy` | Debate y votación | Gana con **Black Hat** |
 | **Phisher** | Black Hat | `phisher_redirect` | Debate y votación | Gana con **Black Hat** |
-| **Troll** | Caótico | — | Debate y votación | **Solitario:** ser expulsado por votación |
+| **Troll** | Caótico | `troll_provoke` | Debate y votación | **Solitario:** ser expulsado por votación |
 | **Gusano** | Caótico | `worm_infect` | Debate y votación | **Solitario:** único jugador vivo |
-| **Minero de Cripto** | Caótico | — | Debate y votación | **Solitario:** único jugador vivo |
+| **Minero de Cripto** | Caótico | `mine_crypto` **o** `crypto_bribe` | Debate y votación | **Solitario:** único jugador vivo |
 | **Zero-Day** | Caótico | `zero_day_assume` | Debate y votación | Hereda victoria del **rol asumido**; o desempate caótico tardío |
 
 ---
@@ -240,7 +240,7 @@ No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta 
 |---|---|
 | **Equipo** | Caótico |
 | **Descripción** | Actor de desinformación; gana si la mesa cae en su provocación. |
-| **Noche** | Sin acción nocturna. |
+| **Noche** | **`troll_provoke`** — deja un mensaje anónimo en el feed público del amanecer (elige entre frases predefinidas). |
 | **Día** | Debate y votación. |
 | **Pasiva** | — |
 | **Victoria** | **Solitaria** — ser **expulsado por votación** diurna (`reason: troll_banned`). No gana por quedar único en pie. |
@@ -265,10 +265,10 @@ No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta 
 | | |
 |---|---|
 | **Equipo** | Caótico |
-| **Descripción** | Cryptojacking pasivo; supervivencia por resistencia a ataques directos. |
-| **Noche** | Sin acción nocturna. |
+| **Descripción** | Cryptojacking activo con economía de escudos. |
+| **Noche** | **`mine_crypto`** (minar un nodo vivo → +1 escudo, máx. **3** acumulables; la víctima no recibe aviso) **o** **`crypto_bribe`** (gasta **1 escudo** → kill directo; falla si tienes 0 escudos). Una acción por noche. |
 | **Día** | Debate y votación. |
-| **Pasiva** | **Escudos:** **2** cargas en mesas ≤7 jugadores, **3** en mesas 8+. Bloquean kills **directos** (consenso, Pentester, Honeypot, etc.). Las **infecciones maduras** sí te eliminan. |
+| **Pasiva** | **Escudos iniciales:** **2** en mesas ≤7 jugadores, **3** en mesas 8+. Bloquean kills **directos** (consenso, Pentester, soborno ajeno, etc.). Las **infecciones maduras** sí te eliminan. |
 | **Victoria** | **Solitaria** — ser el **único jugador vivo** (`reason: miner_survived`). Puede perder si un bando gana antes con otros vivos en mesa. |
 
 ---
@@ -303,6 +303,9 @@ No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta 
 | `phisher_redirect` | Phisher | Redirige voto diurno de A → B |
 | `worm_infect` | Gusano | Aplica infección (2 noches hasta kill) |
 | `zero_day_assume` | Zero-Day | Copia rol de jugador muerto (1×/partida) |
+| `troll_provoke` | Troll | Mensaje anónimo en feed público |
+| `mine_crypto` | Minero de Cripto | +1 escudo (máx. 3); objetivo no recibe aviso |
+| `crypto_bribe` | Minero de Cripto | Gasta 1 escudo → kill directo |
 
 ---
 
@@ -311,7 +314,8 @@ No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta 
 | Parámetro | Mesas ≤7 | Mesas 8+ |
 |-----------|----------|----------|
 | Usos Pentester | 1 | 2 |
-| Escudos Minero | 2 | 3 |
+| Escudos Minero (inicio) | 2 | 3 |
+| Escudos Minero (tope acumulable) | 3 | 3 |
 | Cooldown Ransomware (≤9 / 10+) | 2 noches | 1 noche (solo 10+) |
 | Hackers (ratio) | 1 cada 4 jugadores | 1 cada 3 (desde 9p) |
 | Límite días (desempate) | 8 | 10 |

@@ -143,6 +143,61 @@
   border-bottom: 1px solid #1a3a4a44;
 }
 
+.stats-section {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.stats-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stat-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #1a3a4a44;
+  font-size: 0.82rem;
+}
+
+.stat-item.stat-mvp {
+  border: 1px solid #ffd00055;
+  border-radius: 4px;
+  padding: 0.5rem 0.65rem;
+  margin-top: 0.35rem;
+  background: rgba(255, 208, 0, 0.06);
+}
+
+.stat-label {
+  color: #8ab4c4;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.stat-mvp .stat-label {
+  color: #ffd000;
+}
+
+.stat-value {
+  color: #e0f4f8;
+  font-weight: 700;
+  text-align: right;
+}
+
+.stat-mvp .stat-value {
+  color: #ffd000;
+}
+
+.stat-detail {
+  grid-column: 1 / -1;
+  color: #7a9aaa;
+  font-size: 0.72rem;
+}
+
 .btn-exit-room {
   padding: 10px 20px;
   border-radius: 4px;
@@ -160,5 +215,48 @@
   &:hover {
     background: linear-gradient(135deg, #004455, #007788);
     box-shadow: 0 0 16px #00f0ff44;
+  }
+}
+
+.btn-new-game {
+  margin-top: 0.5rem;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  width: 100%;
+  background: linear-gradient(135deg, #003344, #006677);
+  border: 1px solid #00f0ff;
+  color: #00f0ff;
+
+  &:hover {
+    box-shadow: 0 0 16px #00f0ff44;
+  }
+}
+
+.btn-export-replay {
+  margin-top: 0.5rem;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  width: 100%;
+  background: transparent;
+  border: 1px solid #3a5a6a;
+  color: #8ab4c4;
+
+  &:hover:not(:disabled) {
+    border-color: #00f0ff;
+    color: #00f0ff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: wait;
   }
 }

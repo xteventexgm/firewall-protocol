@@ -1,3 +1,15 @@
+@if (showBootSequence) {
+  <div class="boot-overlay">
+    <div class="boot-terminal">
+      <p class="boot-title">FIREWALL PROTOCOL</p>
+      @for (line of bootLines; track line; let i = $index) {
+        <p class="boot-line" [style.animation-delay.ms]="i * 420">{{ line }}</p>
+      }
+      <span class="boot-cursor">_</span>
+    </div>
+  </div>
+}
+
 @if (showNightOverlay) {
   <div class="night-overlay animate-blackout">
     <div class="scanlines"></div>

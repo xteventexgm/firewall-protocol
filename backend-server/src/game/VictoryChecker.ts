@@ -150,8 +150,10 @@ export function applyZeroDayAssume(state: GameStateModel, actorId: string, deadP
   actor.team = dead.team ?? ROLE_CATALOG[assumedRole].team;
 
   const tableSize = state.initialPlayerCount || state.players.length;
+  const deadMeta = dead.metadata ? { ...dead.metadata } : initRoleMetadata(assumedRole, tableSize);
   actor.metadata = {
-    ...initRoleMetadata(assumedRole, tableSize),
+    ...deadMeta,
+    actedThisNight: false,
     assumedFromPlayerId: deadPlayerId,
   };
 

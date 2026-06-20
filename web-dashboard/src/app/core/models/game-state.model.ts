@@ -17,7 +17,15 @@ export interface PublicPlayer {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  infected?: boolean;
   role?: string;
+}
+
+export interface SessionThreatBrief {
+  hackerCount: number;
+  intruderCount: number;
+  systemCount: number;
+  nodeCount: number;
 }
 
 export interface SoloWinner {
@@ -30,6 +38,7 @@ export interface PublicGameState {
   roomId: string;
   phase: GamePhase;
   phaseStartedAt: number;
+  phaseEndsAt?: number | null;
   players: PublicPlayer[];
   dayNumber: number;
   nightNumber: number;
@@ -38,6 +47,49 @@ export interface PublicGameState {
   votes: Record<string, string[]>;
   winner: Team | null;
   soloWinner: SoloWinner | null;
+  publicLogs?: PublicLogEntry[];
+  chatMessages?: ChatMessage[];
+  nightProgress?: NightProgress;
+  phaseConfig?: PhaseConfig;
+  gameStats?: GameStatsEntry[];
+  sessionThreatBrief?: SessionThreatBrief;
+}
+
+export interface PublicLogEntry {
+  id: string;
+  timestamp: number;
+  nightNumber?: number;
+  dayNumber?: number;
+  message: string;
+  severity: 'info' | 'warn' | 'critical' | 'success';
+}
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  text: string;
+  channel: 'public' | 'dead' | 'hacker';
+  timestamp: number;
+  phase: GamePhase;
+}
+
+export interface PhaseConfig {
+  autoAdvance: boolean;
+  nightDurationMs: number;
+  dayDurationMs: number;
+  voteDurationMs: number;
+}
+
+export interface NightProgress {
+  acted: number;
+  total: number;
+}
+
+export interface GameStatsEntry {
+  label: string;
+  value: string;
+  detail?: string;
 }
 
 export interface VoteEdge {
@@ -97,6 +149,7 @@ export interface GameOverSummary {
   winners: { playerName: string; role: string }[];
   reveals?: GameOverReveal[];
   outcome?: 'win' | 'loss' | 'neutral';
+  stats?: GameStatsEntry[];
 }
 
 export interface GameOverReveal {

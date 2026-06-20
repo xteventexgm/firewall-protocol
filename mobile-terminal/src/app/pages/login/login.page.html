@@ -22,6 +22,20 @@
 
       <!-- Paso 1: sala -->
       <section *ngIf="step === 'room'" class="login-panel">
+        <div *ngIf="pendingReconnect" class="reconnect-banner">
+          <p class="reconnect-title">Partida en curso detectada</p>
+          <p class="reconnect-meta">
+            Sala <strong>{{ pendingReconnect.roomId }}</strong> — {{ pendingReconnect.phaseLabel }}
+          </p>
+          <button
+            type="button"
+            class="login-btn primary reconnect-btn"
+            (click)="reconnectToActiveGame()"
+            [disabled]="connecting || scanning">
+            Reconectar a sala — partida en curso
+          </button>
+        </div>
+
         <h2 class="panel-heading">Unirse a una partida</h2>
         <p class="panel-hint">Escanea el QR del dashboard host o escribe el código manualmente.</p>
 
@@ -53,8 +67,8 @@
           type="button"
           class="login-btn"
           (click)="goToAliasStep()"
-          [disabled]="!canProceedToAlias || connecting || scanning">
-          Continuar
+          [disabled]="!canProceedToAlias || connecting || scanning || validatingRoom">
+          {{ validatingRoom ? 'Verificando sala…' : 'Continuar' }}
         </button>
       </section>
 
@@ -103,4 +117,9 @@
 
     </div>
   </div>
+
+  <app-lobby-closed-overlay
+    *ngIf="showLobbyClosedOverlay"
+    (dismissed)="onLobbyClosedDismiss()"
+  />
 </ion-content>

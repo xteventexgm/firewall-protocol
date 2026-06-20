@@ -51,7 +51,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'SysAdmin',
     description: 'Administrador del sistema',
     playerGuide:
-      'Administrador de infraestructura. Sin acción nocturna: coordina parches, credenciales y votaciones. Victoria del Sistema al eliminar a todos los hackers.',
+      'Administrador de infraestructura. Sin acción nocturna. Durante VOTACION puedes usar Parche de emergencia (1×/partida) para anular el voto de un jugador. Victoria del Sistema al eliminar a todos los hackers.',
     priority: 50,
   },
   [RoleName.SOC_ANALYST]: {
@@ -161,7 +161,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Troll',
     description: 'Causa efectos aleatorios',
     playerGuide:
-      'Actor de desinformación. Sin acción nocturna. Victoria en solitario si el grupo te expulsa por votación.',
+      'Actor de desinformación. De noche puedes provocar (mensaje anónimo en el feed público). Victoria en solitario si el grupo te expulsa por votación.',
     priority: 5,
   },
   [RoleName.WORM]: {
@@ -179,7 +179,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Minero de Cripto',
     description: 'Consume recursos del objetivo',
     playerGuide:
-      'Cryptojacking pasivo. Sin acción nocturna. Resistes eliminaciones directas (2 capas en mesas pequeñas, 3 en 8+); las infecciones maduras sí pueden eliminarte. Ganas si eres el único jugador vivo.',
+      'Cryptojacking activo. De noche: mina un nodo (mine_crypto, +1 escudo, máx. 3) o soborna al sistema (crypto_bribe, gasta 1 escudo → kill directo). Resistes kills directos con escudos; infección madura sí te elimina. Victoria solitaria si quedas como único jugador vivo.',
     priority: 12,
   },
   [RoleName.ZERO_DAY]: {

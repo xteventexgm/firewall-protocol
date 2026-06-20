@@ -11,6 +11,7 @@ import { phaseLabel } from '../../core/utils/game.utils';
 export class PhaseOverlayComponent implements OnChanges {
   @Input() phase: GamePhase = 'LOBBY';
   @Input() phaseFlash: GamePhase | '' = '';
+  @Input() dayNumber = 0;
   @Input() incidents: IncidentDisplay[] = [];
   @Input() players: PublicPlayer[] = [];
   @Input() showIncidentReport = false;
@@ -19,9 +20,17 @@ export class PhaseOverlayComponent implements OnChanges {
 
   showNightOverlay = false;
   showDawnFlash = false;
+  showBootSequence = false;
+  bootLines: string[] = [];
+  private prevPhase: GamePhase = 'LOBBY';
+  private bootTimer?: ReturnType<typeof setTimeout>;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['phase']) {
+      if (this.phase === 'DIA' && this.prevPhase === 'REPARTO' && this.dayNumber >= 1) {
+        this.triggerBootSequence();
+      }
+      this.prevPhase = this.phase;
       this.showNightOverlay = this.phase === 'NOCHE';
       if (this.phase === 'DIA' && !changes['phaseFlash']) {
         this.triggerDawnFlash();
@@ -48,5 +57,21 @@ export class PhaseOverlayComponent implements OnChanges {
   private triggerDawnFlash(): void {
     this.showDawnFlash = true;
     setTimeout(() => (this.showDawnFlash = false), 2000);
+  }
+
+  private triggerBootSequence(): void {
+    clearTimeout(this.bootTimer);
+    this.bootLines = [
+      '> FIREWALL PROTOCOL v2.0 — boot sequence',
+      '> Verificando integridad de nodos... OK',
+      '> Reparto de credenciales... OK',
+      '> SIEM en línea — modo debate activo',
+      '> Día 1 iniciado. Buena suerte.',
+    ];
+    this.showBootSequence = true;
+    this.bootTimer = setTimeout(() => {
+      this.showBootSequence = false;
+      this.bootLines = [];
+    }, 4200);
   }
 }

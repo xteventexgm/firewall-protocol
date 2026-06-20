@@ -25,6 +25,10 @@ export function initRoleMetadata(role: RoleName, playerCount = 15): PlayerMetada
       return { ...base, honeypotDragTarget: null };
     case RoleName.ZERO_DAY:
       return { ...base, assumedFromPlayerId: null };
+    case RoleName.SYSADMIN:
+      return { ...base, emergencyPatchUsed: false, patchedVoterId: null };
+    case RoleName.TROLL:
+      return { ...base, trollProvokeUsedTonight: false };
     default:
       return base;
   }
@@ -47,5 +51,6 @@ export function resetNightFlags(players: Player[]) {
   for (const p of players) {
     const meta = getMeta(p);
     meta.actedThisNight = false;
+    meta.trollProvokeUsedTonight = false;
   }
 }

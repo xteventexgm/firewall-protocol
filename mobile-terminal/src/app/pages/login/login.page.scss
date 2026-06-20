@@ -310,3 +310,31 @@
 
   p { margin: 0; }
 }
+
+.reconnect-banner {
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+}
+
+.reconnect-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reconnect-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.reconnect-btn {
+  margin-top: 0.25rem;
+}

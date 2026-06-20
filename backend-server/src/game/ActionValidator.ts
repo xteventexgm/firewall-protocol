@@ -12,7 +12,7 @@ import { RoleName, Team } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
 import { Player } from '../models/PlayerProfile';
 import { getMeta, isSilenced } from './playerMetadata';
-import { ransomwareCooldownNights } from './balance';
+import { ransomwareCooldownNights, MINER_MAX_SHIELDS } from './balance';
 
 /** Códigos de error machine-readable (también en mensaje al cliente entre paréntesis). */
 export type ActionValidationError =
@@ -29,7 +29,14 @@ export type ActionValidationError =
   | 'ransomware_cooldown'
   | 'invalid_target'
   | 'role_mismatch'
-  | 'zero_day_already_used';
+  | 'zero_day_already_used'
+  | 'self_target'
+  | 'invalid_redirect'
+  | 'invalid_swap'
+  | 'patch_already_used'
+  | 'no_shields_left'
+  | 'shields_at_max'
+  | 'miner_target_cooldown';
 
 /** Valida acción entrante; retorna null si es aceptable. */
 export function validateNightAction(
@@ -57,15 +64,50 @@ export function validateNightAction(
   const allowed = ROLE_NIGHT_ACTIONS[role] ?? [];
   const type = (action.type || '').toLowerCase();
 
-  if (role === RoleName.SYSADMIN || role === RoleName.TROLL || role === RoleName.CRYPTO_MINER) {
+  if (role === RoleName.SYSADMIN) {
     return 'invalid_action_type';
   }
 
   if (!allowed.includes(type)) return 'invalid_action_type';
 
+  if (type === 'troll_provoke') {
+    if (meta.trollProvokeUsedTonight) return 'already_acted';
+    if (!action.meta?.messageIndex && action.meta?.messageIndex !== 0) return 'invalid_target';
+    return null;
+  }
+
   if (type !== 'hacker_vote' && type !== 'bgp_swap' && !action.target) return 'invalid_target';
 
-  if (type === 'bgp_swap' && (!action.target || !action.meta?.swapWith)) return 'invalid_target';
+  if (type === 'bgp_swap') {
+    const swapWith = action.meta?.swapWith;
+    if (!action.target || !swapWith) return 'invalid_target';
+    if (action.target === swapWith) return 'invalid_swap';
+    if (action.target === action.actor || swapWith === action.actor) return 'self_target';
+    const t1 = state.getPlayer(action.target);
+    const t2 = state.getPlayer(swapWith);
+    if (!t1?.isAlive || !t2?.isAlive) return 'invalid_target';
+  }
+
+  if (type === 'phisher_redirect') {
+    const redirectTo = action.meta?.redirectTo;
+    if (!redirectTo) return 'invalid_redirect';
+    const dest = state.getPlayer(redirectTo);
+    if (!dest?.isAlive) return 'invalid_redirect';
+  }
+
+  if (type === 'crypto_bribe') {
+    if ((meta.shieldCharges ?? 0) <= 0) return 'no_shields_left';
+  }
+
+  if (type === 'mine_crypto') {
+    if ((meta.shieldCharges ?? 0) >= MINER_MAX_SHIELDS) return 'shields_at_max';
+    if (meta.lastMinedTarget && meta.lastMinedTarget === action.target) return 'miner_target_cooldown';
+  }
+
+  const selfTargetTypes = ['pentester_kill', 'ransomware', 'worm_infect', 'worm_kill', 'freeze', 'scan', 'spy', 'protect', 'cure', 'honeypot_drag', 'mine_crypto', 'crypto_bribe'];
+  if (selfTargetTypes.includes(type) && action.target === action.actor) {
+    return 'self_target';
+  }
 
   if (type === 'pentester_kill') {
     if ((meta.pentesterUsesLeft ?? 0) <= 0) return 'no_uses_left';
@@ -115,6 +157,9 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   if (type === 'pentester_kill') {
     meta.pentesterUsesLeft = Math.min(2, (meta.pentesterUsesLeft ?? 0) + 1);
   }
+  if (type === 'crypto_bribe') {
+    meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
+  }
 }
 
 /** Marca metadata post-validación (cooldowns, usos, flags de noche) al encolar acción. */
@@ -139,6 +184,12 @@ export function markActionSubmitted(
   if (actionType === 'cure') {
     meta.lastCuredTarget = targetId ?? null;
   }
+  if (actionType === 'troll_provoke') {
+    meta.trollProvokeUsedTonight = true;
+  }
+  if (actionType === 'crypto_bribe') {
+    meta.shieldCharges = Math.max(0, (meta.shieldCharges ?? 0) - 1);
+  }
 }
 
 const ACTION_VALIDATION_MESSAGES: Record<ActionValidationError, string> = {
@@ -156,6 +207,13 @@ const ACTION_VALIDATION_MESSAGES: Record<ActionValidationError, string> = {
   invalid_target: 'Objetivo no válido',
   role_mismatch: 'El rol indicado no coincide con tu rol asignado',
   zero_day_already_used: 'Ya usaste tu exploit 0-day en esta partida',
+  self_target: 'No puedes seleccionarte a ti mismo como objetivo',
+  invalid_redirect: 'Destino de redirección no válido',
+  invalid_swap: 'Los nodos del intercambio BGP deben ser distintos',
+  patch_already_used: 'Ya usaste el parche de emergencia en esta partida',
+  no_shields_left: 'No tienes escudos para un soborno cripto',
+  shields_at_max: 'Ya tienes el máximo de escudos (3)',
+  miner_target_cooldown: 'No puedes minar el mismo nodo dos noches seguidas',
 };
 
 /** Mensaje legible para el móvil; incluye código entre paréntesis para parsing opcional. */

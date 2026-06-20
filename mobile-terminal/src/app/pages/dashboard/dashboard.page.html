@@ -19,13 +19,21 @@
         <span class="room-badge">{{ roomCode }}</span>
       </div>
       <div class="header-right">
-        <span class="conn-dot" [class.online]="connected" [class.offline]="!connected"></span>
+        <button type="button" class="exit-room-btn" (click)="exitRoomCompletely()" title="Salir de la sala">
+          Salir
+        </button>
+        <span class="conn-dot" [class.online]="connected && !reconnecting" [class.offline]="!connected && !reconnecting" [class.reconnecting]="reconnecting"></span>
         <div>
-          <span class="header-label">Fase</span>
-          <span class="header-value phase" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
+          <span class="header-label">{{ reconnecting ? 'Reconectando' : 'Fase' }}</span>
+          <span class="header-value phase" [attr.data-phase]="gamePhase" *ngIf="!reconnecting">{{ phaseLabelText }}</span>
+          <span class="header-value reconnecting-text" *ngIf="reconnecting">Sincronizando sala…</span>
         </div>
       </div>
     </header>
+
+    @if (phaseBulletin) {
+      <div class="phase-bulletin-banner">{{ phaseBulletin }}</div>
+    }
 
     <!-- Métricas rápidas -->
     <div class="metrics-row">
@@ -62,6 +70,15 @@
       <ul *ngIf="roleStatusLines.length" class="role-status-lines">
         <li *ngFor="let line of roleStatusLines">{{ line }}</li>
       </ul>
+      <div *ngIf="showMinerShieldBar" class="shield-bar-wrap">
+        <span class="shield-bar-label">Escudos cripto</span>
+        <div class="shield-bar">
+          <span
+            *ngFor="let i of [0,1,2]"
+            class="shield-pip"
+            [class.filled]="i < minerShieldCharges"></span>
+        </div>
+      </div>
       <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
     </section>
 
@@ -96,6 +113,18 @@
       <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
         ⏳ Pendiente de resolución al amanecer
       </p>
+    </section>
+
+    <section *ngIf="nightHistory.length > 1" class="panel history-panel">
+      <div class="panel-header">
+        <span class="panel-tag">Historial nocturno</span>
+      </div>
+      <ul class="history-list">
+        <li *ngFor="let item of nightHistory.slice(1)" class="history-item">
+          <span class="history-night">N{{ item.nightNumber }}</span>
+          <span class="history-headline">{{ item.headline }}</span>
+        </li>
+      </ul>
     </section>
 
     <!-- Reporte de incidentes (amanecer) -->
@@ -139,8 +168,28 @@
 
       <!-- NOCHE con acción -->
       <section *ngIf="isNightPhase" class="panel action-panel night">
+        <app-action-progress [progress]="nightProgress"></app-action-progress>
+
+        <app-text-challenge
+          *ngIf="minigameChallenge && !isTrollNight"
+          [challenge]="minigameChallenge"
+          (answered)="onChallengeAnswered($event)"
+          (skip)="onChallengeSkipped()">
+        </app-text-challenge>
+
         <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
+        <ng-container *ngIf="isTrollNight">
+          <label class="field-label">Mensaje anónimo</label>
+          <select [(ngModel)]="selectedProvokeIndex" class="terminal-select">
+            <option *ngFor="let msg of trollMessages; let i = index" [value]="i">{{ msg }}</option>
+          </select>
+          <button (click)="executeNightAction()" class="terminal-btn danger">
+            Enviar provocación
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="!isTrollNight">
         <ng-container *ngIf="nightActionVariants.length > 1">
           <label class="field-label">Tipo de acción</label>
           <select [(ngModel)]="selectedNightActionType" class="terminal-select">
@@ -168,10 +217,14 @@
 
         <button
           (click)="executeNightAction()"
-          [disabled]="!selectedTarget || (needsSecondary && !selectedSecondary)"
+          [disabled]="nightActionDisabled"
           class="terminal-btn danger">
           Confirmar comando
         </button>
+        <p *ngIf="selectedNightActionType === 'crypto_bribe' && !canCryptoBribe(myRoleMeta)" class="field-hint warn">
+          Necesitas al menos 1 escudo para sobornar al sistema.
+        </p>
+        </ng-container>
       </section>
 
       <!-- DÍA -->
@@ -212,6 +265,26 @@
 
         <p *ngIf="voteTiedMessage" class="vote-tied-msg">{{ voteTiedMessage }}</p>
         <p *ngIf="myVoteConfirmed" class="vote-confirmed">✓ Voto confirmado por el servidor</p>
+
+        <ng-container *ngIf="canEmergencyPatch">
+          <hr class="section-divider" />
+          <h4 class="sub-action-title">Parche de emergencia (1×/partida)</h4>
+          <p class="panel-sub">Anula el voto de un jugador esta ronda.</p>
+          <select [(ngModel)]="selectedTarget" class="terminal-select">
+            <option value="" disabled>-- Jugador a anular --</option>
+            <option *ngFor="let player of aliveTargets" [value]="player.id">{{ player.name }}</option>
+          </select>
+          <button (click)="executeEmergencyPatch()" [disabled]="!selectedTarget" class="terminal-btn warn">
+            Aplicar parche
+          </button>
+          <div *ngIf="showPatchConfirm" class="patch-confirm">
+            <p>¿Anular el voto de este jugador? Solo puedes usar el parche <strong>una vez</strong> por partida.</p>
+            <div class="patch-confirm-actions">
+              <button type="button" class="terminal-btn danger" (click)="confirmEmergencyPatch()">Confirmar parche</button>
+              <button type="button" class="terminal-btn ghost" (click)="cancelEmergencyPatch()">Cancelar</button>
+            </div>
+          </div>
+        </ng-container>
       </section>
 
       <!-- VERIFICACIÓN -->
@@ -244,7 +317,67 @@
       </ul>
     </section>
 
+    <!-- Chat -->
+    <section class="panel chat-panel" *ngIf="canShowChat">
+      <button type="button" class="topology-toggle" (click)="chatOpen = !chatOpen">
+        <span class="panel-tag">💬 Chat</span>
+        <span class="toggle-icon">{{ chatOpen ? '▾' : '▸' }}</span>
+      </button>
+      <div *ngIf="chatOpen" class="chat-body">
+        <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
+          <label class="field-label">Canal</label>
+          <select [(ngModel)]="chatChannel" class="terminal-select">
+            <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
+          </select>
+        </div>
+        <ul class="chat-list">
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
+            <span class="chat-author">{{ m.playerName }}:</span>
+            <span class="chat-text">{{ m.text }}</span>
+          </li>
+          <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
+        </ul>
+        <div class="chat-compose">
+          <input [(ngModel)]="chatInput" class="chat-input" placeholder="Mensaje (máx 120 chars)" maxlength="120" (keyup.enter)="sendChat()" />
+          <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">
+            {{ chatCooldownSec > 0 ? chatCooldownSec + 's' : 'Enviar' }}
+          </button>
+        </div>
+      </div>
+    </section>
+
   </div>
+  </div>
+
+  <!-- Overlay: briefing de rol al iniciar partida -->
+  <div *ngIf="showRoleBriefing" class="fullscreen-overlay role-briefing" [attr.data-team]="roleRevealTeam">
+    <div class="overlay-content briefing-card">
+      <p class="reveal-label">BRIEFING DE CREDENCIAL</p>
+      <h1 class="reveal-role">{{ playerRole }}</h1>
+      <p class="reveal-team">{{ playerTeamLabel }}</p>
+
+      <section class="briefing-block">
+        <h4 class="briefing-heading">Descripción</h4>
+        <p class="briefing-text">{{ roleDescription }}</p>
+      </section>
+
+      <section *ngIf="nightActionHint" class="briefing-block ability">
+        <h4 class="briefing-heading">Habilidad nocturna</h4>
+        <p class="briefing-text">{{ nightActionHint }}</p>
+      </section>
+
+      <section *ngIf="roleVictoryHint" class="briefing-block victory">
+        <h4 class="briefing-heading">Condición de victoria</h4>
+        <p class="briefing-text">{{ roleVictoryHint }}</p>
+      </section>
+
+      <div class="briefing-progress">
+        <div class="briefing-progress-fill" [style.width.%]="roleBriefingProgress"></div>
+      </div>
+      <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissRoleBriefing()">
+        Entendido — entrar a la red
+      </button>
+    </div>
   </div>
 
   <!-- Overlay: eliminado -->
@@ -278,6 +411,13 @@
         </ul>
       </section>
 
+      <section *ngIf="gameStats.length" class="reveal-panel stats-panel">
+        <h4 class="reveal-title">Estadísticas</h4>
+        <ul class="reveal-list">
+          <li *ngFor="let s of gameStats">{{ s.label }}: {{ s.value }}</li>
+        </ul>
+      </section>
+
       <button
         class="terminal-btn return-btn"
         [class.loss]="!gameOverView.didWin"
@@ -286,5 +426,11 @@
       </button>
     </div>
   </div>
+
+  <app-lobby-closed-overlay
+    *ngIf="showLobbyClosedOverlay"
+    [roomId]="lobbyClosedRoomId"
+    (dismissed)="onLobbyClosedDismiss()"
+  />
 
 </ion-content>

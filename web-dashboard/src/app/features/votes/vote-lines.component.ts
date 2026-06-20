@@ -38,6 +38,7 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
   @Input() state: PublicGameState | null = null;
   @Input() phase: GamePhase = 'LOBBY';
   @Input() highlightTrace: VoteTrace | null = null;
+  @Input() voteTied = false;
 
   @ViewChild('container', { static: true }) container!: ElementRef<HTMLElement>;
 

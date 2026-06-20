@@ -33,6 +33,14 @@ export interface PlayerMetadata {
   assumedFromPlayerId?: PlayerId | null;
   isWormImmune?: boolean;
   infection?: PlayerInfection;
+  /** SysAdmin: parche de emergencia (anula voto de un jugador, 1×/partida). */
+  emergencyPatchUsed?: boolean;
+  /** SysAdmin: objetivo cuyo voto fue anulado este día. */
+  patchedVoterId?: PlayerId | null;
+  /** Troll: mensajes provoke usados por noche. */
+  trollProvokeUsedTonight?: boolean;
+  /** Minero: último nodo minado (cooldown una noche). */
+  lastMinedTarget?: PlayerId | null;
 }
 
 /** Tipos de acción nocturna permitidos por rol (validados en ActionValidator). */
@@ -50,4 +58,6 @@ export const ROLE_NIGHT_ACTIONS: Partial<Record<RoleName, string[]>> = {
   [RoleName.WORM]: ['worm_infect', 'worm_kill'],
   [RoleName.ZERO_DAY]: ['zero_day_assume'],
   [RoleName.HONEYPOT]: ['honeypot_drag'],
+  [RoleName.TROLL]: ['troll_provoke'],
+  [RoleName.CRYPTO_MINER]: ['mine_crypto', 'crypto_bribe'],
 };

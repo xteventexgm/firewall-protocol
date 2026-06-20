@@ -34,6 +34,25 @@ import { buildRoleAssignedPayload } from './roleInfo';
 import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
 import { computeVoteResolution, isVoteTieResult } from './voteResolution';
+import {
+  buildGameStartLogs,
+  buildNightPublicLogs,
+  buildVoteLog,
+  buildTrollProvokeLog,
+  buildGameOverLog,
+} from './PublicLogService';
+import { submitChatMessage } from './ChatManager';
+import { createChallenge, validateChallenge } from './MinigameChallengeManager';
+import {
+  initGameStats,
+  recordNightStats,
+  recordVote,
+  recordPlayerAction,
+  computeMvp,
+  buildStatsEntries,
+} from './GameStatsTracker';
+import { TROLL_PROVOKE_MESSAGES } from './trollProvoke';
+import { PhaseConfig } from '../types';
 
 /** Intento de unirse a partida ya iniciada (solo LOBBY acepta nuevos jugadores). */
 export class RoomJoinDeniedError extends Error {
@@ -76,6 +95,12 @@ export class Room extends EventEmitter {
     }
     this.sm = new StateMachine();
     this.options = { ...defaultRoomOptions(), ...options };
+    this.state.phaseConfig = {
+      autoAdvance: this.options.autoAdvance ?? false,
+      nightDurationMs: this.options.nightDurationMs ?? 90_000,
+      dayDurationMs: this.options.dayDurationMs ?? 120_000,
+      voteDurationMs: 90_000,
+    };
 
     try {
       if (options.restore !== false) {
@@ -98,9 +123,119 @@ export class Room extends EventEmitter {
       }
       this.emit('phaseChanged', { roomId: this.id, from, to, at });
       this.emit('phaseTransition', { roomId: this.id, from, to, at });
+      this.updatePhaseEndsAt(to);
 
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on phaseChanged', e); }
-      if (this.options.autoAdvance) this.schedulePhaseTimeout(to);
+      if (this.state.phaseConfig.autoAdvance) this.schedulePhaseTimeout(to);
+    });
+  }
+
+  private updatePhaseEndsAt(phase: GamePhase) {
+    const cfg = this.state.phaseConfig;
+    let ms = 0;
+    if (phase === GamePhase.NOCHE) ms = cfg.nightDurationMs;
+    if (phase === GamePhase.DIA) ms = cfg.dayDurationMs;
+    if (phase === GamePhase.VOTACION) ms = cfg.voteDurationMs;
+    this.state.phaseEndsAt = ms > 0 && cfg.autoAdvance ? Date.now() + ms : null;
+  }
+
+  setPhaseConfig(patch: Partial<PhaseConfig>) {
+    this.state.phaseConfig = { ...this.state.phaseConfig, ...patch };
+    this.options.autoAdvance = this.state.phaseConfig.autoAdvance;
+    this.options.nightDurationMs = this.state.phaseConfig.nightDurationMs;
+    this.options.dayDurationMs = this.state.phaseConfig.dayDurationMs;
+    this.updatePhaseEndsAt(this.sm.getPhase());
+    this.emit('phaseConfigChanged', { roomId: this.id, config: this.state.phaseConfig });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving phaseConfig', e); }
+  }
+
+  requestMinigame(playerId: string) {
+    const player = this.state.getPlayer(playerId);
+    if (!player?.role || this.sm.getPhase() !== GamePhase.NOCHE) return null;
+    const challenge = createChallenge(player.role as RoleName, playerId);
+    this.emit('minigameChallenge', {
+      roomId: this.id,
+      playerId,
+      challenge: {
+        token: challenge.token,
+        type: challenge.type,
+        prompt: challenge.prompt,
+        options: challenge.options,
+        expiresAt: challenge.expiresAt,
+      },
+    });
+    return challenge;
+  }
+
+  submitChat(playerId: string, text: string, channel?: 'public' | 'dead' | 'hacker') {
+    const lastSent = this.state.lastChatSentAt[playerId];
+    const result = submitChatMessage(this.state, playerId, text, channel, lastSent);
+    if (!result.ok) return result;
+    this.state.lastChatSentAt[playerId] = Date.now();
+    this.emit('chatMessage', { roomId: this.id, message: result.message });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving chat', e); }
+    return result;
+  }
+
+  submitDayAction(actorId: string, type: string, targetId?: string): ActionSubmitResult {
+    const actor = this.state.getPlayer(actorId);
+    if (!actor?.isAlive) return { ok: false, reason: 'Jugador no encontrado o eliminado (actor_dead)' };
+
+    if (type === 'emergency_patch') {
+      if (this.sm.getPhase() !== GamePhase.VOTACION) {
+        return { ok: false, reason: 'Parche de emergencia solo en VOTACION (wrong_phase)' };
+      }
+      if (actor.role !== RoleName.SYSADMIN) {
+        return { ok: false, reason: 'Solo SysAdmin puede usar parche de emergencia (role_mismatch)' };
+      }
+      const meta = getMeta(actor);
+      if (meta.emergencyPatchUsed) {
+        return { ok: false, reason: formatActionValidationError('patch_already_used') };
+      }
+      if (!targetId || targetId === actorId) {
+        return { ok: false, reason: 'Objetivo no válido (invalid_target)' };
+      }
+      const target = this.state.getPlayer(targetId);
+      if (!target?.isAlive) return { ok: false, reason: 'Objetivo no válido (invalid_target)' };
+
+      meta.emergencyPatchUsed = true;
+      meta.patchedVoterId = targetId;
+
+      for (const key of Object.keys(this.state.votes)) {
+        this.state.votes[key] = this.state.votes[key].filter((v) => v !== targetId);
+        if (this.state.votes[key].length === 0) delete this.state.votes[key];
+      }
+
+      const entry = {
+        id: `plog_patch_${Date.now()}`,
+        timestamp: Date.now(),
+        dayNumber: this.state.dayNumber,
+        message: `${new Date().toISOString().slice(11, 16)} UTC — Parche de emergencia aplicado. Un voto anulado.`,
+        severity: 'warn' as const,
+      };
+      this.state.publicLogs.push(entry);
+      this.emit('publicLog', { roomId: this.id, entry });
+      try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving patch', e); }
+      return { ok: true };
+    }
+
+    return { ok: false, reason: 'Acción diurna no reconocida (invalid_action_type)' };
+  }
+
+  private pushPublicLogs(entries: import('../types/events.types').PublicLogEntry[]) {
+    for (const entry of entries) {
+      this.state.publicLogs.push(entry);
+      this.emit('publicLog', { roomId: this.id, entry });
+    }
+    if (entries.length > 1) {
+      this.emit('publicLogsBatch', { roomId: this.id, entries });
+    }
+  }
+
+  private emitNightProgress() {
+    this.emit('nightProgress', {
+      roomId: this.id,
+      progress: this.state.computeNightProgress(),
     });
   }
 
@@ -119,27 +254,55 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on addPlayer', e); }
   }
 
-  /** Reasigna socket tras reconexión; reenvía rol privado si aplica. */
+  /** Reasigna socket tras caída involuntaria de red (no salida voluntaria). */
   reconnectPlayer(playerId: string, socketId: string, name?: string) {
     const existing = this.state.getPlayer(playerId);
     if (!existing) return false;
     existing.socketId = socketId;
     existing.isConnected = true;
+    existing.lastDisconnectReason = undefined;
     if (name) existing.name = name;
-    this.emit('playerReconnected', { roomId: this.id, playerId });
+    this.emit('playerReconnected', { roomId: this.id, playerId, playerName: existing.name });
     this.emitPrivateRoleInfo(existing);
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on reconnectPlayer', e); }
     return true;
   }
 
+  /** Re-entrada voluntaria o nuevo enlace de socket (login / salir y volver). */
+  connectPlayer(playerId: string, socketId: string, name?: string) {
+    const existing = this.state.getPlayer(playerId);
+    if (!existing) return false;
+    existing.socketId = socketId;
+    existing.isConnected = true;
+    existing.lastDisconnectReason = undefined;
+    if (name) existing.name = name;
+    this.emit('playerConnected', { roomId: this.id, playerId, playerName: existing.name });
+    this.emitPrivateRoleInfo(existing);
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on connectPlayer', e); }
+    return true;
+  }
+
   /** Marca jugador desconectado por socketId; emite `playerDisconnected`. */
-  markPlayerDisconnected(socketId: string): boolean {
+  markPlayerDisconnected(socketId: string, reason: 'voluntary' | 'transport' = 'transport') {
     const player = this.state.players.find(p => p.socketId === socketId);
     if (!player) return false;
     player.isConnected = false;
     player.socketId = undefined;
+    player.lastDisconnectReason = reason;
     this.emit('playerDisconnected', { roomId: this.id, playerId: player.id });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on markPlayerDisconnected', e); }
+    return true;
+  }
+
+  /** Salida voluntaria del jugador (mantiene slot en partida en curso). */
+  voluntaryLeave(playerId: string) {
+    const player = this.state.getPlayer(playerId);
+    if (!player) return false;
+    player.isConnected = false;
+    player.socketId = undefined;
+    player.lastDisconnectReason = 'voluntary';
+    this.emit('playerDisconnected', { roomId: this.id, playerId: player.id });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on voluntaryLeave', e); }
     return true;
   }
 
@@ -163,8 +326,14 @@ export class Room extends EventEmitter {
     const players = this.state.players as Player[];
     const playerCount = players.length;
     this.state.initialPlayerCount = playerCount;
-    const { assignments, hackerCount } = assignRoles(players);
-    this.state.log(`Assigned roles: hackers=${hackerCount}`);
+    const { assignments, hackerCount, chaoticCount, systemCount } = assignRoles(players);
+    this.state.log(`Assigned roles: hackers=${hackerCount}, intruders=${chaoticCount}`);
+    this.state.sessionThreatBrief = {
+      hackerCount,
+      intruderCount: chaoticCount,
+      systemCount,
+      nodeCount: playerCount,
+    };
 
     for (const p of players) {
       const r = assignments[p.id];
@@ -175,7 +344,10 @@ export class Room extends EventEmitter {
       }
     }
 
+    this.state.gameStats = initGameStats();
     this.emit('rolesAssigned', { roomId: this.id, assignments, hackerCount });
+
+    this.pushPublicLogs(buildGameStartLogs(1));
 
     for (const p of players) {
       this.emitPrivateRoleInfo(p);
@@ -219,15 +391,41 @@ export class Room extends EventEmitter {
     const actor = this.state.getPlayer(action.actor)!;
     const type = (action.type || '').toLowerCase();
 
+    if (type === 'troll_provoke') {
+      const idx = Number(action.meta?.messageIndex ?? 0);
+      const message = TROLL_PROVOKE_MESSAGES[idx] ?? TROLL_PROVOKE_MESSAGES[0];
+      const entry = buildTrollProvokeLog(message, this.state.nightNumber);
+      this.state.publicLogs.push(entry);
+      this.emit('publicLog', { roomId: this.id, entry });
+      markActionSubmitted(actor, type, undefined, this.state.players.length);
+      this.emit('actionAccepted', { roomId: this.id, actionId: action.id });
+      recordPlayerAction(this.state.gameStats, action.actor);
+      this.emitNightProgress();
+      try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving provoke', e); }
+      return { ok: true };
+    }
+
+    const minigameResult = validateChallenge(
+      action.actor,
+      action.meta?.challengeToken,
+      action.meta?.challengeAnswer,
+    );
+
     const previous = this.state.actionQueue.find(a => a.actor === action.actor);
     if (previous) {
       revertQueuedActionMetadata(actor, previous.type, previous.target);
     }
 
-    this.state.queueAction(action);
+    this.state.queueAction({
+      ...action,
+      meta: { ...action.meta, minigameResult },
+    });
     markActionSubmitted(actor, type, action.target, this.state.players.length);
 
+    recordPlayerAction(this.state.gameStats, action.actor);
+
     this.emit('actionAccepted', { roomId: this.id, actionId: action.id });
+    this.emitNightProgress();
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on submitAction', e); }
     return { ok: true };
   }
@@ -235,15 +433,22 @@ export class Room extends EventEmitter {
   /** Registra voto diurno; aplica peso DDoS y redirección Phisher. */
   submitVote(voter: string, target: string | null): ActionSubmitResult {
     if (this.sm.getPhase() !== GamePhase.VOTACION) {
-      return { ok: false, reason: 'Voting only allowed during VOTACION' };
+      return { ok: false, reason: 'Solo puedes votar durante VOTACION (wrong_phase)' };
     }
 
     const voterPlayer = this.state.getPlayer(voter);
     if (!voterPlayer || !voterPlayer.isAlive) {
-      return { ok: false, reason: 'Voter not found or eliminated' };
+      return { ok: false, reason: 'Votante no encontrado o eliminado (actor_dead)' };
     }
     if (isSilenced(voterPlayer, this.state.dayNumber)) {
-      return { ok: false, reason: 'Voter is silenced' };
+      return { ok: false, reason: 'Estás silenciado y no puedes votar (actor_silenced)' };
+    }
+
+    for (const p of this.state.players) {
+      const meta = getMeta(p);
+      if (meta.patchedVoterId === voter) {
+        return { ok: false, reason: 'Tu voto fue anulado por parche de emergencia (vote_patched)' };
+      }
     }
 
     const resolvedTarget = this.state.resolvePhisherRedirect(voter, target);
@@ -264,6 +469,8 @@ export class Room extends EventEmitter {
       target: resolvedTarget,
       timestamp: Date.now(),
     });
+
+    recordVote(this.state.gameStats);
 
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on submitVote', e); }
     return { ok: true };
@@ -329,19 +536,31 @@ export class Room extends EventEmitter {
   private endGame(result: ReturnType<typeof checkAnyWin>) {
     if (!result.over) return false;
 
+    computeMvp(this.state);
+    const stats = buildStatsEntries(this.state);
+    this.emit('gameStats', { roomId: this.id, stats });
+
+    let winnerLabel = 'Partida terminada';
     if (result.type === 'team') {
       this.state.winner = result.winner;
+      winnerLabel = result.winner === Team.SYSTEM ? 'SYSTEM VICTORIOSO' : 'BLACK HAT VICTORIOSO';
       this.state.log(`Game over: ${result.winner} wins`);
       this.sm.transitionTo(GamePhase.FIN);
       this.emit('gameOver', { roomId: this.id, winner: result.winner, soloWinner: null });
     } else {
       this.state.soloWinner = result.solo;
+      winnerLabel = `SOLITARIO: ${result.solo.role}`;
       this.state.log(`Game over: solo win ${result.solo.playerId}`);
       this.sm.transitionTo(GamePhase.FIN);
       this.emit('gameOver', { roomId: this.id, winner: null, soloWinner: result.solo });
     }
 
+    const overEntry = buildGameOverLog(winnerLabel);
+    this.state.publicLogs.push(overEntry);
+    this.emit('publicLog', { roomId: this.id, entry: overEntry });
+
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on gameOver', e); }
+    try { database.archive(this.id, 'finishgame'); } catch (e) { logger.error('Failed archiving on gameOver', e); }
     return true;
   }
 
@@ -368,6 +587,8 @@ export class Room extends EventEmitter {
       }
 
       this.emit('nightResolved', { roomId: this.id, resolution });
+      recordNightStats(this.state.gameStats, resolution);
+      this.pushPublicLogs(buildNightPublicLogs(this.state, resolution));
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after nightResolved', e); }
 
       const winAfterNight = checkAnyWin(this.state);
@@ -400,9 +621,16 @@ export class Room extends EventEmitter {
             eliminated: voteResult.eliminated,
           });
         }
+        const voteLog = buildVoteLog(null, voteResult.voteCount, this.state.dayNumber);
+        this.state.publicLogs.push(voteLog);
+        this.emit('publicLog', { roomId: this.id, entry: voteLog });
         this.sm.transitionTo(GamePhase.NOCHE);
         return GamePhase.NOCHE;
       }
+
+      const voteLog = buildVoteLog(voteResult.eliminated ?? null, voteResult.voteCount, this.state.dayNumber);
+      this.state.publicLogs.push(voteLog);
+      this.emit('publicLog', { roomId: this.id, entry: voteLog });
 
       const soloAfterVote = checkAnyWin(this.state, { justVotedOut: voteResult.eliminated ?? undefined });
       if (this.endGame(soloAfterVote)) return GamePhase.FIN;
@@ -429,11 +657,15 @@ export class Room extends EventEmitter {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    const cfg = this.state.phaseConfig;
+    if (!cfg.autoAdvance) return;
     let ms = 0;
-    if (phase === GamePhase.NOCHE) ms = this.options.nightDurationMs || 0;
-    if (phase === GamePhase.DIA) ms = this.options.dayDurationMs || 0;
+    if (phase === GamePhase.NOCHE) ms = cfg.nightDurationMs;
+    if (phase === GamePhase.DIA) ms = cfg.dayDurationMs;
+    if (phase === GamePhase.VOTACION) ms = cfg.voteDurationMs;
     if (ms > 0) {
-      this.timer = setTimeout(() => { this.advancePhase(); }, ms);
+      this.state.phaseEndsAt = Date.now() + ms;
+      this.timer = setTimeout(() => { void this.advancePhase(); }, ms);
     }
   }
 

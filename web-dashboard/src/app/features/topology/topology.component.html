@@ -1,4 +1,5 @@
 <div #svgContainer class="topology-container" [class.dimmed]="isDimmed()">
+  <canvas #particlesCanvas class="topology-particles" aria-hidden="true"></canvas>
   @if (showVoteStats() && effectiveSkipVotes > 0) {
     <div class="skip-badge">
       <span class="skip-dot"></span>
@@ -52,11 +53,11 @@
 
     <!-- Hub central (firewall) -->
     <g class="hub" [attr.transform]="'translate(' + hub.x + ',' + hub.y + ')'">
-      <circle r="52" class="hub-aura" />
-      <circle r="44" class="hub-orbit" />
-      <polygon points="0,-28 24,14 -24,14" class="hub-shield" />
-      <circle r="18" class="hub-core" />
-      <text y="5" text-anchor="middle" class="hub-label">FW</text>
+      <circle r="72" class="hub-aura" />
+      <circle r="62" class="hub-orbit" />
+      <polygon points="0,-40 34,20 -34,20" class="hub-shield" />
+      <circle r="26" class="hub-core" />
+      <text y="7" text-anchor="middle" class="hub-label">FW</text>
     </g>
 
     <!-- Nodos jugador -->
@@ -69,34 +70,71 @@
       >
         <polygon
           class="node-hex node-hex-outer"
-          [attr.points]="hexPoints(34)"
+          [attr.points]="hexPoints(nodeMetrics.outer)"
         />
         <polygon
           class="node-hex node-hex-inner"
-          [attr.points]="hexPoints(26)"
+          [attr.points]="hexPoints(nodeMetrics.inner)"
         />
-        <text y="5" text-anchor="middle" class="node-initial">
+        <text
+          y="6"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          class="node-initial"
+          [attr.font-size]="nodeMetrics.initialSize"
+        >
           {{ node.player.name.charAt(0).toUpperCase() }}
         </text>
-        <text y="48" text-anchor="middle" class="node-name">{{ node.player.name }}</text>
-
-        @if (showRole(node.player)) {
-          <text y="-44" text-anchor="middle" class="node-role">{{ node.player.role }}</text>
-        }
 
         @if (nodeStatusLabel(node.player); as label) {
+          <rect
+            class="node-tag-bg"
+            [attr.x]="-statusLabelWidth(label) / 2"
+            [attr.y]="nodeMetrics.statusY - 11"
+            [attr.width]="statusLabelWidth(label)"
+            height="18"
+            rx="4"
+          />
           <text
-            y="-28"
+            [attr.y]="nodeMetrics.statusY"
             text-anchor="middle"
+            dominant-baseline="middle"
             class="node-status"
+            [attr.font-size]="nodeMetrics.statusSize"
             [class.dead]="!node.player.isAlive"
             [class.offline]="node.player.isAlive && !node.player.isConnected"
             [class.silenced]="node.player.silenced && node.player.isAlive"
           >{{ label }}</text>
         }
 
+        @if (showRole(node.player)) {
+          <text
+            [attr.y]="nodeMetrics.roleY"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            class="node-role"
+            [attr.font-size]="nodeMetrics.roleSize"
+          >{{ node.player.role }}</text>
+        }
+
+        <rect
+          class="node-name-bg"
+          [attr.x]="-Math.max(node.player.name.length * 5.5, 48) / 2"
+          [attr.y]="nodeMetrics.nameY - 11"
+          [attr.width]="Math.max(node.player.name.length * 5.5, 48)"
+          height="18"
+          rx="4"
+        />
+        <text
+          [attr.y]="nodeMetrics.nameY"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          class="node-name"
+          [attr.font-size]="nodeMetrics.nameSize"
+        >{{ node.player.name }}</text>
+
         @if (isNodeHealthy(node.player)) {
-          <circle r="38" class="node-pulse-ring" />
+          <circle [attr.r]="nodeMetrics.pulseR" class="node-pulse-ring" />
         }
       </g>
     }

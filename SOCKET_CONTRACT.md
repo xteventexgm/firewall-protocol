@@ -165,7 +165,25 @@ Ejemplos:
 - `No puedes proteger al mismo jugador dos noches seguidas (antivirus_cooldown)`
 - `Debes esperar antes de volver a usar Ransomware (ransomware_cooldown)`
 
-Códigos: `wrong_phase`, `actor_dead`, `actor_silenced`, `actor_frozen`, `already_acted`, `invalid_action_type`, `no_uses_left`, `antivirus_cooldown`, `antivirus_cure_cooldown`, `ransomware_cooldown`, `invalid_target`, `role_mismatch`.
+Códigos: `wrong_phase`, `actor_dead`, `actor_silenced`, `actor_frozen`, `already_acted`, `invalid_action_type`, `no_uses_left`, `antivirus_cooldown`, `antivirus_cure_cooldown`, `ransomware_cooldown`, `invalid_target`, `role_mismatch`, `no_shields_left`, `shields_at_max`, `miner_target_cooldown`.
+
+### Errores de join / lobby (`error`)
+
+Mismo formato. Aplica a `joinRoom`, `joinDashboard`, `createRoom` (móvil rechazado).
+
+| Código | Cuándo |
+|--------|--------|
+| `room_not_found` | Sala no existe en memoria/disco |
+| `game_ended` | Sala cerrada tras FIN (`RoomClosedError`) |
+| `game_started` | Nuevo jugador intenta entrar fuera de LOBBY |
+| `room_full` | Capacidad `maxPlayers` alcanzada |
+| `invalid_room_code` | Código distinto de `FIRE-XXXX` |
+| `invalid_player_id` | `playerId` vacío en join móvil |
+| `dashboard_only` | `createRoom` / `startGame` / `advancePhase` desde móvil |
+| `not_enough_players` | `startGame` sin mínimo de jugadores |
+| `not_joined` / `identity_mismatch` | Acción sin `joinRoom` previo o actor distinto |
+
+**Reconexión:** tras `connect`, móvil y web re-emiten join si hay sesión guardada. Errores fatales (`game_ended`, `room_not_found`, etc.) limpian sesión y redirigen a login (móvil) o mantienen en lobby (web).
 
 ### Fases del backend (usar tal cual)
 
@@ -259,7 +277,9 @@ type NightResolution = PublicNightResolution & {
 | Phisher | `phisher_redirect` | `{ redirectTo: playerId }` | Redirige **voto diurno** de la víctima (no acciones nocturnas ajenas) |
 | Gusano | `worm_infect` | — | Infecta objetivo (`worm_kill` es alias). **Inmune a kills mientras vive** |
 | Zero-Day | `zero_day_assume` | — | Objetivo debe estar eliminado |
-| SysAdmin, Troll, Minero | — | — | Sin acción nocturna |
+| Troll | `troll_provoke` | `{ messageIndex: number }` | Mensaje anónimo en feed público |
+| SysAdmin | — | — | Sin acción nocturna; `emergency_patch` en VOTACION |
+| Minero de Cripto | `mine_crypto` **o** `crypto_bribe` | — | Una por noche; bribe requiere ≥1 escudo |
 
 ---
 
@@ -320,13 +340,49 @@ joinRoom(mismo roomId, mismo playerId, name)  // no crear nuevo playerId
 | Tipo | Condición |
 |------|-----------|
 | System | No quedan Black Hat vivos |
-| Black Hat | Hackers vivos ≥ System vivos |
+| Black Hat | Hackers vivos **>** System vivos (estrictamente mayor) |
 | Troll (solo) | Baneado por votación |
 | Gusano (solo) | Único jugador vivo |
 | Minero (solo) | Único superviviente tras caer hackers |
 | Zero-Day | Sin victoria solitaria; si asumió rol System y no quedan hackers → victoria System |
 
 No existe victoria de **equipo caótico** (`Team.CHAOTIC`).
+
+---
+
+## Eventos de engagement (v2)
+
+### Cliente → servidor (nuevos)
+
+| Evento | Parámetros | Cuándo |
+|--------|------------|--------|
+| `submitChat` | `roomId`, `{ playerId, text, channel? }` | LOBBY, DIA, VOTACION, FIN |
+| `submitDayAction` | `roomId`, `{ actor, type, target? }` | SysAdmin `emergency_patch` en VOTACION |
+| `requestMinigame` | `roomId`, `playerId` | NOCHE (skill check opcional) |
+| `setPhaseConfig` | `roomId`, `Partial<PhaseConfig>` | Solo dashboard (host) |
+
+### Servidor → cliente (nuevos)
+
+| Evento | Payload | Descripción |
+|--------|---------|-------------|
+| `chatMessage` | `roomId`, `ChatMessage` | Mensaje de chat (filtrado por canal) |
+| `publicLog` | `roomId`, `PublicLogEntry` | Entrada narrativa estilo SIEM |
+| `publicLogsBatch` | `roomId`, `PublicLogEntry[]` | Lote tras resolver noche |
+| `minigameChallenge` | `roomId`, `MinigameChallengePayload` | Desafío de habilidad (solo al jugador) |
+| `nightProgress` | `roomId`, `{ acted, total }` | Progreso de acciones nocturnas |
+| `phaseConfigChanged` | `roomId`, `PhaseConfig` | Timers / auto-avance |
+| `gameStats` | `roomId`, `GameStatsEntry[]` | Estadísticas post-partida |
+
+### Acciones nuevas
+
+| Rol | Tipo | Notas |
+|-----|------|-------|
+| Troll | `troll_provoke` | `meta.messageIndex` (0–7) |
+| SysAdmin | `emergency_patch` (día) | Via `submitDayAction`; 1×/partida |
+
+### Seguridad socket
+
+Tras `joinRoom`, el servidor vincula `socket.data.playerId`. Las acciones/votos/chat deben coincidir con ese ID.
 
 ---
 

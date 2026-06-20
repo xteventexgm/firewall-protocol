@@ -101,6 +101,19 @@
   gap: 0.5rem;
 }
 
+.exit-room-btn {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ff6b6b;
+  background: transparent;
+  border: 1px solid #ff6b6b55;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .header-label {
   display: block;
   font-size: 0.65rem;
@@ -148,6 +161,21 @@
     background: var(--color-cyber-danger, #ff2d55);
     box-shadow: 0 0 6px #ff2d5588;
   }
+  &.reconnecting {
+    background: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b88;
+    animation: reconnect-pulse 1s ease-in-out infinite;
+  }
+}
+
+.reconnecting-text {
+  color: #f59e0b !important;
+  font-size: 0.75rem !important;
+}
+
+@keyframes reconnect-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 
 .metrics-row {
@@ -293,6 +321,93 @@
   font-size: 0.72rem;
   color: #94a3b8;
   line-height: 1.45;
+}
+
+.shield-bar-wrap {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.shield-bar-label {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.shield-bar {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.shield-pip {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #00f0ff55;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.shield-pip.filled {
+  background: linear-gradient(135deg, #00f0ff, #006688);
+  box-shadow: 0 0 6px #00f0ff66;
+}
+
+.history-panel {
+  opacity: 0.92;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-item {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #1e293b55;
+  font-size: 0.72rem;
+}
+
+.history-night {
+  color: #00f0ff;
+  font-weight: 700;
+  min-width: 2rem;
+}
+
+.history-headline {
+  color: #94a3b8;
+}
+
+.patch-confirm {
+  margin-top: 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid #ffb80055;
+  border-radius: 4px;
+  background: #ffb8000d;
+  font-size: 0.75rem;
+  color: #e2e8f0;
+}
+
+.patch-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.field-hint {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.field-hint.warn {
+  color: #ffb800;
 }
 
 .day-recap {
@@ -889,4 +1004,182 @@
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.fullscreen-overlay.role-reveal,
+.fullscreen-overlay.role-briefing {
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 200;
+  animation: fade-in 0.5s ease;
+}
+
+.reveal-card,
+.briefing-card {
+  text-align: center;
+  padding: 2rem;
+  border: 2px solid var(--color-cyber-accent, #00f0ff);
+  border-radius: 8px;
+  animation: card-flip 0.8s ease;
+  max-width: min(420px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.briefing-card {
+  text-align: left;
+  padding: 1.25rem 1.35rem;
+}
+
+.fullscreen-overlay.role-reveal[data-team="system"] .reveal-card,
+.fullscreen-overlay.role-briefing[data-team="system"] .briefing-card {
+  border-color: #00aaff;
+  box-shadow: 0 0 40px rgba(0, 170, 255, 0.3);
+}
+
+.fullscreen-overlay.role-reveal[data-team="black_hat"] .reveal-card,
+.fullscreen-overlay.role-briefing[data-team="black_hat"] .briefing-card {
+  border-color: #ff4466;
+  box-shadow: 0 0 40px rgba(255, 68, 102, 0.3);
+}
+
+.fullscreen-overlay.role-reveal[data-team="chaotic"] .reveal-card,
+.fullscreen-overlay.role-briefing[data-team="chaotic"] .briefing-card {
+  border-color: #ffaa00;
+  box-shadow: 0 0 40px rgba(255, 170, 0, 0.3);
+}
+
+.reveal-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: #88aabb;
+  margin-bottom: 1rem;
+}
+
+.reveal-role {
+  font-size: 1.8rem;
+  color: #00f0ff;
+  margin: 0.5rem 0;
+}
+
+.reveal-team {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.reveal-desc {
+  color: #ccc;
+  font-size: 0.8rem;
+  margin-top: 1rem;
+  line-height: 1.4;
+}
+
+.briefing-block {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #1e293b;
+}
+
+.briefing-heading {
+  margin: 0 0 0.35rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00f0ff;
+}
+
+.briefing-block.victory .briefing-heading {
+  color: #ffd000;
+}
+
+.briefing-text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.briefing-progress {
+  height: 3px;
+  margin: 1rem 0 0.75rem;
+  background: #1e293b;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.briefing-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f0ff, #00ff88);
+  transition: width 0.15s linear;
+}
+
+.briefing-dismiss {
+  width: 100%;
+}
+
+.phase-bulletin-banner {
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+@keyframes card-flip {
+  0% { transform: perspective(600px) rotateY(90deg); opacity: 0; }
+  100% { transform: perspective(600px) rotateY(0); opacity: 1; }
+}
+
+.chat-panel .chat-body { padding: 0.5rem; }
+.chat-list {
+  list-style: none;
+  padding: 0.4rem 0.5rem;
+  margin: 0 0 0.6rem;
+  max-height: 220px;
+  min-height: 100px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid #223;
+  border-radius: 6px;
+}
+.chat-item {
+  margin-bottom: 0.45rem;
+  color: #ccc;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.chat-item[data-channel='hacker'] .chat-author { color: #ff6b6b; }
+.chat-item[data-channel='dead'] .chat-author { color: #888; }
+.chat-author { color: #00f0ff; font-weight: 700; margin-right: 0.25rem; }
+.chat-empty { color: #556; font-style: italic; font-size: 0.72rem; }
+.chat-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.chat-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid #334;
+  color: #eee;
+  padding: 0.55rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+.chat-send {
+  width: 100%;
+  padding: 0.55rem 0.8rem !important;
+  font-size: 0.8rem !important;
+}
+.section-divider { border-color: #334; margin: 1rem 0; }
+.sub-action-title { font-size: 0.85rem; color: #ffaa00; margin: 0 0 0.5rem; }
+.terminal-btn.warn {
+  background: linear-gradient(135deg, #553300, #775500);
+  color: #ffcc00;
+  border: 1px solid #ffaa00;
 }

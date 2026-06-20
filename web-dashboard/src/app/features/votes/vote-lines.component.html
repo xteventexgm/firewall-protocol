@@ -1,4 +1,8 @@
-<svg #container class="vote-lines-svg" [attr.width]="width" [attr.height]="height" [class.hidden]="!visible">
+<svg
+  #container
+  class="vote-lines-svg"
+  [class.hidden]="!visible"
+  [class.vote-tie-active]="voteTied && visible">
   <defs>
     <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
       <polygon points="0 0, 8 3, 0 6" fill="#00ff88" opacity="0.8" />

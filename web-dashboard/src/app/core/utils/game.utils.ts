@@ -35,6 +35,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
     roomId: (raw?.roomId ?? '').toUpperCase(),
     phase: (raw?.phase ?? 'LOBBY') as GamePhase,
     phaseStartedAt: raw?.phaseStartedAt ?? Date.now(),
+    phaseEndsAt: raw?.phaseEndsAt ?? null,
     players,
     dayNumber: raw?.dayNumber ?? 0,
     nightNumber: raw?.nightNumber ?? 0,
@@ -43,6 +44,11 @@ export function sanitizeGameState(raw: any): PublicGameState {
     votes: raw?.votes ?? {},
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
+    publicLogs: raw?.publicLogs ?? [],
+    chatMessages: raw?.chatMessages ?? [],
+    nightProgress: raw?.nightProgress,
+    phaseConfig: raw?.phaseConfig,
+    gameStats: raw?.gameStats,
   };
 }
 

@@ -15,6 +15,9 @@
       (backToLobby)="onBackToLobby()"
       (startGame)="onStartGame()"
       (advancePhase)="onAdvancePhase()"
+      (setPhaseConfig)="onSetPhaseConfig($event)"
+      (toggleSound)="toggleSound()"
+      [soundMuted]="soundMuted"
     />
   </div>
 
@@ -30,13 +33,25 @@
             @if (phaseElapsed) {
               <span class="hud-timer">{{ phaseElapsed }}</span>
             }
+            @if (phaseCountdown) {
+              <span class="hud-countdown">{{ phaseCountdown }}</span>
+            }
           </div>
           <div class="hud-meta">
             Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}
             · {{ state.playerCount }}/{{ state.maxPlayers }} nodos
           </div>
+          @if (phaseBulletinText) {
+            <p class="hud-bulletin">{{ phaseBulletinText }}</p>
+          }
         </header>
       }
+
+      <app-threat-briefing
+        [brief]="state?.sessionThreatBrief ?? null"
+        [visible]="showThreatBriefing"
+        (dismissed)="onThreatBriefingDismissed()"
+      />
 
       <app-topology
         class="absolute inset-0"
@@ -50,6 +65,19 @@
         [state]="state"
         [phase]="state?.phase ?? 'LOBBY'"
         [highlightTrace]="highlightTrace"
+        [voteTied]="!!voteTiedMessage"
+      />
+
+      <app-night-progress
+        [progress]="state?.nightProgress ?? null"
+      />
+
+      <app-public-night-logs
+        [logs]="state?.publicLogs ?? []"
+      />
+
+      <app-chat-feed
+        [messages]="state?.chatMessages ?? []"
       />
 
       <app-night-resolution-panel
@@ -61,6 +89,7 @@
       <app-phase-overlay
         [phase]="state?.phase ?? 'LOBBY'"
         [phaseFlash]="phaseFlash"
+        [dayNumber]="state?.dayNumber ?? 0"
         [incidents]="incidents"
         [players]="state?.players ?? []"
         [showIncidentReport]="showIncidentReport"
@@ -71,7 +100,11 @@
       @if (showGameOver && gameOverSummary) {
         <app-game-over-overlay
           [summary]="gameOverSummary"
+          [roomId]="roomCode"
+          [exportingReplay]="exportingReplay"
           (exitRoom)="onBackToLobby()"
+          (exportReplay)="onExportReplay()"
+          (startNewGame)="onStartNewGame()"
         />
       }
 
