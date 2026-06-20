@@ -51,6 +51,33 @@ export default function registerGameHandlers(socket: Socket) {
     }
   });
 
+  socket.on('submitMinigameAnswer', (roomId: string, payload: { playerId: string; token: string; answer: string | number }) => {
+    try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      const result = room.submitMinigameAnswer(payload.playerId, payload.token, payload.answer);
+      if (!result.ok) socket.emit('error', result.reason);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('skipMinigame', (roomId: string, payload: { playerId: string; token: string }) => {
+    try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      room.skipMinigame(payload.playerId, payload.token);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
   socket.on('submitChat', (roomId: string, payload: { playerId: string; text: string; channel?: string }) => {
     try {
       const code = roomId.trim().toUpperCase();

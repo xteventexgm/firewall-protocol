@@ -13,8 +13,8 @@ export class AppComponent implements OnInit {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
-      await StatusBar.setOverlaysWebView({ overlay: false });
-      await StatusBar.setBackgroundColor({ color: '#050a12' });
+      await StatusBar.setOverlaysWebView({ overlay: true });
+      await StatusBar.hide();
       await StatusBar.setStyle({ style: Style.Dark });
     } catch {
       // StatusBar no disponible en este entorno

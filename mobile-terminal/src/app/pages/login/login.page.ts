@@ -7,6 +7,7 @@ import { SocketService } from '../../services/socket/socket.service';
 import { QrScannerService } from '../../services/qr-scanner.service';
 import { formatServerErrorForToast } from '../../core/utils/error.utils';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
+import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
 import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
 
@@ -15,7 +16,7 @@ import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, LobbyClosedOverlayComponent],
+  imports: [IonicModule, FormsModule, CommonModule, LobbyClosedOverlayComponent, HomeAtmosphereComponent],
 })
 export class LoginPage implements OnInit, OnDestroy {
   roomCode = '';

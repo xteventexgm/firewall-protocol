@@ -110,6 +110,8 @@ export class GameSoundService {
     if (t) this.playTone(ctx, t[0], t[1]);
     if (event === 'game_over_system') this.playSweep(ctx, 400, 900, 0.5);
     if (event === 'game_over_hacker') this.playSweep(ctx, 900, 200, 0.5);
+    if (event === 'game_over_solo') this.playTone(ctx, 200, 0.35);
+    if (event === 'defeat') this.playTone(ctx, 90, 0.4);
   }
 
   private ensureCtx(): AudioContext | null {

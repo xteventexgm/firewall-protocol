@@ -85,6 +85,12 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
+  if (hackers.length === 0 && systemSide.length === 0 && alive.length > 0) {
+    const soloOnly = checkSoloWin(state);
+    if (soloOnly.over) return soloOnly;
+    return pickChaoticStalemateWinner(alive);
+  }
+
   if (hackers.length > systemSide.length && hackers.length > 0) {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }

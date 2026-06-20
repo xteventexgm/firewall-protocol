@@ -137,9 +137,19 @@ export interface GameStatsEntry {
 export interface MinigameChallengePayload {
   token: string;
   type: string;
+  objective: string;
   prompt: string;
+  context?: string;
   options?: string[];
+  successHint: string;
+  failHint: string;
   expiresAt: number;
+}
+
+export interface MinigameAnswerResultPayload {
+  result: 'success' | 'failed' | 'skipped' | 'expired';
+  successHint?: string;
+  failHint?: string;
 }
 
 export interface PublicGameState {
@@ -287,6 +297,8 @@ export interface ClientToServerEvents {
   submitChat: (roomId: RoomId, payload: { playerId: PlayerId; text: string; channel?: ChatChannel }) => void;
   submitDayAction: (roomId: RoomId, payload: { actor: PlayerId; type: string; target?: PlayerId }) => void;
   requestMinigame: (roomId: RoomId, playerId: PlayerId) => void;
+  submitMinigameAnswer: (roomId: RoomId, payload: { playerId: PlayerId; token: string; answer: string | number }) => void;
+  skipMinigame: (roomId: RoomId, payload: { playerId: PlayerId; token: string }) => void;
   startGame: (roomId: RoomId) => void;
   advancePhase: (roomId: RoomId) => void;
   createRoom: (roomId: RoomId) => void;
@@ -323,6 +335,7 @@ export interface ServerToClientEvents {
   publicLog: (roomId: RoomId, entry: PublicLogEntry) => void;
   publicLogsBatch: (roomId: RoomId, entries: PublicLogEntry[]) => void;
   minigameChallenge: (roomId: RoomId, challenge: MinigameChallengePayload) => void;
+  minigameAnswerResult: (roomId: RoomId, payload: MinigameAnswerResultPayload) => void;
   nightProgress: (roomId: RoomId, progress: NightProgress) => void;
   phaseConfigChanged: (roomId: RoomId, config: PhaseConfig) => void;
   gameStats: (roomId: RoomId, stats: GameStatsEntry[]) => void;

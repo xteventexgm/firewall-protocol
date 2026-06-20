@@ -94,4 +94,15 @@ state.players.push(player);
   assert(r.ok === true, 'hacker puede chat en NOCHE');
 }
 
+// Muertos pueden chat en NOCHE (canal dead)
+{
+  const deadNight = new GameStateModel('FIRE-DNN');
+  deadNight.phase = GamePhase.NOCHE;
+  const dead = new Player('pd2', 'Ghost2', 's11');
+  dead.isAlive = false;
+  deadNight.players.push(dead);
+  const r = submitChatMessage(deadNight, 'pd2', 'espectando', 'dead');
+  assert(r.ok === true, 'muerto puede chat dead en NOCHE');
+}
+
 console.log('\nChatManager.test.ts — todos los tests pasaron');

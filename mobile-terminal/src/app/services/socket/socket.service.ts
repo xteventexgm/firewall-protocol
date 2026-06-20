@@ -71,6 +71,11 @@ export class SocketService {
   readonly lobbyClosed$ = new Subject<{ roomId: string; reason?: string }>();
   readonly gameOver$ = new Subject<GameOverPayload>();
   readonly minigameChallenge$ = new Subject<MinigameChallenge>();
+  readonly minigameAnswerResult$ = new Subject<{
+    result: 'success' | 'failed' | 'skipped' | 'expired';
+    successHint?: string;
+    failHint?: string;
+  }>();
   readonly nightProgress$ = new Subject<NightProgress>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly publicLog$ = new Subject<PublicLogEntry>();
@@ -233,6 +238,22 @@ export class SocketService {
     this.socket?.emit('requestMinigame', roomId, playerId);
   }
 
+  submitMinigameAnswer(token: string, answer: string | number): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const playerId = localStorage.getItem('myPlayerId');
+    if (!roomId || !playerId || !this.socket?.connected) return false;
+    this.socket.emit('submitMinigameAnswer', roomId, { playerId, token, answer });
+    return true;
+  }
+
+  skipMinigame(token: string): boolean {
+    const roomId = localStorage.getItem('roomCode');
+    const playerId = localStorage.getItem('myPlayerId');
+    if (!roomId || !playerId || !this.socket?.connected) return false;
+    this.socket.emit('skipMinigame', roomId, { playerId, token });
+    return true;
+  }
+
   getMyRole(): string | undefined {
     return this.myRole;
   }
@@ -330,9 +351,8 @@ export class SocketService {
     winner: string | null,
     soloWinner?: GameOverPayload['soloWinner'],
   ): void {
-    this.finalizeAfterGameOver();
+    this.cancelGameOverRedirect();
     this.gameOver$.next({ roomId, winner, soloWinner });
-    this.scheduleLoginRedirectAfterGameOver(5000);
   }
 
   private attachListeners(): void {
@@ -437,6 +457,14 @@ export class SocketService {
 
     this.socket.on('minigameChallenge', (_roomId: string, challenge: MinigameChallenge) => {
       this.minigameChallenge$.next(challenge);
+    });
+
+    this.socket.on('minigameAnswerResult', (_roomId: string, payload: {
+      result: 'success' | 'failed' | 'skipped' | 'expired';
+      successHint?: string;
+      failHint?: string;
+    }) => {
+      this.minigameAnswerResult$.next(payload);
     });
 
     this.socket.on('nightProgress', (_roomId: string, progress: NightProgress) => {

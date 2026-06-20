@@ -1,84 +1,169 @@
-<aside class="lobby-panel flex flex-col gap-4 p-5 border border-cyber-border bg-cyber-panel/90 backdrop-blur-sm">
-  <header class="flex items-center justify-between gap-3">
-    <div class="flex items-center gap-3">
-      <img src="icon.png" alt="Firewall Protocol" class="lobby-app-icon" width="40" height="40" />
-      <div>
-        <p class="text-xs uppercase tracking-[0.3em] text-cyber-muted">Centro de Mando</p>
-        <h1 class="text-lg font-bold text-cyber-accent">Firewall Protocol</h1>
+@if (!inRoom) {
+  <div class="home-shell">
+    <header class="home-hero">
+      <div class="home-hero-top">
+        <div class="home-status-pill" [class.online]="connected">
+          <span class="status-dot" [class.online]="connected" [class.offline]="!connected"></span>
+          <span>{{ connected ? 'Servidor en línea' : 'Conectando…' }}</span>
+        </div>
+        <button
+          type="button"
+          class="sound-btn"
+          (click)="onToggleSound()"
+          [title]="soundMuted ? 'Activar sonido' : 'Silenciar'"
+        >
+          {{ soundMuted ? '🔇' : '🔊' }}
+        </button>
       </div>
-    </div>
-    <span
-      class="status-dot"
-      [class.online]="connected"
-      [class.offline]="!connected"
-      [title]="connected ? 'Conectado al servidor' : 'Desconectado'"
-    ></span>
-    <button type="button" class="sound-btn" (click)="onToggleSound()" [title]="soundMuted ? 'Activar sonido' : 'Silenciar'">
-      {{ soundMuted ? '🔇' : '🔊' }}
-    </button>
-  </header>
 
-  @if (!inRoom) {
-    <label class="flex flex-col gap-1 text-sm">
-      <span class="text-xs uppercase tracking-widest text-cyber-muted">Capacidad máxima</span>
-      <select
-        class="max-players-select rounded border border-cyber-border bg-cyber-bg px-2 py-2 text-cyber-accent"
-        [(ngModel)]="selectedMaxPlayers"
-        [disabled]="!connected"
+      <div class="home-brand">
+        <img src="icon.png" alt="" class="home-icon" width="72" height="72" />
+        <p class="home-eyebrow">Centro de Mando</p>
+        <h1 class="home-title">
+          <span class="home-title-line">Firewall</span>
+          <span class="home-title-line home-title-accent">Protocol</span>
+        </h1>
+      </div>
+    </header>
+
+    <nav class="home-tabs" aria-label="Secciones del lobby">
+      <button
+        type="button"
+        class="home-tab"
+        [class.active]="homeTab === 'create'"
+        (click)="setHomeTab('create')"
       >
-        @for (n of [5,6,7,8,9,10,11,12,13,14,15]; track n) {
-          <option [value]="n">{{ n }} jugadores</option>
+        Nueva sala
+      </button>
+      <button
+        type="button"
+        class="home-tab"
+        [class.active]="homeTab === 'rooms'"
+        (click)="setHomeTab('rooms')"
+      >
+        Mis salas
+        @if (savedRooms.length) {
+          <span class="home-tab-badge">{{ savedRooms.length }}</span>
         }
-      </select>
-    </label>
-    <button
-      type="button"
-      class="btn-primary"
-      (click)="onCreateLobby()"
-      [disabled]="!connected"
-    >
-      Crear sala
-    </button>
+      </button>
+    </nav>
 
-    @if (savedRooms.length) {
-      <section class="saved-rooms border-t border-cyber-border pt-3">
-        <p class="text-xs uppercase tracking-widest text-cyber-muted mb-2">Mis salas</p>
-        <ul class="saved-rooms-list flex flex-col gap-2">
-          @for (room of savedRooms; track room.roomId) {
-            <li class="saved-room-item flex items-center justify-between gap-2 p-2 rounded border border-cyber-border bg-cyber-bg">
-              <div class="min-w-0">
-                <p class="text-sm font-bold text-cyber-accent truncate">{{ room.roomId }}</p>
-                <p class="text-xs text-cyber-muted">Cap. {{ room.maxPlayers }}</p>
-              </div>
-              <div class="flex gap-1 shrink-0">
-                <button
-                  type="button"
-                  class="btn-primary btn-sm"
-                  (click)="onRejoinRoom(room.roomId)"
-                  [disabled]="!connected"
-                >
-                  Entrar
-                </button>
-                <button
-                  type="button"
-                  class="btn-secondary btn-sm"
-                  (click)="onRemoveSavedRoom(room.roomId)"
-                  title="Eliminar de la lista"
-                >
-                  X
-                </button>
-              </div>
-            </li>
+    <div class="home-panel">
+      @if (homeTab === 'create') {
+        <section class="home-panel-section">
+          <div class="home-panel-head">
+            <span class="home-card-tag">◈ DESPLIEGUE</span>
+            <h2 class="home-panel-title">Crear sala</h2>
+            <p class="home-panel-hint">
+              Define la capacidad y genera un código <strong>FIRE-XXXX</strong> para que los jugadores se unan desde el móvil.
+            </p>
+          </div>
+
+          <label class="home-field">
+            <span class="home-field-label">Capacidad máxima</span>
+            <div class="home-select-wrap">
+              <select
+                class="home-select"
+                [(ngModel)]="selectedMaxPlayers"
+                [disabled]="!connected"
+              >
+                @for (n of [5,6,7,8,9,10,11,12,13,14,15]; track n) {
+                  <option [value]="n">{{ n }} jugadores</option>
+                }
+              </select>
+              <span class="home-select-chevron" aria-hidden="true">▾</span>
+            </div>
+          </label>
+
+          <button
+            type="button"
+            class="home-cta"
+            (click)="onCreateLobby()"
+            [disabled]="!connected"
+          >
+            <span class="home-cta-glow" aria-hidden="true"></span>
+            <span class="home-cta-text">Crear sala</span>
+          </button>
+
+          <p class="home-footer">Escanea el QR o ingresa el código en la terminal móvil.</p>
+        </section>
+      } @else {
+        <section class="home-panel-section">
+          <div class="home-panel-head">
+            <span class="home-card-tag">◈ ACTIVAS</span>
+            <h2 class="home-panel-title">Salas guardadas</h2>
+            <p class="home-panel-hint">
+              Entra de nuevo a una sala que dejaste abierta o elimínala con ✕ cuando ya no la necesites.
+            </p>
+          </div>
+
+          @if (savedRooms.length) {
+            <ul class="home-rooms-grid">
+              @for (room of savedRooms; track room.roomId) {
+                <li class="home-room-card">
+                  <div class="home-room-card-top">
+                    <p class="home-room-code">{{ room.roomId }}</p>
+                    <button
+                      type="button"
+                      class="btn-ghost btn-icon"
+                      (click)="onRemoveSavedRoom(room.roomId)"
+                      title="Eliminar sala"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p class="home-room-meta">Capacidad · {{ room.maxPlayers }} nodos</p>
+                  <button
+                    type="button"
+                    class="home-room-enter"
+                    (click)="onRejoinRoom(room.roomId)"
+                    [disabled]="!connected"
+                  >
+                    Entrar a sala
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="home-empty">
+              <p class="home-empty-title">Sin salas activas</p>
+              <p class="home-empty-hint">Crea una sala nueva en la pestaña anterior.</p>
+              <button type="button" class="btn-secondary" (click)="setHomeTab('create')">
+                Ir a nueva sala
+              </button>
+            </div>
           }
-        </ul>
-      </section>
-    }
-  } @else {
+        </section>
+      }
+    </div>
+  </div>
+} @else {
+  <aside class="lobby-panel flex flex-col gap-4 p-5 border border-cyber-border bg-cyber-panel/90 backdrop-blur-sm" [class.lobby-panel--compact]="compactMode">
+    <header class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <img src="icon.png" alt="Firewall Protocol" class="lobby-app-icon" width="40" height="40" />
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-cyber-muted">Centro de Mando</p>
+          <h1 class="text-lg font-bold text-cyber-accent">Firewall Protocol</h1>
+        </div>
+      </div>
+      <span
+        class="status-dot"
+        [class.online]="connected"
+        [class.offline]="!connected"
+        [title]="connected ? 'Conectado al servidor' : 'Desconectado'"
+      ></span>
+      <button type="button" class="sound-btn" (click)="onToggleSound()" [title]="soundMuted ? 'Activar sonido' : 'Silenciar'">
+        {{ soundMuted ? '🔇' : '🔊' }}
+      </button>
+    </header>
+
     <section class="room-code-block text-center">
       <p class="text-xs uppercase tracking-widest text-cyber-muted mb-1">Código de sala</p>
       <p class="room-code text-3xl font-bold text-cyber-accent tracking-wider">{{ roomCode }}</p>
     </section>
 
+    @if (!compactMode) {
     @if (qrDataUrl) {
       <div class="qr-wrap flex justify-center">
         <img [src]="qrDataUrl" alt="QR código de sala" class="qr-image rounded border border-cyber-border" />
@@ -116,6 +201,7 @@
         <span class="value">{{ aliveCount }}</span>
       </div>
     </section>
+    }
 
     <section class="phase-indicator text-xs text-cyber-muted border-t border-cyber-border pt-3">
       <p>{{ phaseText }}</p>
@@ -133,6 +219,7 @@
     </section>
 
     <div class="actions flex flex-col gap-2">
+      @if (!compactMode) {
       <section class="phase-config border border-cyber-border rounded p-2 text-xs">
         <p class="text-cyber-muted uppercase tracking-widest mb-2">Ritmo de partida</p>
         <label class="flex items-center gap-2 mb-2">
@@ -159,6 +246,7 @@
       >
         Iniciar partida
       </button>
+      }
       <button
         type="button"
         class="btn-secondary"
@@ -176,7 +264,7 @@
       </button>
     </div>
 
-    @if (state && state.players.length) {
+    @if (!compactMode && state && state.players.length) {
       <ul class="player-list text-xs max-h-32 overflow-y-auto">
         @for (player of state.players; track player.id) {
           <li class="flex justify-between py-1 border-b border-cyber-border/50">
@@ -199,5 +287,5 @@
         }
       </ul>
     }
-  }
-</aside>
+  </aside>
+}

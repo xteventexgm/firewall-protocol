@@ -42,7 +42,13 @@ import {
   buildGameOverLog,
 } from './PublicLogService';
 import { submitChatMessage } from './ChatManager';
-import { createChallenge, validateChallenge } from './MinigameChallengeManager';
+import {
+  createChallenge,
+  resolveForNightAction,
+  skipChallenge,
+  toChallengePayload,
+  tryChallengeAnswer,
+} from './MinigameChallengeManager';
 import {
   initGameStats,
   recordNightStats,
@@ -156,15 +162,36 @@ export class Room extends EventEmitter {
     this.emit('minigameChallenge', {
       roomId: this.id,
       playerId,
-      challenge: {
-        token: challenge.token,
-        type: challenge.type,
-        prompt: challenge.prompt,
-        options: challenge.options,
-        expiresAt: challenge.expiresAt,
-      },
+      challenge: toChallengePayload(challenge),
     });
     return challenge;
+  }
+
+  submitMinigameAnswer(playerId: string, token: string, answer: string | number) {
+    const player = this.state.getPlayer(playerId);
+    if (!player?.role || this.sm.getPhase() !== GamePhase.NOCHE) {
+      return { ok: false as const, reason: 'Solo en fase NOCHE (wrong_phase)' };
+    }
+    const { result, challenge } = tryChallengeAnswer(playerId, token, answer);
+    this.emit('minigameAnswerResult', {
+      roomId: this.id,
+      playerId,
+      result,
+      successHint: challenge?.successHint,
+      failHint: challenge?.failHint,
+    });
+    return { ok: true as const, result };
+  }
+
+  skipMinigame(playerId: string, token: string) {
+    const result = skipChallenge(playerId, token);
+    this.emit('minigameAnswerResult', {
+      roomId: this.id,
+      playerId,
+      result,
+      failHint: 'Reto omitido — tu acción nocturna funcionará con precisión reducida.',
+    });
+    return { ok: true as const, result };
   }
 
   submitChat(playerId: string, text: string, channel?: 'public' | 'dead' | 'hacker') {
@@ -405,7 +432,7 @@ export class Room extends EventEmitter {
       return { ok: true };
     }
 
-    const minigameResult = validateChallenge(
+    const minigameResult = resolveForNightAction(
       action.actor,
       action.meta?.challengeToken,
       action.meta?.challengeAnswer,
@@ -504,6 +531,7 @@ export class Room extends EventEmitter {
         );
         this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
         this.applyHoneypotBanDrag(bestTarget);
+        this.maybeEndGame({ justVotedOut: bestTarget });
       }
     }
 
@@ -530,11 +558,22 @@ export class Room extends EventEmitter {
       dragged.isAlive = false;
       this.state.log(`Honeypot drag on ban: ${dragTarget}`);
       this.emit('playerEliminated', { roomId: this.id, playerId: dragTarget, reason: 'honeypot_drag' });
+      this.maybeEndGame();
     }
+  }
+
+  private maybeEndGame(context: { justVotedOut?: string } = {}): boolean {
+    if (this.sm.getPhase() === GamePhase.FIN) return true;
+    return this.endGame(checkAnyWin(this.state, context));
   }
 
   private endGame(result: ReturnType<typeof checkAnyWin>) {
     if (!result.over) return false;
+
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
 
     computeMvp(this.state);
     const stats = buildStatsEntries(this.state);
@@ -573,8 +612,14 @@ export class Room extends EventEmitter {
 
     const current = this.sm.getPhase();
 
+    if (current === GamePhase.VERIFICACION) {
+      if (this.maybeEndGame()) return GamePhase.FIN;
+      this.sm.transitionTo(GamePhase.NOCHE);
+      return GamePhase.NOCHE;
+    }
+
     // Recupera partidas atascadas (ej. solo Gusano vivo en DIA tras kill nocturna previa).
-    if (current !== GamePhase.NOCHE && this.endGame(checkAnyWin(this.state))) {
+    if (current !== GamePhase.NOCHE && this.maybeEndGame()) {
       return GamePhase.FIN;
     }
 
@@ -612,6 +657,7 @@ export class Room extends EventEmitter {
 
     if (current === GamePhase.VOTACION) {
       const voteResult = this.resolveVotes();
+      if (this.sm.getPhase() === GamePhase.FIN) return GamePhase.FIN;
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving after resolveVotes', e); }
 
       if (voteResult.tied) {
@@ -635,19 +681,14 @@ export class Room extends EventEmitter {
       const soloAfterVote = checkAnyWin(this.state, { justVotedOut: voteResult.eliminated ?? undefined });
       if (this.endGame(soloAfterVote)) return GamePhase.FIN;
 
+      if (this.maybeEndGame()) return GamePhase.FIN;
+
       this.sm.transitionTo(GamePhase.VERIFICACION);
-      const result = checkAnyWin(this.state);
-      if (this.endGame(result)) return GamePhase.FIN;
       return GamePhase.VERIFICACION;
     }
 
     const nextPhase = this.sm.next();
     if (!nextPhase) return null;
-
-    if (nextPhase === GamePhase.VERIFICACION) {
-      const result = checkAnyWin(this.state);
-      if (this.endGame(result)) return GamePhase.FIN;
-    }
 
     return nextPhase;
   }

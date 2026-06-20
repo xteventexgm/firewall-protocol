@@ -6,27 +6,31 @@
   [class.player-dead-screen]="isPlayerDead"
   [attr.data-phase]="gamePhase"
   [attr.data-team-theme]="teamTheme">
-  <div class="page-scroll">
-  <div class="terminal-shell">
+  <app-home-atmosphere />
 
-    <!-- Cabecera -->
-    <header class="terminal-header">
-      <div class="header-left">
-        <span class="header-label">Nodo activo</span>
-        <span class="header-value accent">{{ playerName }}</span>
-      </div>
-      <div class="header-center">
-        <span class="room-badge">{{ roomCode }}</span>
-      </div>
-      <div class="header-right">
+  <div class="page-scroll terminal-page">
+  <div class="terminal-outer">
+  <div class="terminal-shell" [class.interference-shake]="interferenceShake">
+
+    <header class="room-hero">
+      <div class="room-hero-top">
+        <div class="conn-pill" [class.online]="connected && !reconnecting" [class.reconnecting]="reconnecting">
+          <span class="conn-dot" [class.online]="connected && !reconnecting" [class.offline]="!connected && !reconnecting" [class.reconnecting]="reconnecting"></span>
+          <span>{{ reconnecting ? 'Reconectando…' : (connected ? 'Enlace activo' : 'Sin señal') }}</span>
+        </div>
         <button type="button" class="exit-room-btn" (click)="exitRoomCompletely()" title="Salir de la sala">
           Salir
         </button>
-        <span class="conn-dot" [class.online]="connected && !reconnecting" [class.offline]="!connected && !reconnecting" [class.reconnecting]="reconnecting"></span>
-        <div>
-          <span class="header-label">{{ reconnecting ? 'Reconectando' : 'Fase' }}</span>
-          <span class="header-value phase" [attr.data-phase]="gamePhase" *ngIf="!reconnecting">{{ phaseLabelText }}</span>
-          <span class="header-value reconnecting-text" *ngIf="reconnecting">Sincronizando sala…</span>
+      </div>
+
+      <div class="room-brand">
+        <div class="room-icon-wrap" [class.lobby-pulse]="isLobbyPhase">
+          <img src="assets/icon.png" alt="" class="room-app-icon" width="56" height="56" />
+        </div>
+        <div class="room-brand-text">
+          <span class="room-eyebrow">Nodo · {{ roomCode }}</span>
+          <h1 class="room-player-name">{{ playerName }}</h1>
+          <span class="phase-pill" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
         </div>
       </div>
     </header>
@@ -35,7 +39,6 @@
       <div class="phase-bulletin-banner">{{ phaseBulletin }}</div>
     }
 
-    <!-- Métricas rápidas -->
     <div class="metrics-row">
       <div class="metric">
         <span class="metric-value">{{ players.length }}/{{ maxPlayers }}</span>
@@ -43,7 +46,7 @@
       </div>
       <div class="metric">
         <span class="metric-value">{{ connectedCount }}/{{ players.length }}</span>
-        <span class="metric-label">Conectados</span>
+        <span class="metric-label">Online</span>
       </div>
       <div class="metric">
         <span class="metric-value">{{ aliveCount }}</span>
@@ -59,7 +62,19 @@
       </div>
     </div>
 
-    <section class="panel role-panel">
+    <section *ngIf="!showRolePanel && (isLobbyPhase || gamePhase === 'REPARTO')" class="panel pending-cred-panel">
+      <div class="panel-header">
+        <span class="panel-tag accent">◈ Credencial</span>
+      </div>
+      <h2 class="pending-cred-title">{{ gamePhase === 'REPARTO' ? 'Asignando roles…' : 'En espera de despliegue' }}</h2>
+      <p class="pending-cred-sub">
+        {{ gamePhase === 'REPARTO'
+          ? 'El host está repartiendo credenciales de acceso a cada nodo.'
+          : 'Tu rol se revelará cuando el host inicie la partida.' }}
+      </p>
+    </section>
+
+    <section class="panel role-panel" *ngIf="showRolePanel">
       <div class="panel-header">
         <span class="panel-tag">Nivel de acceso</span>
         <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
@@ -141,16 +156,55 @@
     <main class="phase-content">
 
       <!-- LOBBY -->
-      <section *ngIf="gamePhase === 'LOBBY'" class="panel idle-panel">
-        <div class="idle-icon pulse-glow">◉</div>
-        <h3 class="panel-title">Sala en espera</h3>
-        <p class="panel-sub">Esperando que el host inicie la partida desde el dashboard.</p>
-        <p class="player-count">{{ players.length }}/{{ maxPlayers }} participantes · mín. {{ minPlayers }}</p>
-        <ul class="lobby-balance">
-          <li>~1 Black Hat cada {{ playersPerBlackHat }} jugadores</li>
-          <li>~1 rol caótico cada {{ playersPerChaotic }} jugadores</li>
-          <li>El resto del equipo Sistema (incl. Antivirus, Analista…)</li>
-        </ul>
+      <section *ngIf="gamePhase === 'LOBBY'" class="panel lobby-panel">
+        <div class="lobby-hero">
+          <div class="lobby-signal-ring">
+            <span class="lobby-signal-core"></span>
+          </div>
+          <span class="panel-tag lobby-tag">◈ ENLACE ESTABLECIDO</span>
+          <h3 class="lobby-title">Sala en espera</h3>
+          <p class="lobby-sub">El host iniciará la partida desde el dashboard central.</p>
+        </div>
+
+        <div class="lobby-progress-block">
+          <div class="lobby-progress-head">
+            <span class="lobby-progress-label">Ocupación de red</span>
+            <span class="lobby-progress-count">{{ players.length }}/{{ maxPlayers }}</span>
+          </div>
+          <div class="lobby-progress-track">
+            <div class="lobby-progress-fill" [style.width.%]="lobbyProgressPercent" [class.ready]="lobbyHasMinimum"></div>
+          </div>
+          <p class="lobby-min-hint" [class.ready]="lobbyHasMinimum">
+            {{ lobbyHasMinimum ? '✓ Mínimo alcanzado — listo para iniciar' : 'Mínimo ' + minPlayers + ' jugadores para comenzar' }}
+          </p>
+        </div>
+
+        <div class="lobby-nodes-block" *ngIf="players.length">
+          <span class="lobby-nodes-label">Nodos conectados</span>
+          <ul class="lobby-node-chips">
+            <li
+              *ngFor="let p of players"
+              class="lobby-node-chip"
+              [class.self]="p.id === myPlayerId"
+              [class.offline]="p.isConnected === false">
+              <span class="chip-dot" [class.online]="p.isConnected !== false"></span>
+              <span class="chip-name">{{ p.name }}</span>
+              <span *ngIf="p.id === myPlayerId" class="chip-badge">TÚ</span>
+            </li>
+            <li *ngIf="lobbyEmptySlotCount > 0" class="lobby-node-chip vacant">
+              +{{ lobbyEmptySlotCount }} libre{{ lobbyEmptySlotCount === 1 ? '' : 's' }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="lobby-balance-card">
+          <span class="lobby-balance-title">Balance de roles</span>
+          <ul class="lobby-balance">
+            <li>~1 Black Hat cada {{ playersPerBlackHat }} jugadores</li>
+            <li>~1 rol caótico cada {{ playersPerChaotic }} jugadores</li>
+            <li>El resto del equipo Sistema (Antivirus, Analista…)</li>
+          </ul>
+        </div>
       </section>
 
       <!-- REPARTO -->
@@ -173,10 +227,14 @@
         <app-text-challenge
           *ngIf="minigameChallenge && !isTrollNight"
           [challenge]="minigameChallenge"
+          [pending]="minigamePending"
+          [feedbackType]="minigameFeedbackType"
+          [feedbackMessage]="minigameFeedbackMessage"
           (answered)="onChallengeAnswered($event)"
           (skip)="onChallengeSkipped()">
         </app-text-challenge>
 
+        <p class="night-step-label" *ngIf="minigameChallenge && !isTrollNight">Paso 2 · Tu acción nocturna</p>
         <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
         <ng-container *ngIf="isTrollNight">
@@ -330,6 +388,7 @@
             <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
           </select>
         </div>
+        <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
         <ul class="chat-list">
           <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
             <span class="chat-author">{{ m.playerName }}:</span>
@@ -346,6 +405,7 @@
       </div>
     </section>
 
+  </div>
   </div>
   </div>
 
@@ -389,6 +449,28 @@
         <p>> ERR_CONNECTION_REFUSED</p>
         <p>> Nodo comprometido.</p>
       </div>
+
+      <section class="dead-chat-panel">
+        <p class="chat-channel-badge">Chat de espectadores (eliminados)</p>
+        <ul class="chat-list">
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
+            <span class="chat-author">{{ m.playerName }}:</span>
+            <span class="chat-text">{{ m.text }}</span>
+          </li>
+          <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
+        </ul>
+        <div class="chat-compose">
+          <input
+            [(ngModel)]="chatInput"
+            class="chat-input"
+            placeholder="Mensaje (máx 120 chars)"
+            maxlength="120"
+            (keyup.enter)="sendChat()" />
+          <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">
+            {{ chatCooldownSec > 0 ? chatCooldownSec + 's' : 'Enviar' }}
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 

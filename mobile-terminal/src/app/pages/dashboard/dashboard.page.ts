@@ -28,6 +28,7 @@ import { GameSoundService } from '../../services/game-sound.service';
 import { ActionProgressComponent } from '../../components/action-progress/action-progress.component';
 import { TextChallengeComponent } from '../../components/text-challenge/text-challenge.component';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
+import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import {
   ChatMessage,
   MinigameChallenge,
@@ -65,7 +66,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, ActionProgressComponent, TextChallengeComponent, LobbyClosedOverlayComponent],
+  imports: [IonicModule, FormsModule, CommonModule, ActionProgressComponent, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent],
 })
 export class DashboardPage implements OnInit, OnDestroy {
   readonly minPlayers = MIN_PLAYERS_TO_START;
@@ -77,7 +78,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   roleStatusLines: string[] = [];
   voteTiedMessage = '';
   lastNightKillNames: string[] = [];
-  topologyOpen = true;
+  topologyOpen = false;
   nightHistory: NightActionReport[] = [];
   showPatchConfirm = false;
 
@@ -124,6 +125,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   phaseBulletin = '';
   nightProgress: NightProgress | null = null;
   minigameChallenge: MinigameChallenge | null = null;
+  minigamePending = false;
+  minigameFeedbackType: 'none' | 'success' | 'error' = 'none';
+  minigameFeedbackMessage = '';
+  interferenceShake = false;
   challengeAnswer: string | number | null = null;
   chatMessages: ChatMessage[] = [];
   chatInput = '';
@@ -148,6 +153,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   private roomStatusTimer?: ReturnType<typeof setInterval>;
   private lobbyClosedAlertOpen = false;
   private deathHapticTriggered = false;
+  private pendingMinigameAnswer: string | number | null = null;
+  private interferenceTimer?: ReturnType<typeof setTimeout>;
   private readonly roleBriefingDurationMs = 14000;
 
   constructor(
@@ -185,6 +192,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
         this.players = state.players ?? [];
         const me = this.players.find((p) => p.id === this.myPlayerId);
+        if (me?.team) this.myTeam = me.team;
 
         const gameEnded = state.phase === 'FIN' || !!state.winner || !!state.soloWinner;
 
@@ -198,6 +206,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.gamePhase = state.phase;
           this.phaseBulletin = phaseBulletin(state.phase);
           this.syncNightSoundPolicy(state.phase);
+          this.syncChatForPhase();
         }
 
         this.allPlayers = this.players.map((p) => ({
@@ -246,6 +255,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.team) this.myTeam = player.team;
+        this.syncChatForPhase();
         if (player.roleDescription) this.roleDescription = player.roleDescription;
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
@@ -346,7 +356,11 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (t.to === 'NOCHE') {
           this.minigameChallenge = null;
           this.challengeAnswer = null;
+          this.minigamePending = false;
+          this.minigameFeedbackType = 'none';
+          this.minigameFeedbackMessage = '';
           if (this.canActAtNight) this.socketService.requestMinigame();
+          this.syncChatForPhase();
         }
         if (t.to === 'DIA') {
           this.setStatus('Amanecer — auditoría diurna iniciada', 'info');
@@ -493,6 +507,41 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.minigameChallenge$.subscribe((c) => {
         this.minigameChallenge = c;
+        this.minigamePending = false;
+        this.minigameFeedbackType = 'none';
+        this.minigameFeedbackMessage = '';
+      }),
+    );
+
+    this.subs.add(
+      this.socketService.minigameAnswerResult$.subscribe((payload) => {
+        this.minigamePending = false;
+        if (payload.result === 'success') {
+          this.challengeAnswer = this.pendingMinigameAnswer;
+          this.minigameChallenge = null;
+          this.minigameFeedbackType = 'none';
+          this.minigameFeedbackMessage = '';
+          this.setStatus(payload.successHint ?? 'Reto superado — acción con precisión máxima', 'success');
+          this.gameSound.playAccepted();
+          return;
+        }
+        if (payload.result === 'failed') {
+          this.minigameFeedbackType = 'error';
+          this.minigameFeedbackMessage = payload.failHint ?? 'Respuesta incorrecta. Inténtalo de nuevo.';
+          this.triggerInterferenceShake();
+          this.setStatus(this.minigameFeedbackMessage, 'error');
+          return;
+        }
+        if (payload.result === 'skipped' || payload.result === 'expired') {
+          this.challengeAnswer = null;
+          this.minigameChallenge = null;
+          this.minigameFeedbackType = 'none';
+          this.minigameFeedbackMessage = '';
+          this.setStatus(
+            payload.failHint ?? (payload.result === 'expired' ? 'Tiempo agotado — acción degradada' : 'Reto omitido — acción degradada'),
+            'warn',
+          );
+        }
       }),
     );
 
@@ -706,6 +755,27 @@ export class DashboardPage implements OnInit, OnDestroy {
     return this.players.filter((p) => p.isAlive).length;
   }
 
+  get isLobbyPhase(): boolean {
+    return this.gamePhase === 'LOBBY';
+  }
+
+  get lobbyProgressPercent(): number {
+    if (!this.maxPlayers) return 0;
+    return Math.min(100, Math.round((this.players.length / this.maxPlayers) * 100));
+  }
+
+  get lobbyHasMinimum(): boolean {
+    return this.players.length >= this.minPlayers;
+  }
+
+  get lobbyEmptySlotCount(): number {
+    return Math.max(0, this.maxPlayers - this.players.length);
+  }
+
+  get showRolePanel(): boolean {
+    return this.gamePhase !== 'LOBBY' && this.gamePhase !== 'REPARTO' && this.playerRole !== 'Desconocido';
+  }
+
   get isInfected(): boolean {
     const me = this.players.find((p) => p.id === this.myPlayerId);
     return !!me?.infected;
@@ -786,15 +856,53 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   onChallengeAnswered(answer: string | number): void {
-    this.challengeAnswer = answer;
-    this.minigameChallenge = null;
-    this.setStatus('Skill check completado', 'success');
+    if (!this.minigameChallenge || this.minigamePending) return;
+    this.pendingMinigameAnswer = answer;
+    this.minigamePending = true;
+    this.minigameFeedbackType = 'none';
+    this.minigameFeedbackMessage = '';
+    this.socketService.submitMinigameAnswer(this.minigameChallenge.token, answer);
   }
 
   onChallengeSkipped(): void {
-    this.challengeAnswer = null;
-    this.minigameChallenge = null;
-    this.setStatus('Skill check omitido — acción degradada', 'warn');
+    if (!this.minigameChallenge || this.minigamePending) return;
+    this.minigamePending = true;
+    this.socketService.skipMinigame(this.minigameChallenge.token);
+  }
+
+  private triggerInterferenceShake(): void {
+    if (this.interferenceTimer) clearTimeout(this.interferenceTimer);
+    this.interferenceShake = true;
+    this.interferenceTimer = setTimeout(() => {
+      this.interferenceShake = false;
+      this.interferenceTimer = undefined;
+    }, 700);
+  }
+
+  private get effectiveTeam(): string {
+    return this.myTeam || this.socketService.getMyTeam() || '';
+  }
+
+  private syncChatForPhase(): void {
+    if (this.gamePhase === 'ELIMINATED') {
+      this.chatChannel = 'dead';
+      this.chatOpen = true;
+      return;
+    }
+    if (this.gamePhase === 'NOCHE' && this.effectiveTeam === 'black_hat') {
+      this.chatChannel = 'hacker';
+      this.chatOpen = true;
+      return;
+    }
+    if (this.effectiveTeam !== 'black_hat' && this.chatChannel === 'hacker') {
+      this.chatChannel = 'public';
+    }
+  }
+
+  private getEffectiveChatChannel(): 'public' | 'dead' | 'hacker' {
+    if (this.gamePhase === 'ELIMINATED') return 'dead';
+    if (this.gamePhase === 'NOCHE' && this.effectiveTeam === 'black_hat') return 'hacker';
+    return this.chatChannel;
   }
 
   sendChat(): void {
@@ -804,7 +912,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.setStatus(`Chat en cooldown (${this.chatCooldownSec}s)`, 'warn');
       return;
     }
-    const channel = this.gamePhase === 'ELIMINATED' ? 'dead' : this.chatChannel;
+    const channel = this.getEffectiveChatChannel();
     if (this.socketService.submitChat(text, channel)) {
       this.chatInput = '';
       this.startChatCooldown(3);
@@ -828,10 +936,10 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (this.gamePhase === 'ELIMINATED') {
       return [{ value: 'dead', label: 'Espectadores (eliminados)' }];
     }
-    if (this.myTeam === 'black_hat' && this.gamePhase === 'NOCHE') {
+    if (this.effectiveTeam === 'black_hat' && this.gamePhase === 'NOCHE') {
       return [{ value: 'hacker', label: 'Canal hacker (noche)' }];
     }
-    if (this.myTeam === 'black_hat') {
+    if (this.effectiveTeam === 'black_hat') {
       return [
         { value: 'public', label: 'Público' },
         { value: 'hacker', label: 'Canal hacker' },
@@ -841,16 +949,16 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get canShowChat(): boolean {
-    if (this.gamePhase === 'ELIMINATED') return true;
+    if (this.gamePhase === 'ELIMINATED') return false;
     if (this.gamePhase === 'LOBBY' || this.gamePhase === 'DIA' || this.gamePhase === 'VOTACION' || this.gamePhase === 'FIN') {
       return true;
     }
-    if (this.gamePhase === 'NOCHE' && this.myTeam === 'black_hat') return true;
+    if (this.gamePhase === 'NOCHE' && this.effectiveTeam === 'black_hat') return true;
     return false;
   }
 
   get visibleChatMessages(): ChatMessage[] {
-    const channel = this.gamePhase === 'ELIMINATED' ? 'dead' : this.chatChannel;
+    const channel = this.getEffectiveChatChannel();
     const filtered = this.chatMessages.filter((m) => {
       if (channel === 'dead') return m.channel === 'dead';
       if (channel === 'hacker') return m.channel === 'hacker';
@@ -925,6 +1033,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   returnToLogin(): void {
     this.socketService.cancelGameOverRedirect();
+    this.socketService.finalizeAfterGameOver();
     void this.router.navigate(['/login'], { queryParams: { finished: '1' } });
   }
 
@@ -1033,6 +1142,18 @@ export class DashboardPage implements OnInit, OnDestroy {
       soloWinner,
       this.players,
     );
+
+    if (this.gameOverView.didWin) {
+      if (soloWinner) {
+        this.gameSound.play('game_over_solo');
+      } else if (winner === 'black_hat') {
+        this.gameSound.play('game_over_hacker');
+      } else {
+        this.gameSound.play('game_over_system');
+      }
+    } else {
+      this.gameSound.play('defeat');
+    }
   }
 
   get isTrollNight(): boolean {

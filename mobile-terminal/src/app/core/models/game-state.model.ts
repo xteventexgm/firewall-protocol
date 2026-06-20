@@ -43,8 +43,12 @@ export interface NightProgress {
 export interface MinigameChallenge {
   token: string;
   type: string;
+  objective: string;
   prompt: string;
+  context?: string;
   options?: string[];
+  successHint: string;
+  failHint: string;
   expiresAt: number;
 }
 

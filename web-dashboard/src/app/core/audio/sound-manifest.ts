@@ -27,4 +27,5 @@ export const SOUND_FILES: Record<string, string | string[]> = {
   skill_fail: `${SFX_BASE}/ui/toast-warning.mp3`,
   night_ambient: `${SFX_BASE}/ambient/night-loop.mp3`,
   lobby_ambient: `${SFX_BASE}/ambient/lobby-loop.mp3`,
+  defeat: `${SFX_BASE}/victory/defeat.mp3`,
 };

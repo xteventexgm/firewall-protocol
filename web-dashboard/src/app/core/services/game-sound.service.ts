@@ -21,32 +21,112 @@ export type SoundEvent =
   | 'ui_click'
   | 'ui_confirm'
   | 'skill_success'
-  | 'skill_fail';
+  | 'skill_fail'
+  | 'lobby_ambient'
+  | 'night_ambient'
+  | 'defeat';
+
+type AmbientMode = 'lobby' | 'night' | null;
+
+const STOPS_AMBIENT = new Set<SoundEvent>([
+  'day',
+  'game_start',
+  'game_over_system',
+  'game_over_hacker',
+  'game_over_solo',
+  'defeat',
+]);
 
 @Injectable({ providedIn: 'root' })
 export class GameSoundService {
   private muted = false;
   private cache = new Map<string, HTMLAudioElement>();
   private ambientAudio: HTMLAudioElement | null = null;
+  private activeAmbient: AmbientMode = null;
   private ctx: AudioContext | null = null;
   private ambienceOsc: OscillatorNode | null = null;
   private ambienceGain: GainNode | null = null;
 
   setMuted(m: boolean): void {
     this.muted = m;
-    if (m) this.stopAmbience();
+    if (m) this.stopAmbient();
   }
 
   isMuted(): boolean {
     return this.muted;
   }
 
+  /** Loop de lobby (pantalla inicio o sala en fase LOBBY). */
+  startLobbyAmbient(): void {
+    if (this.muted) return;
+    if (this.activeAmbient === 'lobby') return;
+    const path = SOUND_FILES['lobby_ambient'];
+    if (typeof path === 'string') {
+      void this.playAmbientFile(path, 'lobby', 0.14);
+      return;
+    }
+    this.playProceduralAmbient('lobby');
+  }
+
+  /** Loop nocturno (fase NOCHE). */
+  startNightAmbient(): void {
+    if (this.muted) return;
+    if (this.activeAmbient === 'night') return;
+    const path = SOUND_FILES['night_ambient'];
+    if (typeof path === 'string') {
+      void this.playAmbientFile(path, 'night', 0.12);
+      return;
+    }
+    this.playProceduralAmbient('night');
+  }
+
+  stopAmbient(): void {
+    this.stopAmbience();
+    this.activeAmbient = null;
+  }
+
+  /** Transición a noche: sting + ambiente. */
+  enterNightPhase(): void {
+    if (this.muted) return;
+    void this.playOneShot(this.resolvePath('night', 0), 0.42);
+    this.startNightAmbient();
+  }
+
+  /** Transición a día: corta ambiente + sting. */
+  enterDayPhase(): void {
+    if (this.muted) return;
+    this.stopAmbient();
+    void this.playOneShot(this.resolvePath('day'), 0.4);
+  }
+
   play(event: SoundEvent): void {
     if (this.muted) return;
+
+    if (event === 'lobby_ambient') {
+      this.startLobbyAmbient();
+      return;
+    }
+    if (event === 'night_ambient') {
+      this.startNightAmbient();
+      return;
+    }
+    if (event === 'night') {
+      this.enterNightPhase();
+      return;
+    }
+    if (event === 'day') {
+      this.enterDayPhase();
+      return;
+    }
+
+    if (STOPS_AMBIENT.has(event)) {
+      this.stopAmbient();
+    }
+
     const paths = SOUND_FILES[event];
     if (paths) {
       const list = Array.isArray(paths) ? paths : [paths];
-      void this.playFiles(list, event);
+      void this.playOneShots(list);
       return;
     }
     this.playProcedural(event);
@@ -56,18 +136,23 @@ export class GameSoundService {
     this.play(kind === 'click' ? 'ui_click' : 'ui_confirm');
   }
 
-  private async playFiles(paths: string[], event: SoundEvent): Promise<void> {
-    for (let i = 0; i < paths.length; i++) {
-      const path = paths[i];
-      const isLoop = path.includes('ambient/') || (event === 'night' && path.includes('night-loop'));
-      const ok = await this.playFile(path, isLoop, isLoop ? 0.12 : 0.45);
-      if (ok && !isLoop) return;
-      if (ok && isLoop) return;
-    }
-    this.playProcedural(event);
+  private resolvePath(event: SoundEvent, index = 0): string {
+    const paths = SOUND_FILES[event];
+    if (!paths) return '';
+    const list = Array.isArray(paths) ? paths : [paths];
+    return list[index] ?? list[0] ?? '';
   }
 
-  private async playFile(path: string, loop: boolean, volume: number): Promise<boolean> {
+  private async playOneShots(paths: string[]): Promise<void> {
+    for (const path of paths) {
+      if (path.includes('/ambient/')) continue;
+      const ok = await this.playOneShot(path, 0.45);
+      if (ok) return;
+    }
+  }
+
+  private async playOneShot(path: string, volume: number): Promise<boolean> {
+    if (!path || path.includes('/ambient/')) return false;
     try {
       let audio = this.cache.get(path);
       if (!audio) {
@@ -75,11 +160,7 @@ export class GameSoundService {
         audio.preload = 'auto';
         this.cache.set(path, audio);
       }
-      if (loop) {
-        this.stopAmbience();
-        this.ambientAudio = audio;
-      }
-      audio.loop = loop;
+      audio.loop = false;
       audio.volume = volume;
       audio.currentTime = 0;
       await audio.play();
@@ -87,6 +168,33 @@ export class GameSoundService {
     } catch {
       return false;
     }
+  }
+
+  private async playAmbientFile(path: string, mode: AmbientMode, volume: number): Promise<void> {
+    try {
+      let audio = this.cache.get(path);
+      if (!audio) {
+        audio = new Audio(path);
+        audio.preload = 'auto';
+        this.cache.set(path, audio);
+      }
+      this.stopAmbience();
+      this.ambientAudio = audio;
+      this.activeAmbient = mode;
+      audio.loop = true;
+      audio.volume = volume;
+      audio.currentTime = 0;
+      await audio.play();
+    } catch {
+      this.playProceduralAmbient(mode);
+    }
+  }
+
+  private playProceduralAmbient(mode: AmbientMode): void {
+    if (!mode) return;
+    this.stopAmbience();
+    this.activeAmbient = mode;
+    this.startProceduralAmbience(this.ensureCtx());
   }
 
   private playProcedural(event: SoundEvent): void {
@@ -105,15 +213,6 @@ export class GameSoundService {
       case 'game_start':
       case 'role_reveal':
         this.playSweep(ctx, 200, 800, 0.4);
-        break;
-      case 'night':
-        this.startProceduralAmbience(ctx);
-        this.playTone(ctx, 80, 0.3, 'sawtooth', 0.06);
-        break;
-      case 'day':
-        this.stopAmbience();
-        this.playSweep(ctx, 300, 600, 0.25);
-        this.playTone(ctx, 880, 0.15, 'sine', 0.05);
         break;
       case 'vote':
         this.playTone(ctx, 520, 0.06, 'square', 0.03);
@@ -136,17 +235,21 @@ export class GameSoundService {
         this.playTone(ctx, 700, 0.04, 'sine', 0.02);
         break;
       case 'game_over_system':
-        this.stopAmbience();
+        this.stopAmbient();
         this.playSweep(ctx, 400, 900, 0.6);
         break;
       case 'game_over_hacker':
-        this.stopAmbience();
+        this.stopAmbient();
         this.playNoiseBurst(ctx, 0.3);
         this.playSweep(ctx, 900, 200, 0.5);
         break;
       case 'game_over_solo':
-        this.stopAmbience();
+        this.stopAmbient();
         this.playTone(ctx, 200, 0.4, 'sawtooth', 0.07);
+        break;
+      case 'defeat':
+        this.stopAmbient();
+        this.playTone(ctx, 90, 0.5, 'sawtooth', 0.06);
         break;
     }
   }
@@ -204,13 +307,13 @@ export class GameSoundService {
     src.start();
   }
 
-  private startProceduralAmbience(ctx: AudioContext): void {
-    this.stopAmbience();
+  private startProceduralAmbience(ctx: AudioContext | null): void {
+    if (!ctx) return;
     this.ambienceOsc = ctx.createOscillator();
     this.ambienceGain = ctx.createGain();
     this.ambienceOsc.type = 'sine';
-    this.ambienceOsc.frequency.value = 55;
-    this.ambienceGain.gain.value = 0.015;
+    this.ambienceOsc.frequency.value = this.activeAmbient === 'night' ? 55 : 72;
+    this.ambienceGain.gain.value = this.activeAmbient === 'night' ? 0.015 : 0.012;
     this.ambienceOsc.connect(this.ambienceGain);
     this.ambienceGain.connect(ctx.destination);
     this.ambienceOsc.start();

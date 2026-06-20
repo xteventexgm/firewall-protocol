@@ -105,7 +105,7 @@ export function buildNightPublicLogs(
     });
   }
 
-  const cryptoMined = resolution.logs.some((l) => l.includes('mined'));
+  const cryptoMined = resolution.logs.some((l) => l.includes('cryptojacking'));
   if (cryptoMined) {
     entries.push({
       id: nextId(),
@@ -116,7 +116,7 @@ export function buildNightPublicLogs(
     });
   }
 
-  const cryptoBribed = resolution.logs.some((l) => l.includes('crypto bribe'));
+  const cryptoBribed = resolution.logs.some((l) => l.includes('covert strike'));
   if (cryptoBribed) {
     entries.push({
       id: nextId(),

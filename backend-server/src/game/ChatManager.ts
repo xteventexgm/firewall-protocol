@@ -1,7 +1,7 @@
 /**
  * Chat de sala con restricciones por fase y canal.
  * - Vivos: público en LOBBY/DIA/VOTACION/FIN
- * - Muertos: solo canal dead (nunca público)
+ * - Muertos: solo canal dead (noche, verificación y fases públicas)
  * - Hackers vivos: canal hacker también en NOCHE
  */
 import { GamePhase } from '../types';
@@ -24,12 +24,21 @@ export type ChatSubmitResult =
   | { ok: true; message: ChatMessage }
   | { ok: false; reason: string };
 
+const DEAD_CHAT_PHASES: GamePhase[] = [
+  GamePhase.LOBBY,
+  GamePhase.DIA,
+  GamePhase.VOTACION,
+  GamePhase.NOCHE,
+  GamePhase.VERIFICACION,
+  GamePhase.FIN,
+];
+
 export function canChatInPhase(phase: GamePhase, channel: ChatChannel = 'public'): boolean {
   if (channel === 'hacker') {
     return phase === GamePhase.NOCHE || PUBLIC_CHAT_PHASES.includes(phase);
   }
   if (channel === 'dead') {
-    return PUBLIC_CHAT_PHASES.includes(phase);
+    return DEAD_CHAT_PHASES.includes(phase);
   }
   return PUBLIC_CHAT_PHASES.includes(phase);
 }

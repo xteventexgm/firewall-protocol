@@ -146,7 +146,7 @@ export class ThreatBriefingComponent implements OnChanges {
   progressPct = 100;
   private timer?: ReturnType<typeof setInterval>;
   private hideTimer?: ReturnType<typeof setTimeout>;
-  private readonly durationMs = 9000;
+  private readonly durationMs = 20000;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['visible'] && this.visible && this.brief) {

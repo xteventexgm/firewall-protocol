@@ -31,6 +31,7 @@ import { PublicNightLogsComponent } from './features/public-logs/public-night-lo
 import { ChatFeedComponent } from './features/chat/chat-feed.component';
 import { NightProgressComponent } from './features/phases/night-progress.component';
 import { ThreatBriefingComponent } from './features/phases/threat-briefing.component';
+import { HomeAtmosphereComponent } from './features/home-atmosphere/home-atmosphere.component';
 import { phaseBulletin } from './core/utils/phase-bulletin.utils';
 import { formatServerErrorForToast } from './core/utils/error.utils';
 import { downloadGameReplay } from './core/utils/replay.utils';
@@ -50,6 +51,7 @@ import { fetchRoomStatus, isRoomStatusUnavailable } from './core/utils/room-stat
     ChatFeedComponent,
     NightProgressComponent,
     ThreatBriefingComponent,
+    HomeAtmosphereComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -102,6 +104,7 @@ export class App implements OnInit, OnDestroy {
     void this.pruneFinishedSavedRooms();
     this.gameSocket.connect();
     this.startPhaseTimer();
+    this.syncAmbientState();
 
     this.subs.push(
       this.gameSocket.connected$.subscribe((c) => (this.connected = c)),
@@ -109,14 +112,16 @@ export class App implements OnInit, OnDestroy {
         this.state = s;
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;
         if (s?.phase && s.phase !== this.lastPhase) {
-          this.onPhaseSound(s.phase);
+          this.applyPhaseAmbient(s.phase);
           this.timerWarningFired = false;
           this.phaseBulletinText = phaseBulletin(s.phase);
           this.lastPhase = s.phase;
+          if (s.phase === 'DIA' && s.dayNumber === 1) {
+            this.gameSound.play('game_start');
+          }
         }
         if (s?.sessionThreatBrief && s.dayNumber === 1 && s.phase === 'DIA' && !this.threatBriefingSeenForRoom(s.roomId)) {
           this.showThreatBriefing = true;
-          this.gameSound.play('game_start');
         }
         if (s?.phase === 'VOTACION') {
           this.lastVoteTiedSkipVotes = 0;
@@ -163,8 +168,8 @@ export class App implements OnInit, OnDestroy {
         if (!this.inRoom || this.gameOverActive) return;
         this.phaseFlash = transition.to;
         this.phaseBulletinText = phaseBulletin(transition.to);
-        if (transition.to === 'NOCHE') this.gameSound.play('night');
-        if (transition.to === 'DIA') this.gameSound.play('day');
+        if (transition.to === 'NOCHE') this.gameSound.enterNightPhase();
+        if (transition.to === 'DIA') this.gameSound.enterDayPhase();
         if (transition.to === 'VOTACION') {
           this.voteTiedMessage = '';
         }
@@ -279,6 +284,8 @@ export class App implements OnInit, OnDestroy {
     this.clearActiveView();
     this.showGameOver = false;
     this.gameOverSummary = null;
+    this.lastPhase = '';
+    this.syncAmbientState();
   }
 
   onRejoinRoom(roomId: string): void {
@@ -299,6 +306,8 @@ export class App implements OnInit, OnDestroy {
         if (outcome.ok) {
           this.inRoom = true;
           this.roomCode = code;
+          this.lastPhase = '';
+          this.syncAmbientState();
         } else {
           this.inRoom = false;
           this.roomCode = '';
@@ -320,6 +329,8 @@ export class App implements OnInit, OnDestroy {
     this.gameOverSummary = null;
     this.clearActiveView();
     this.savedRooms = loadSavedRooms();
+    this.lastPhase = '';
+    this.syncAmbientState();
   }
 
   onStartNewGame(): void {
@@ -394,6 +405,9 @@ export class App implements OnInit, OnDestroy {
   toggleSound(): void {
     this.soundMuted = !this.soundMuted;
     this.gameSound.setMuted(this.soundMuted);
+    if (!this.soundMuted) {
+      this.syncAmbientState();
+    }
   }
 
   onThreatBriefingDismissed(): void {
@@ -407,9 +421,33 @@ export class App implements OnInit, OnDestroy {
     return sessionStorage.getItem(`fp_threat_${roomId}`) === '1';
   }
 
-  private onPhaseSound(phase: GamePhase): void {
-    if (phase === 'LOBBY') this.gameSound.play('lobby');
-    if (phase === 'DIA' && this.state?.dayNumber === 1) this.gameSound.play('game_start');
+  private applyPhaseAmbient(phase: GamePhase): void {
+    switch (phase) {
+      case 'LOBBY':
+        this.gameSound.startLobbyAmbient();
+        break;
+      case 'NOCHE':
+        this.gameSound.startNightAmbient();
+        break;
+      case 'REPARTO':
+      case 'DIA':
+      case 'VOTACION':
+      case 'FIN':
+        this.gameSound.stopAmbient();
+        break;
+    }
+  }
+
+  /** Sincroniza loops según pantalla actual (home vs sala) y fase de partida. */
+  private syncAmbientState(): void {
+    if (this.soundMuted) return;
+    if (!this.inRoom) {
+      this.gameSound.startLobbyAmbient();
+      return;
+    }
+    if (this.state?.phase) {
+      this.applyPhaseAmbient(this.state.phase);
+    }
   }
 
   private clearActiveView(): void {

@@ -120,7 +120,7 @@ function tryKill(
   opts: KillOptions = {},
 ): boolean {
   if (!opts.bypassProtection && protections.has(targetId)) {
-    res.logs.push(`Kill on ${targetId} prevented by Antivirus protection`);
+    res.logs.push(`Kill on ${targetId} prevented by EDR protection`);
     return false;
   }
 
@@ -130,7 +130,7 @@ function tryKill(
   const meta = getMeta(target);
   if (target.role === RoleName.WORM && meta.isWormImmune) {
     meta.isWormImmune = false;
-    res.logs.push(`Kill on ${targetId} prevented: Gusano immune (first attack consumed)`);
+    res.logs.push(`Kill on ${targetId} prevented: first-strike immunity consumed`);
     return false;
   }
 
@@ -140,7 +140,7 @@ function tryKill(
     (meta.shieldCharges ?? 0) > 0
   ) {
     meta.shieldCharges = (meta.shieldCharges ?? 0) - 1;
-    res.logs.push(`Crypto Miner ${targetId} blocked direct attack (${meta.shieldCharges} shields left)`);
+    res.logs.push(`${targetId} blocked direct attack (shield absorbed, ${meta.shieldCharges} remaining)`);
     return false;
   }
 
@@ -279,7 +279,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
         const meta = getMeta(actor);
         if (!meta.phisherRedirects) meta.phisherRedirects = {};
         meta.phisherRedirects[a.target] = a.meta.redirectTo;
-        res.logs.push(`Phisher redirect ${a.target} -> ${a.meta.redirectTo}`);
+        res.logs.push(`Social-engineering redirect ${a.target} -> ${a.meta.redirectTo}`);
       }
     }
   }
@@ -290,7 +290,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     const type = actionType(a);
     if ((type !== 'protect' && type !== 'cure') || !a.target) continue;
     if (antivirusResolved.has(a.actor)) {
-      res.logs.push(`Antivirus ${a.actor}: extra ${type} ignored (single choice per night)`);
+      res.logs.push(`EDR node ${a.actor}: extra ${type} ignored (single choice per night)`);
       continue;
     }
     if (isActorBlocked(a, frozenTargets, res)) continue;
@@ -300,7 +300,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
     if (type === 'protect') {
       protections.add(finalTarget);
-      res.logs.push(`Antivirus protected ${finalTarget}`);
+      res.logs.push(`EDR protected ${finalTarget}`);
       continue;
     }
 
@@ -309,13 +309,13 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
     if (clearInfection(target)) {
       res.cures.push(finalTarget);
-      res.logs.push(`Antivirus cured infection on ${finalTarget}`);
+      res.logs.push(`EDR cured infection on ${finalTarget}`);
       res.privateResults.push({
         playerId: a.actor,
         payload: { type: 'cured', targetId: finalTarget },
       });
     } else {
-      res.logs.push(`Antivirus cure on ${finalTarget}: no infection present`);
+      res.logs.push(`EDR cure on ${finalTarget}: no infection present`);
     }
   }
 
@@ -341,7 +341,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       if (target?.isAlive) {
         getMeta(target).silencedUntilDay = state.dayNumber + 1;
         if (!res.silenced.includes(final)) res.silenced.push(final);
-        res.logs.push(`DDoS degraded ${final} until day ${state.dayNumber + 1}`);
+        res.logs.push(`Traffic flood degraded ${final} until day ${state.dayNumber + 1}`);
       }
     }
   }
@@ -363,7 +363,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
           if (sameTeam) {
             actor.isAlive = false;
             res.kills.push(a.actor);
-            res.logs.push(`Pentester ${a.actor} died of guilt`);
+            res.logs.push(`${a.actor} died during authorized penetration test`);
           }
         }
       }
@@ -373,13 +373,13 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const target = playersById.get(final);
       if (!target?.isAlive) continue;
       if (isInfected(target)) {
-        res.logs.push(`Worm ${a.actor} tried to infect ${final}: already infected`);
+        res.logs.push(`${a.actor} tried to propagate malware to ${final}: already infected`);
         continue;
       }
 
       const infection = applyInfection(target, a.actor, 'worm', state.nightNumber);
       res.infections.push(final);
-      res.logs.push(`Worm ${a.actor} infected ${final} (matures after night ${infection.maturesAfterNight})`);
+      res.logs.push(`${a.actor} propagated malware to ${final} (matures after night ${infection.maturesAfterNight})`);
       res.privateResults.push({
         playerId: a.actor,
         payload: {
@@ -406,7 +406,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
         if ((meta.shieldCharges ?? 0) < MINER_MAX_SHIELDS) {
           meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
           meta.lastMinedTarget = final;
-          res.logs.push(`Crypto Miner ${a.actor} mined ${final} (+1 shield → ${meta.shieldCharges}/${MINER_MAX_SHIELDS})`);
+          res.logs.push(`${a.actor} ran cryptojacking on ${final} (+1 shield → ${meta.shieldCharges}/${MINER_MAX_SHIELDS})`);
           res.privateResults.push({
             playerId: a.actor,
             payload: {
@@ -421,7 +421,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const final = resolveTarget(a.target);
       recordVisit(a.actor, final, activityLabel(type));
       const actor = playersById.get(a.actor);
-      const killed = tryKill(final, state, res, `crypto bribe by ${a.actor}`, protections);
+      const killed = tryKill(final, state, res, `covert strike by ${a.actor}`, protections);
       if (killed) processHoneypotDrag(final, state, res, protections);
       if (actor) {
         res.privateResults.push({
@@ -441,7 +441,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       if (target?.isAlive) {
         getMeta(target).silencedUntilDay = state.dayNumber + 1;
         res.silenced.push(final);
-        res.logs.push(`Ransomware silenced ${final} until day ${state.dayNumber + 1}`);
+        res.logs.push(`${final} silenced until day ${state.dayNumber + 1}`);
       }
     }
   }

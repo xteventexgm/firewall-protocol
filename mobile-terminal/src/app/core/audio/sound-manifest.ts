@@ -17,4 +17,5 @@ export const SOUND_FILES: Record<string, string | string[]> = {
   death: `${SFX_BASE}/combat/node-down.mp3`,
   skill_success: `${SFX_BASE}/ui/button-confirm.mp3`,
   skill_fail: `${SFX_BASE}/ui/toast-warning.mp3`,
+  defeat: `${SFX_BASE}/victory/defeat.mp3`,
 };

@@ -51,8 +51,9 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
   });
 
   room.on('nightResolved', ({ roomId, resolution }) => {
-    gameNs.to(roomId).emit('nightResolved', roomId, toPublicNightResolution(resolution));
-    dashboardNs?.to(roomId).emit('nightResolved', roomId, resolution);
+    const publicResolution = toPublicNightResolution(resolution);
+    gameNs.to(roomId).emit('nightResolved', roomId, publicResolution);
+    dashboardNs?.to(roomId).emit('nightResolved', roomId, publicResolution);
     refresh();
   });
 
@@ -67,6 +68,13 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
     const player = room.state.getPlayer(playerId);
     if (player?.socketId) {
       gameNs.to(player.socketId).emit('minigameChallenge', roomId, challenge);
+    }
+  });
+
+  room.on('minigameAnswerResult', ({ roomId, playerId, result, successHint, failHint }) => {
+    const player = room.state.getPlayer(playerId);
+    if (player?.socketId) {
+      gameNs.to(player.socketId).emit('minigameAnswerResult', roomId, { result, successHint, failHint });
     }
   });
 

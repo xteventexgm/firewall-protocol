@@ -24,6 +24,9 @@ import { GameSoundService } from '../../core/services/game-sound.service';
   imports: [FormsModule],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
+  host: {
+    '[class.compact]': 'compactMode',
+  },
 })
 export class LobbyComponent implements OnChanges {
   @Input() inRoom = false;
@@ -51,6 +54,7 @@ export class LobbyComponent implements OnChanges {
 
   qrDataUrl = '';
   selectedMaxPlayers = MIN_PLAYERS_TO_START;
+  homeTab: 'create' | 'rooms' = 'create';
   readonly minPlayers = MIN_PLAYERS_TO_START;
   readonly maxPlayers = MAX_PLAYERS;
 
@@ -88,11 +92,21 @@ export class LobbyComponent implements OnChanges {
     );
   }
 
+  /** Sala en partida activa: panel lateral compacto (sin QR ni timers). */
+  get compactMode(): boolean {
+    if (!this.inRoom || !this.state) return false;
+    if (this.gameOverActive) return true;
+    return this.state.phase !== 'LOBBY';
+  }
+
   get phaseText(): string {
     return this.state ? phaseLabel(this.state.phase) : 'Sin sala activa';
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['inRoom']?.currentValue === false && changes['inRoom']?.previousValue === true) {
+      this.homeTab = this.savedRooms.length > 0 ? 'rooms' : 'create';
+    }
     if (changes['roomCode'] && this.roomCode && this.inRoom) {
       void this.generateQr(this.roomCode);
     }
@@ -146,6 +160,12 @@ export class LobbyComponent implements OnChanges {
   onRemoveSavedRoom(roomId: string): void {
     this.gameSound.playUi('click');
     this.removeSavedRoom.emit(roomId);
+  }
+
+  setHomeTab(tab: 'create' | 'rooms'): void {
+    if (this.homeTab === tab) return;
+    this.homeTab = tab;
+    this.gameSound.playUi('click');
   }
 
   private async generateQr(code: string): Promise<void> {

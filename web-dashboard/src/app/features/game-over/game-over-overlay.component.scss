@@ -7,10 +7,12 @@
   background: rgba(5, 10, 18, 0.94);
   z-index: 60;
   backdrop-filter: blur(6px);
+  animation: gameover-fade-in 0.45s ease-out;
 
   &[data-outcome='win'] .gameover-content {
     border-color: #00ff88;
     box-shadow: 0 0 48px #00ff8822;
+    animation: gameover-win-pulse 2.4s ease-in-out infinite;
   }
 
   &[data-outcome='loss'] .gameover-content {
@@ -32,6 +34,7 @@
   max-width: 520px;
   width: 90%;
   border-radius: 8px;
+  animation: gameover-scale-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .gameover-badge {
@@ -259,4 +262,25 @@
     opacity: 0.5;
     cursor: wait;
   }
+}
+
+@keyframes gameover-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gameover-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes gameover-win-pulse {
+  0%, 100% { box-shadow: 0 0 48px #00ff8822; }
+  50% { box-shadow: 0 0 64px #00ff8855; }
 }
