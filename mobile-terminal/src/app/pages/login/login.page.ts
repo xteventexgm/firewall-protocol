@@ -8,6 +8,7 @@ import { QrScannerService } from '../../services/qr-scanner.service';
 import { formatServerErrorForToast } from '../../core/utils/error.utils';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
+import { GameSoundService } from '../../services/game-sound.service';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
 import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
 
@@ -38,6 +39,7 @@ export class LoginPage implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private toastController: ToastController,
+    private gameSound: GameSoundService,
   ) {
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
@@ -229,6 +231,7 @@ export class LoginPage implements OnInit, OnDestroy {
           .subscribe({
             next: () => {
               this.connecting = false;
+              void this.gameSound.unlockAudio();
               this.router.navigate(['/dashboard']);
             },
             error: () => {

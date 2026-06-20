@@ -28,4 +28,6 @@ export const SOUND_FILES: Record<string, string | string[]> = {
   night_ambient: `${SFX_BASE}/ambient/night-loop.mp3`,
   lobby_ambient: `${SFX_BASE}/ambient/lobby-loop.mp3`,
   defeat: `${SFX_BASE}/victory/defeat.mp3`,
+  node_join: `${SFX_BASE}/ui/button-confirm.mp3`,
+  node_leave: `${SFX_BASE}/ui/toast-warning.mp3`,
 };

@@ -24,7 +24,9 @@ export type SoundEvent =
   | 'skill_fail'
   | 'lobby_ambient'
   | 'night_ambient'
-  | 'defeat';
+  | 'defeat'
+  | 'node_join'
+  | 'node_leave';
 
 type AmbientMode = 'lobby' | 'night' | null;
 
@@ -36,6 +38,13 @@ const STOPS_AMBIENT = new Set<SoundEvent>([
   'game_over_solo',
   'defeat',
 ]);
+
+/** Volumen global SFX (0–1). Cap 0.88 evita clipping/distorsión. */
+const SFX_VOLUME = 0.88;
+const AMBIENT_LOBBY_VOLUME = 0.36;
+const AMBIENT_NIGHT_VOLUME = 0.3;
+const PROCEDURAL_GAIN = 1.1;
+const NODE_SFX_VOLUME = 0.62;
 
 @Injectable({ providedIn: 'root' })
 export class GameSoundService {
@@ -62,7 +71,7 @@ export class GameSoundService {
     if (this.activeAmbient === 'lobby') return;
     const path = SOUND_FILES['lobby_ambient'];
     if (typeof path === 'string') {
-      void this.playAmbientFile(path, 'lobby', 0.14);
+      void this.playAmbientFile(path, 'lobby', AMBIENT_LOBBY_VOLUME);
       return;
     }
     this.playProceduralAmbient('lobby');
@@ -74,7 +83,7 @@ export class GameSoundService {
     if (this.activeAmbient === 'night') return;
     const path = SOUND_FILES['night_ambient'];
     if (typeof path === 'string') {
-      void this.playAmbientFile(path, 'night', 0.12);
+      void this.playAmbientFile(path, 'night', AMBIENT_NIGHT_VOLUME);
       return;
     }
     this.playProceduralAmbient('night');
@@ -88,7 +97,7 @@ export class GameSoundService {
   /** Transición a noche: sting + ambiente. */
   enterNightPhase(): void {
     if (this.muted) return;
-    void this.playOneShot(this.resolvePath('night', 0), 0.42);
+    void this.playOneShot(this.resolvePath('night', 0), SFX_VOLUME * 0.95);
     this.startNightAmbient();
   }
 
@@ -96,7 +105,17 @@ export class GameSoundService {
   enterDayPhase(): void {
     if (this.muted) return;
     this.stopAmbient();
-    void this.playOneShot(this.resolvePath('day'), 0.4);
+    void this.playOneShot(this.resolvePath('day'), SFX_VOLUME * 0.9);
+  }
+
+  playNodeJoin(): void {
+    if (this.muted) return;
+    void this.playOneShot(this.resolvePath('node_join'), NODE_SFX_VOLUME);
+  }
+
+  playNodeLeave(): void {
+    if (this.muted) return;
+    void this.playOneShot(this.resolvePath('node_leave'), NODE_SFX_VOLUME * 0.9);
   }
 
   play(event: SoundEvent): void {
@@ -116,6 +135,15 @@ export class GameSoundService {
     }
     if (event === 'day') {
       this.enterDayPhase();
+      return;
+    }
+
+    if (event === 'node_join') {
+      this.playNodeJoin();
+      return;
+    }
+    if (event === 'node_leave') {
+      this.playNodeLeave();
       return;
     }
 
@@ -146,7 +174,7 @@ export class GameSoundService {
   private async playOneShots(paths: string[]): Promise<void> {
     for (const path of paths) {
       if (path.includes('/ambient/')) continue;
-      const ok = await this.playOneShot(path, 0.45);
+      const ok = await this.playOneShot(path, SFX_VOLUME);
       if (ok) return;
     }
   }
@@ -154,15 +182,9 @@ export class GameSoundService {
   private async playOneShot(path: string, volume: number): Promise<boolean> {
     if (!path || path.includes('/ambient/')) return false;
     try {
-      let audio = this.cache.get(path);
-      if (!audio) {
-        audio = new Audio(path);
-        audio.preload = 'auto';
-        this.cache.set(path, audio);
-      }
-      audio.loop = false;
-      audio.volume = volume;
-      audio.currentTime = 0;
+      const audio = new Audio(path);
+      audio.preload = 'auto';
+      audio.volume = Math.min(0.88, volume);
       await audio.play();
       return true;
     } catch {
@@ -251,6 +273,14 @@ export class GameSoundService {
         this.stopAmbient();
         this.playTone(ctx, 90, 0.5, 'sawtooth', 0.06);
         break;
+      case 'node_join':
+        this.playSweep(ctx, 320, 880, 0.22);
+        this.playTone(ctx, 660, 0.08, 'sine', 0.04);
+        break;
+      case 'node_leave':
+        this.playSweep(ctx, 480, 180, 0.28);
+        this.playTone(ctx, 140, 0.12, 'sine', 0.03);
+        break;
     }
   }
 
@@ -271,7 +301,8 @@ export class GameSoundService {
     const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.value = freq;
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    const vol = Math.min(1, volume * PROCEDURAL_GAIN);
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -284,7 +315,7 @@ export class GameSoundService {
     const gain = ctx.createGain();
     osc.frequency.setValueAtTime(from, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(to, ctx.currentTime + duration);
-    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.setValueAtTime(0.06 * PROCEDURAL_GAIN, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -300,7 +331,7 @@ export class GameSoundService {
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
     src.buffer = buffer;
-    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.setValueAtTime(0.04 * PROCEDURAL_GAIN, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     src.connect(gain);
     gain.connect(ctx.destination);
@@ -313,7 +344,7 @@ export class GameSoundService {
     this.ambienceGain = ctx.createGain();
     this.ambienceOsc.type = 'sine';
     this.ambienceOsc.frequency.value = this.activeAmbient === 'night' ? 55 : 72;
-    this.ambienceGain.gain.value = this.activeAmbient === 'night' ? 0.015 : 0.012;
+    this.ambienceGain.gain.value = this.activeAmbient === 'night' ? 0.036 : 0.03;
     this.ambienceOsc.connect(this.ambienceGain);
     this.ambienceGain.connect(ctx.destination);
     this.ambienceOsc.start();

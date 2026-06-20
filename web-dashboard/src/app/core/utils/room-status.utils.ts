@@ -4,6 +4,7 @@ export interface RoomStatusResponse {
   exists: boolean;
   phase: string | null;
   playerCount: number;
+  connectedCount?: number;
   canJoin: boolean;
   canReconnect: boolean;
   unavailable?: boolean;

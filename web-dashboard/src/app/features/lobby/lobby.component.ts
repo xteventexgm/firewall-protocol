@@ -34,6 +34,7 @@ export class LobbyComponent implements OnChanges {
   @Input() state: PublicGameState | null = null;
   @Input() connected = false;
   @Input() savedRooms: SavedRoom[] = [];
+  @Input() savedRoomConnected: Record<string, number> = {};
   @Input() gameOverActive = false;
   @Input() soundMuted = false;
 
@@ -155,6 +156,10 @@ export class LobbyComponent implements OnChanges {
   onRejoinRoom(roomId: string): void {
     this.gameSound.playUi('confirm');
     this.rejoinRoom.emit(roomId);
+  }
+
+  connectedCountFor(roomId: string): number {
+    return this.savedRoomConnected[roomId] ?? 0;
   }
 
   onRemoveSavedRoom(roomId: string): void {

@@ -1,5 +1,5 @@
 /** Rutas de assets en mobile (src/assets/sfx/). */
-export const SFX_BASE = 'assets/sfx';
+export const SFX_BASE = '/assets/sfx';
 
 export const SOUND_FILES: Record<string, string | string[]> = {
   game_start: `${SFX_BASE}/phase/game-start.mp3`,

@@ -1,7 +1,7 @@
 import { GamePhase } from '../models/game-state.model';
 
 const BULLETINS: Partial<Record<GamePhase, string>> = {
-  LOBBY: 'Sala en espera — los jugadores se conectan desde la Terminal Móvil.',
+  LOBBY: 'Sala en espera.',
   REPARTO: 'Reparto automático de credenciales.',
   NOCHE: 'Modo sigilo — las acciones nocturnas se resuelven al amanecer.',
   DIA: 'Auditoría diurna — debate y análisis del feed SIEM.',

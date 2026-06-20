@@ -104,20 +104,23 @@ export function getActiveRoomStatus(roomId: string, playerId?: string): {
   exists: boolean;
   phase: string | null;
   playerCount: number;
+  connectedCount: number;
   canJoin: boolean;
   canReconnect: boolean;
 } {
   const data = loadGameState(roomId);
   if (!data) {
-    return { exists: false, phase: null, playerCount: 0, canJoin: false, canReconnect: false };
+    return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
   }
   const phase = data.phase ?? null;
-  const playerCount = data.players?.length ?? 0;
+  const players = data.players ?? [];
+  const playerCount = players.length;
+  const connectedCount = players.filter((p: { isConnected?: boolean }) => p.isConnected !== false).length;
   const canJoin = phase === 'LOBBY';
   const inProgress = phase && phase !== 'LOBBY' && phase !== 'FIN';
   const playerKnown = !playerId || (data.players ?? []).some((p: { id: string }) => p.id === playerId);
   const canReconnect = !!inProgress && playerKnown;
-  return { exists: true, phase, playerCount, canJoin, canReconnect };
+  return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
 }
 
 export default {

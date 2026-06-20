@@ -79,6 +79,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   voteTiedMessage = '';
   lastNightKillNames: string[] = [];
   topologyOpen = false;
+  activeControlTab: 'mission' | 'intel' | 'network' | 'comms' = 'mission';
+  soundMuted = true;
   nightHistory: NightActionReport[] = [];
   showPatchConfirm = false;
 
@@ -170,6 +172,9 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.router.navigate(['/login']);
       return;
     }
+
+    this.gameSound.setMuted(this.soundMuted);
+    void this.gameSound.unlockAudio();
 
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
@@ -613,6 +618,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (this.roomCode) {
       sessionStorage.setItem(`fp_role_brief_${this.roomCode}`, '1');
     }
+    void this.gameSound.unlockAudio();
     this.closeRoleBriefing();
   }
 
@@ -706,6 +712,44 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   toggleTopology(): void {
     this.topologyOpen = !this.topologyOpen;
+    void this.gameSound.unlockAudio();
+  }
+
+  selectControlTab(tab: 'mission' | 'intel' | 'network' | 'comms'): void {
+    this.activeControlTab = tab;
+    if (tab === 'comms') this.chatOpen = true;
+    void this.gameSound.unlockAudio();
+  }
+
+  toggleSound(): void {
+    this.soundMuted = !this.soundMuted;
+    this.gameSound.setMuted(this.soundMuted);
+    void this.gameSound.unlockAudio();
+  }
+
+  get showControlDock(): boolean {
+    return (
+      this.gamePhase !== 'LOBBY' &&
+      this.gamePhase !== 'ELIMINATED' &&
+      this.gamePhase !== 'FIN' &&
+      !this.showGameOver
+    );
+  }
+
+  get isInGamePhase(): boolean {
+    return this.showControlDock;
+  }
+
+  get intelAlert(): boolean {
+    return !!(
+      this.nightActionReport ||
+      this.showIncidentReport ||
+      (this.isInfected && this.gamePhase !== 'LOBBY')
+    );
+  }
+
+  get commsUnreadHint(): boolean {
+    return this.visibleChatMessages.length > 0 && this.activeControlTab !== 'comms';
   }
 
   get isNightPhase(): boolean {

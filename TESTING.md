@@ -28,6 +28,21 @@ Checklist para testers y QA jugando partidas reales. Marca cada ítem al probarl
 | 1.9 | Reconexión web | Refresca página con sala guardada | Vuelve a la sala tras `publicState` |
 | 1.10 | Sala terminada | Tras FIN, móvil con sesión vieja | Redirige a login con aviso |
 
+### 1.1 Boot de topología (sala vacía)
+
+Probar con capacidades **5, 7 y 12** jugadores. Crear sala y **no unir jugadores** hasta terminar la animación.
+
+| # | Escenario | Resultado esperado |
+|---|-----------|-------------------|
+| 1.1a | Secuencia completa | Grilla → hub → cables por capas → nodos `?` wireframe → consola `Red operativa` → fade suave (~2,4 s) al estado tenue |
+| 1.1b | Destello final | Brillo de fondo **visible pero no cegador** al terminar nodos; desaparece gradualmente con el fade |
+| 1.1c | Sin corte brusco | Al acabar el boot, líneas/nodos no “saltan” de color ni desaparecen de golpe |
+| 1.1d | Layout 7 jugadores | Sur/norte/e/oeste a distancia similar; no un brazo pegado al hub |
+| 1.1e | Layout 8–12 | Estrella extendida simétrica (cardinales + hojas) |
+| 1.1f | Texto de espera | *Esperando nodos…* en esquina inferior izquierda, sin tapar nodos |
+| 1.1g | Primer jugador | Tras boot, al unirse uno: cable → wireframe → parpadeo → nodo conectado |
+| 1.1h | Mis salas | Tarjeta muestra `Conectados · 0 / N nodos` y actualiza al unir jugadores |
+
 ---
 
 ## 2. Flujo de partida (host)

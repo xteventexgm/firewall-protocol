@@ -11,7 +11,7 @@ import { DATA_DIRECTORY } from '../config/env';
 export const MIN_PLAYERS = 5;
 
 /** Tope absoluto del servidor; el dashboard elige un máximo por sala ≤ este valor. */
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 16;
 
 /**
  * Referencia documental: proporción caótica en Matchmaking.

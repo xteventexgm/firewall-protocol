@@ -90,7 +90,13 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
     }
 
     const players = this.state.players;
-    const positions: NodePosition[] = computeCircularLayout(players, this.width, this.height);
+    const maxSlots = Math.max(this.state.maxPlayers ?? players.length, players.length);
+    const positions: NodePosition[] = computeCircularLayout(
+      players,
+      this.width,
+      this.height,
+      maxSlots,
+    );
     const posMap = new Map(positions.map((p) => [p.id, p]));
     const hub = hubPoint(this.width, this.height);
     const edges = toVoteEdges(this.state.votes);

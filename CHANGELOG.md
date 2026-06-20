@@ -4,6 +4,35 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ---
 
+## [Unreleased] — 2026-06-20
+
+### Web dashboard — topología 2D (lobby)
+
+- **Secuencia de boot de red** al crear sala vacía (~8,3 s): grilla → hub FW → órbitas → cables SVG por capas (hub → primarios → ramas) → wireframe hexagonal de slots fantasma → consola de estado en esquina inferior izquierda.
+- **Animación de aparición de jugador** (sin cambios de contrato): cable en canvas → construcción wireframe del nodo → parpadeo de confirmación.
+- **Cierre del boot:** destello de fondo **tenue** al completar nodos (`Red operativa`); fade **2,4 s** en líneas, nodos, hub y órbitas hasta el color de reposo (sin corte brusco al quitar clases de boot).
+- **Layout de slots** (`layout.utils.ts`):
+  - **4–6 jugadores:** estrella clásica (un anillo, ángulos iguales).
+  - **7+ jugadores:** estrella extendida simétrica (4 cardinales + hojas en abanico); para conteos impares se calculan posiciones del total simétrico superior (8, 12, 16…) y se recortan slots; escala desde el **hub** (no desde el bounding box) para evitar brazos comprimidos (p. ej. sur demasiado cerca con 7 jugadores).
+- **Guías de cable en lobby:** líneas sólidas hub→primario; ramas padre→hoja punteadas (sin cable directo hub→hoja).
+- **Estado vacío:** texto *Esperando nodos en la red…* en esquina inferior izquierda (no tapa nodos del sur).
+- **Mis salas:** contador `Conectados · X / Y nodos` vía `connectedCount` en status de sala activa (backend + refresh periódico en web).
+
+### Archivos principales
+
+| Área | Archivos |
+|------|----------|
+| Layout | `web-dashboard/src/app/core/utils/layout.utils.ts` |
+| Topología | `web-dashboard/src/app/features/topology/topology.component.ts/html/scss` |
+| Lobby / shell | `web-dashboard/src/app/features/lobby/`, `app.ts`, `app.html` |
+| Backend status | `backend-server/src/services/dbSyncService.ts` |
+
+### Pruebas sugeridas (manual)
+
+Ver [`TESTING.md`](TESTING.md) §1.1 — animación de boot y layout 7 vs 8–12 jugadores.
+
+---
+
 ## [Unreleased] — 2025-06-19
 
 ### Victoria y fin de partida

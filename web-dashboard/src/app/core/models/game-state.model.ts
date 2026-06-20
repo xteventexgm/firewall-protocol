@@ -212,4 +212,4 @@ export interface SavedRoom {
 }
 
 export const MIN_PLAYERS_TO_START = 5;
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 16;

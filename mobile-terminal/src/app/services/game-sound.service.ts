@@ -1,32 +1,49 @@
 import { Injectable } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { SOUND_FILES } from '../core/audio/sound-manifest';
 
 export type SoundEvent = keyof typeof SOUND_FILES;
 
-/** Eventos silenciados en NOCHE para no delatar acciones en mesa. */
+/** Eventos permitidos aun en modo noche/discreto (solo fin de partida). */
+const DISCRETE_ALLOWED = new Set<SoundEvent>([
+  'game_over_system',
+  'game_over_hacker',
+  'game_over_solo',
+  'defeat',
+]);
+
+/** Eventos silenciados en NOCHE si el usuario activó sonido. */
 const NIGHT_SILENT_EVENTS = new Set<SoundEvent>([
-  'night',
+  'game_start',
   'action',
   'action_accepted',
   'skill_success',
   'skill_fail',
   'chat',
   'vote',
+  'role_reveal',
+  'death',
+  'kill',
+  'incident',
 ]);
 
+/**
+ * Audio móvil: silenciado por defecto (terminal anónima en mesa).
+ * Con sonido off, vibración ligera en acciones clave.
+ */
 @Injectable({ providedIn: 'root' })
 export class GameSoundService {
-  private muted = false;
-  /** Modo sigilo: sin SFX de gameplay durante NOCHE (solo hápticos). */
-  private nightSilent = false;
+  private muted = true;
+  private nightSilent = true;
   private cache = new Map<string, HTMLAudioElement>();
   private ctx: AudioContext | null = null;
+  private unlocked = false;
 
   setMuted(m: boolean): void {
     this.muted = m;
   }
 
-  /** Activa/desactiva sonidos de gameplay en NOCHE (acciones, chat, skill checks). */
   setNightSilent(silent: boolean): void {
     this.nightSilent = silent;
   }
@@ -35,9 +52,33 @@ export class GameSoundService {
     return this.nightSilent;
   }
 
+  /** Desbloquea audio tras gesto del usuario (política autoplay móvil). */
+  async unlockAudio(): Promise<void> {
+    if (this.unlocked) return;
+    const ctx = this.ensureCtx();
+    if (ctx?.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      const probe = this.getAudio('/assets/sfx/ui/button-click.mp3');
+      probe.volume = 0.001;
+      await probe.play();
+      probe.pause();
+      probe.currentTime = 0;
+      this.unlocked = true;
+    } catch {
+      /* primer gesto puede fallar; reintentar en siguiente interacción */
+    }
+  }
+
   play(event: SoundEvent): void {
     if (this.muted) return;
-    if (this.nightSilent && NIGHT_SILENT_EVENTS.has(event)) return;
+    if (this.nightSilent && NIGHT_SILENT_EVENTS.has(event) && !DISCRETE_ALLOWED.has(event)) return;
+    void this.unlockAudio();
     const path = SOUND_FILES[event];
     if (path && typeof path === 'string') {
       void this.playFile(path).then((ok) => {
@@ -53,15 +94,26 @@ export class GameSoundService {
   }
 
   playVote(): void {
+    if (this.muted) {
+      void this.haptic(ImpactStyle.Medium);
+      return;
+    }
     this.play('vote');
   }
 
-  /** Confirmación genérica al enviar acción (silenciada en NOCHE). */
   playAction(): void {
+    if (this.muted) {
+      void this.haptic(ImpactStyle.Light);
+      return;
+    }
     this.play('action');
   }
 
   playAccepted(): void {
+    if (this.muted) {
+      void this.haptic(ImpactStyle.Medium);
+      return;
+    }
     this.play('action_accepted');
   }
 
@@ -77,15 +129,29 @@ export class GameSoundService {
     this.play('death');
   }
 
+  private async haptic(style: ImpactStyle): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      await Haptics.impact({ style });
+    } catch {
+      /* noop */
+    }
+  }
+
+  private getAudio(path: string): HTMLAudioElement {
+    let audio = this.cache.get(path);
+    if (!audio) {
+      audio = new Audio(path);
+      audio.preload = 'auto';
+      this.cache.set(path, audio);
+    }
+    return audio;
+  }
+
   private async playFile(path: string): Promise<boolean> {
     try {
-      let audio = this.cache.get(path);
-      if (!audio) {
-        audio = new Audio(path);
-        this.cache.set(path, audio);
-      }
-      audio.currentTime = 0;
-      audio.volume = 0.5;
+      const audio = new Audio(path);
+      audio.volume = 0.82;
       await audio.play();
       return true;
     } catch {

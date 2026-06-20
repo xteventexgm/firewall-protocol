@@ -201,5 +201,5 @@ export interface TargetOption {
 }
 
 export const MIN_PLAYERS_TO_START = 5;
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 16;
 export const PLAYERS_PER_CHAOTIC_ROLE = 5;

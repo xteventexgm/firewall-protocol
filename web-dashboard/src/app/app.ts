@@ -66,6 +66,7 @@ export class App implements OnInit, OnDestroy {
   inRoom = false;
   roomCode = '';
   savedRooms: SavedRoom[] = [];
+  savedRoomConnected: Record<string, number> = {};
   state: PublicGameState | null = null;
   connected = false;
   incidents: IncidentDisplay[] = [];
@@ -94,6 +95,7 @@ export class App implements OnInit, OnDestroy {
   private lastPhase: GamePhase | '' = '';
   private timerWarningFired = false;
   private readonly connectedNoticeAt = new Map<string, number>();
+  private savedRoomStatsInterval: ReturnType<typeof setInterval> | null = null;
 
   get gameOverActive(): boolean {
     return this.showGameOver || this.state?.phase === 'FIN' || this.gameSocket.isGameEnded;
@@ -102,6 +104,10 @@ export class App implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.savedRooms = loadSavedRooms();
     void this.pruneFinishedSavedRooms();
+    void this.refreshSavedRoomStats();
+    this.savedRoomStatsInterval = setInterval(() => {
+      if (!this.inRoom) void this.refreshSavedRoomStats();
+    }, 12000);
     this.gameSocket.connect();
     this.startPhaseTimer();
     this.syncAmbientState();
@@ -210,6 +216,7 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.playerEliminated$.subscribe(({ playerId, reason }) => {
         if (!this.inRoom || this.gameOverActive) return;
+        this.gameSound.play('node_leave');
         const name = playerNameById(this.state, playerId);
         const role = this.state?.players.find((p) => p.id === playerId)?.role;
         const rolePart = role ? ` — ${role}` : '';
@@ -220,6 +227,7 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.playerDisconnected$.subscribe(({ playerId, playerName }) => {
         if (!this.inRoom || this.gameOverActive) return;
+        this.gameSound.play('node_leave');
         this.showStatusMessage(
           `Nodo desconectado: ${playerName ?? playerNameById(this.state, playerId)}`,
           'warn',
@@ -237,6 +245,7 @@ export class App implements OnInit, OnDestroy {
       this.gameSocket.playerConnected$.subscribe(({ playerId, playerName }) => {
         if (!this.inRoom || this.gameOverActive) return;
         this.connectedNoticeAt.set(playerId, Date.now());
+        this.gameSound.play('node_join');
         this.showStatusMessage(
           `Nodo conectado: ${playerName ?? playerNameById(this.state, playerId)}`,
           'success',
@@ -279,6 +288,7 @@ export class App implements OnInit, OnDestroy {
     const code = this.gameSocket.createLobby(maxPlayers);
     saveRoom({ roomId: code, maxPlayers, savedAt: Date.now() });
     this.savedRooms = loadSavedRooms();
+    void this.refreshSavedRoomStats();
     this.inRoom = true;
     this.roomCode = code;
     this.clearActiveView();
@@ -339,6 +349,24 @@ export class App implements OnInit, OnDestroy {
     setTimeout(() => this.onCreateLobby(max), 300);
   }
 
+  async refreshSavedRoomStats(): Promise<void> {
+    const rooms = loadSavedRooms();
+    const next: Record<string, number> = { ...this.savedRoomConnected };
+    await Promise.all(
+      rooms.map(async (room) => {
+        try {
+          const status = await fetchRoomStatus(room.roomId);
+          if (!isRoomStatusUnavailable(status) && status.exists) {
+            next[room.roomId] = status.connectedCount ?? status.playerCount ?? 0;
+          }
+        } catch {
+          /* conservar último valor conocido */
+        }
+      }),
+    );
+    this.savedRoomConnected = next;
+  }
+
   async pruneFinishedSavedRooms(): Promise<void> {
     const rooms = loadSavedRooms();
     const kept: SavedRoom[] = [];
@@ -386,6 +414,7 @@ export class App implements OnInit, OnDestroy {
       this.clearActiveView();
     }
     this.savedRooms = loadSavedRooms();
+    void this.refreshSavedRoomStats();
   }
 
   onStartGame(): void {
@@ -537,6 +566,7 @@ export class App implements OnInit, OnDestroy {
     if (this.statusTimeout) clearTimeout(this.statusTimeout);
     if (this.nightPanelTimeout) clearTimeout(this.nightPanelTimeout);
     if (this.phaseTimerInterval) clearInterval(this.phaseTimerInterval);
+    if (this.savedRoomStatsInterval) clearInterval(this.savedRoomStatsInterval);
     this.subs.forEach((s) => s.unsubscribe());
   }
 }

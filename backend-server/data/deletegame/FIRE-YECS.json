@@ -1,0 +1,49 @@
+{
+  "archivedAt": "2026-06-20T16:14:02.745Z",
+  "archiveCategory": "deletegame",
+  "reason": "lobby_abandoned",
+  "roomId": "FIRE-YECS",
+  "phase": "LOBBY",
+  "phaseStartedAt": 1781971299160,
+  "phaseEndsAt": null,
+  "maxPlayers": 16,
+  "players": [
+    {
+      "id": "usr_8td6jid3f",
+      "name": "Steven",
+      "socketId": "dyGvs3pmHj-KaFviAAAC",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1781971984321,
+      "metadata": {}
+    }
+  ],
+  "dayNumber": 0,
+  "nightNumber": 0,
+  "actionQueue": [],
+  "votes": {},
+  "logs": [],
+  "winner": null,
+  "soloWinner": null,
+  "lastNightKills": [],
+  "initialPlayerCount": 0,
+  "publicLogs": [],
+  "chatMessages": [],
+  "phaseConfig": {
+    "autoAdvance": false,
+    "nightDurationMs": 60000,
+    "dayDurationMs": 60000,
+    "voteDurationMs": 90000
+  },
+  "gameStats": {
+    "scansPerformed": 0,
+    "killsPrevented": 0,
+    "infectionsApplied": 0,
+    "votesCast": 0,
+    "honeypotDrags": 0,
+    "playerActions": {},
+    "mvpPlayerId": null,
+    "mvpReason": null
+  },
+  "lastChatSentAt": {}
+}

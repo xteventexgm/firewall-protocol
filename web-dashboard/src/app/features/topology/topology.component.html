@@ -1,5 +1,26 @@
-<div #svgContainer class="topology-container" [class.dimmed]="isDimmed()">
+<div
+  #svgContainer
+  class="topology-container"
+  [class.dimmed]="isDimmed()"
+  [class.phase-shifting]="phaseTransition"
+  [class.network-booting]="networkBooting"
+  [class.network-boot-flash]="networkBootFlash"
+  [class.network-boot-fading]="networkBootFading"
+  [class.network-ready]="networkBootReady && !networkBooting"
+  [attr.data-phase]="phase"
+>
   <canvas #particlesCanvas class="topology-particles" aria-hidden="true"></canvas>
+  <canvas #linkPacketsCanvas class="topology-link-packets" aria-hidden="true"></canvas>
+  <div class="topology-scanlines" aria-hidden="true"></div>
+  <div class="topology-vignette" aria-hidden="true"></div>
+  <div class="topology-phase-glow" aria-hidden="true"></div>
+  @if (networkBooting) {
+    <div class="network-boot-grid" aria-hidden="true"></div>
+  }
+  @if (networkBootFlash || networkBootFading) {
+    <div class="network-boot-finish-glow" aria-hidden="true"></div>
+  }
+
   @if (showVoteStats() && effectiveSkipVotes > 0) {
     <div class="skip-badge">
       <span class="skip-dot"></span>
@@ -11,6 +32,13 @@
     <defs>
       <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+      <filter id="node-glow-strong" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="5" result="blur" />
         <feMerge>
           <feMergeNode in="blur" />
           <feMergeNode in="SourceGraphic" />
@@ -31,120 +59,268 @@
       </radialGradient>
     </defs>
 
-    <!-- Anillo exterior decorativo -->
-    <circle
-      class="orbit-ring"
-      [attr.cx]="hub.x"
-      [attr.cy]="hub.y"
-      [attr.r]="Math.min(width, height) / 2 - 72"
-    />
+    <g
+      class="orbit-group"
+      [class.orbit-boot-fading]="networkBootFading"
+      [attr.transform]="'translate(' + hub.x + ',' + hub.y + ')'"
+    >
+      <circle
+        class="orbit-ring orbit-ring-outer"
+        [attr.r]="orbitRadius"
+        cx="0"
+        cy="0"
+      />
+      <circle
+        class="orbit-ring orbit-ring-inner"
+        [attr.r]="orbitRadius * 0.72"
+        cx="0"
+        cy="0"
+      />
+    </g>
 
-    <!-- Enlaces al hub -->
-    @for (link of hubLinks; track link.id) {
+    @for (guide of slotGuides; track guide.id) {
+      @if (bootGuideVisible(guide)) {
+        <line
+          class="slot-guide"
+          [class.slot-guide-branch]="guide.branch"
+          [class.slot-guide-reveal]="networkBooting && !networkBootFading && bootGuideLit.has(guide.id)"
+          [class.slot-guide-fading]="networkBootFading && bootGuideLit.has(guide.id)"
+          pathLength="1"
+          [attr.x1]="guide.x1"
+          [attr.y1]="guide.y1"
+          [attr.x2]="guide.x2"
+          [attr.y2]="guide.y2"
+        />
+      }
+    }
+
+    @for (guide of spokeGuides; track $index) {
       <line
-        class="hub-link"
-        [class.hub-link-active]="link.active"
-        [attr.x1]="link.x1"
-        [attr.y1]="link.y1"
-        [attr.x2]="link.x2"
-        [attr.y2]="link.y2"
+        class="spoke-guide"
+        [attr.x1]="guide.x1"
+        [attr.y1]="guide.y1"
+        [attr.x2]="guide.x2"
+        [attr.y2]="guide.y2"
       />
     }
 
-    <!-- Hub central (firewall) -->
-    <g class="hub" [attr.transform]="'translate(' + hub.x + ',' + hub.y + ')'">
-      <circle r="72" class="hub-aura" />
-      <circle r="62" class="hub-orbit" />
-      <polygon points="0,-40 34,20 -34,20" class="hub-shield" />
-      <circle r="26" class="hub-core" />
-      <text y="7" text-anchor="middle" class="hub-label">FW</text>
+    @for (link of hubLinks; track link.id) {
+      @if (link.visible || link.pulsing) {
+        <line
+          class="hub-link"
+          [class.hub-link-active]="link.active"
+          [class.hub-link-connecting]="link.pulsing && !isCableExtending(link.id)"
+          [class.hub-link-canvas-extend]="isCableExtending(link.id)"
+          [class.hub-link-branch]="link.isBranch"
+          [attr.x1]="link.x1"
+          [attr.y1]="link.y1"
+          [attr.x2]="link.x2"
+          [attr.y2]="link.y2"
+        />
+      }
+    }
+
+    @for (slot of ghostSlots; track 'ghost-' + slot.index) {
+      @if (bootSlotVisible(slot.index)) {
+      <g
+        class="ghost-slot"
+        [class.ghost-slot-boot]="networkBooting && !networkBootFading && bootSlotLit.has(slot.index)"
+        [class.ghost-slot-fading]="networkBootFading && bootSlotLit.has(slot.index)"
+        [class.ghost-slot-return]="isReturningGhost(slot.index)"
+        [style.animation-delay]="networkBooting && !networkBootFading ? ghostBootDelay(slot.index) : ghostSlotDelay(slot.index)"
+        [attr.transform]="'translate(' + slot.x + ',' + slot.y + ')'"
+      >
+        @if (networkBooting && !networkBootFading && bootSlotLit.has(slot.index)) {
+          <path
+            class="ghost-wire ghost-wire-outer"
+            [attr.d]="slotWirePath(slot, nodeMetrics.outer)"
+            pathLength="1"
+          />
+          <path
+            class="ghost-wire ghost-wire-inner"
+            [attr.d]="slotWirePath(slot, nodeMetrics.inner)"
+            pathLength="1"
+          />
+          <polygon
+            class="node-hex node-hex-inner ghost-hex-fill"
+            [attr.points]="hexPoints(nodeMetrics.inner)"
+          />
+        } @else {
+          <polygon
+            class="node-hex node-hex-outer"
+            [attr.points]="hexPoints(nodeMetrics.outer)"
+          />
+          <polygon
+            class="node-hex node-hex-inner"
+            [attr.points]="hexPoints(nodeMetrics.inner)"
+          />
+        }
+        <text
+          y="5"
+          text-anchor="middle"
+          class="ghost-slot-label"
+          [class.ghost-wire-label]="networkBooting && !networkBootFading && bootSlotLit.has(slot.index)"
+        >?</text>
+      </g>
+      }
+    }
+
+    <g [attr.transform]="'translate(' + hub.x + ',' + hub.y + ')'">
+      <g class="hub" [class.hub-network-boot]="networkBooting && !networkBootFading" [class.hub-boot-fading]="networkBootFading">
+      @if (hubRadarActive()) {
+        <g class="hub-radar">
+          <circle r="72" class="hub-radar-ring" />
+          <circle r="64" class="hub-radar-ring hub-radar-ring-2" />
+          <g class="hub-radar-sweep-arm">
+            <path class="hub-radar-sweep" d="M 0 0 L 0 -74 A 74 74 0 0 1 52 -52 Z" />
+          </g>
+        </g>
+      }
+      <circle [attr.r]="nodeMetrics.hubPortRadius" class="hub-plate" />
+      <circle r="52" class="hub-aura" />
+      <circle r="44" class="hub-orbit" />
+      <circle r="58" class="hub-phase-ring" />
+      <circle r="46" class="hub-junction-ring" />
+      <polygon points="0,-28 24,14 -24,14" class="hub-shield" />
+      <circle r="18" class="hub-core" />
+      <circle r="24" class="hub-core-ring" />
+      <text y="5" text-anchor="middle" class="hub-label">FW</text>
+      @for (port of hubPorts; track port.id) {
+        <g class="hub-port" [class.hub-port-active]="port.active" [class.hub-port-pulse]="port.pulsing">
+          <circle [attr.cx]="port.px" [attr.cy]="port.py" r="5" class="hub-port-socket" />
+          <circle [attr.cx]="port.px" [attr.cy]="port.py" r="2.5" class="hub-port-pin" />
+        </g>
+      }
+      </g>
     </g>
 
-    <!-- Nodos jugador -->
-    @for (node of nodes; track node.id) {
-      <g
-        [ngClass]="nodeClasses(node.player)"
-        [class.glitch]="isGlitching(node.id)"
-        [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
-        filter="url(#node-glow)"
-      >
-        <polygon
-          class="node-hex node-hex-outer"
-          [attr.points]="hexPoints(nodeMetrics.outer)"
-        />
-        <polygon
-          class="node-hex node-hex-inner"
-          [attr.points]="hexPoints(nodeMetrics.inner)"
-        />
-        <text
-          y="6"
-          text-anchor="middle"
-          dominant-baseline="middle"
-          class="node-initial"
-          [attr.font-size]="nodeMetrics.initialSize"
-        >
-          {{ node.player.name.charAt(0).toUpperCase() }}
-        </text>
+    @for (node of leavingNodes; track node.id + '-leave') {
+      <g [attr.transform]="'translate(' + node.x + ',' + node.y + ')'">
+        <g class="player-node node-leaving node-leaving-interference" filter="url(#node-glow-strong)">
+          <polygon
+            class="node-hex node-hex-outer"
+            [attr.points]="hexPoints(nodeMetrics.outer)"
+          />
+          <polygon
+            class="node-hex node-hex-inner"
+            [attr.points]="hexPoints(nodeMetrics.inner)"
+          />
+        </g>
+      </g>
+    }
 
-        @if (nodeStatusLabel(node.player); as label) {
+    @for (node of nodes; track node.id) {
+      @if (!isCableExtending(node.id)) {
+        <g
+          [ngClass]="nodeClasses(node.player)"
+          [class.glitch]="isGlitching(node.id)"
+          [class.node-spawn]="isSpawning(node.id)"
+          [class.node-connected-blink]="isConnectedBlink(node.id)"
+          [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+          [attr.filter]="isSpawning(node.id) || isConnectedBlink(node.id) ? 'url(#node-glow-strong)' : 'url(#node-glow)'"
+        >
+          @if (isSpawning(node.id)) {
+            @for (line of hexScaffoldLines(node, nodeMetrics.outer); track $index) {
+              <line
+                class="node-scaffold-line"
+                [attr.x1]="line.x1"
+                [attr.y1]="line.y1"
+                [attr.x2]="line.x2"
+                [attr.y2]="line.y2"
+                pathLength="1"
+                [style.animation-delay]="($index * 0.12) + 's'"
+              />
+            }
+            <path
+              class="node-hex-wire node-hex-wire-outer"
+              [attr.d]="hexBuildPath(node, nodeMetrics.outer)"
+              pathLength="1"
+            />
+            <path
+              class="node-hex-wire node-hex-wire-inner"
+              [attr.d]="hexBuildPath(node, nodeMetrics.inner)"
+              pathLength="1"
+            />
+            <polygon
+              class="node-hex node-hex-inner node-hex-spawn-fill"
+              [attr.points]="hexPoints(nodeMetrics.inner)"
+            />
+            <circle class="node-build-tip" [attr.cx]="hexAttachPoint(node, nodeMetrics.outer).x" [attr.cy]="hexAttachPoint(node, nodeMetrics.outer).y" r="3" />
+          } @else {
+            <polygon
+              class="node-hex node-hex-outer"
+              [attr.points]="hexPoints(nodeMetrics.outer)"
+            />
+            <polygon
+              class="node-hex node-hex-inner"
+              [attr.points]="hexPoints(nodeMetrics.inner)"
+            />
+          }
+
+          <text
+            y="5"
+            text-anchor="middle"
+            class="node-initial"
+            [class.node-spawn-label]="isSpawning(node.id)"
+          >{{ node.player.name.charAt(0).toUpperCase() }}</text>
+
+          @if (nodeStatusLabel(node.player); as label) {
+            <text
+              [attr.y]="nodeMetrics.statusY"
+              text-anchor="middle"
+              class="node-status"
+              [class.node-spawn-label]="isSpawning(node.id)"
+              [class.dead]="!node.player.isAlive"
+              [class.offline]="node.player.isAlive && !node.player.isConnected"
+              [class.silenced]="node.player.silenced && node.player.isAlive"
+            >{{ label }}</text>
+          }
+
+          @if (showRole(node.player)) {
+            <text
+              [attr.y]="nodeMetrics.roleY"
+              text-anchor="middle"
+              class="node-role"
+              [class.node-spawn-label]="isSpawning(node.id)"
+            >{{ node.player.role }}</text>
+          }
+
           <rect
-            class="node-tag-bg"
-            [attr.x]="-statusLabelWidth(label) / 2"
-            [attr.y]="nodeMetrics.statusY - 11"
-            [attr.width]="statusLabelWidth(label)"
+            class="node-name-bg"
+            [class.node-spawn-label]="isSpawning(node.id)"
+            [attr.x]="-Math.max(node.player.name.length * 5.5, 48) / 2"
+            [attr.y]="nodeMetrics.nameY - 11"
+            [attr.width]="Math.max(node.player.name.length * 5.5, 48)"
             height="18"
             rx="4"
           />
           <text
-            [attr.y]="nodeMetrics.statusY"
+            [attr.y]="nodeMetrics.nameY"
             text-anchor="middle"
-            dominant-baseline="middle"
-            class="node-status"
-            [attr.font-size]="nodeMetrics.statusSize"
-            [class.dead]="!node.player.isAlive"
-            [class.offline]="node.player.isAlive && !node.player.isConnected"
-            [class.silenced]="node.player.silenced && node.player.isAlive"
-          >{{ label }}</text>
-        }
+            class="node-name"
+            [class.node-spawn-label]="isSpawning(node.id)"
+          >{{ node.player.name }}</text>
 
-        @if (showRole(node.player)) {
-          <text
-            [attr.y]="nodeMetrics.roleY"
-            text-anchor="middle"
-            dominant-baseline="middle"
-            class="node-role"
-            [attr.font-size]="nodeMetrics.roleSize"
-          >{{ node.player.role }}</text>
-        }
-
-        <rect
-          class="node-name-bg"
-          [attr.x]="-Math.max(node.player.name.length * 5.5, 48) / 2"
-          [attr.y]="nodeMetrics.nameY - 11"
-          [attr.width]="Math.max(node.player.name.length * 5.5, 48)"
-          height="18"
-          rx="4"
-        />
-        <text
-          [attr.y]="nodeMetrics.nameY"
-          text-anchor="middle"
-          dominant-baseline="middle"
-          class="node-name"
-          [attr.font-size]="nodeMetrics.nameSize"
-        >{{ node.player.name }}</text>
-
-        @if (isNodeHealthy(node.player)) {
-          <circle [attr.r]="nodeMetrics.pulseR" class="node-pulse-ring" />
-        }
-      </g>
+          @if (isNodeHealthy(node.player) && !isSpawning(node.id)) {
+            <circle [attr.r]="nodeMetrics.pulseR" class="node-pulse-ring" />
+          }
+        </g>
+      }
     }
   </svg>
 
-  @if (!nodes.length) {
-    <div class="empty-state">
-      <div class="empty-icon">◎</div>
-      <p>Esperando nodos en la red...</p>
-      <p class="hint">Los jugadores aparecerán al unirse con el código de sala</p>
+  @if (!nodes.length && !leavingNodes.length) {
+    <div class="empty-state" [class.empty-state-boot]="networkBooting || networkBootFading">
+      @if (networkBooting || networkBootFading) {
+        <div class="boot-console" [class.boot-console-fading]="networkBootFading" aria-live="polite">
+          <span class="boot-console-prefix">&gt;</span>
+          <span class="boot-console-text">{{ bootStatusText }}</span>
+          <span class="boot-console-cursor" aria-hidden="true"></span>
+        </div>
+      } @else {
+        <p class="empty-wait-title">Esperando nodos en la red…</p>
+        <p class="hint">Los jugadores aparecerán al unirse con el código de sala</p>
+      }
     </div>
   }
 </div>
