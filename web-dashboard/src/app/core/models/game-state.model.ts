@@ -16,9 +16,13 @@ export interface PublicPlayer {
   name: string;
   isAlive: boolean;
   isConnected: boolean;
+  isBot?: boolean;
   silenced?: boolean;
   infected?: boolean;
+  frozen?: boolean;
   role?: string;
+  /** Revelado en fase FIN (game over). */
+  team?: Team;
 }
 
 export interface SessionThreatBrief {
@@ -38,6 +42,7 @@ export interface PublicGameState {
   roomId: string;
   phase: GamePhase;
   phaseStartedAt: number;
+  gameStartedAt?: number;
   phaseEndsAt?: number | null;
   players: PublicPlayer[];
   dayNumber: number;
@@ -79,6 +84,7 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  botQaAutoRun?: boolean;
 }
 
 export interface NightProgress {

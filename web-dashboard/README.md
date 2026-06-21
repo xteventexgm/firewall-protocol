@@ -73,6 +73,17 @@ En red LAN, usa la IP de la máquina que ejecuta el backend (ej. `http://192.168
 - El QR y la configuración de timers se ocultan para dar espacio a la topología.
 - *Volver al lobby* cierra la vista de partida en TV **sin** borrar la sala en el servidor.
 
+### Tras pulsar *Iniciar partida*
+
+1. **TV:** overlay *Distribuyendo roles* (~20 s) mientras los móviles reciben credenciales.
+2. **TV:** briefing *RED COMPROMETIDA* (~20 s) con conteo de amenazas.
+3. **Móvil:** briefing de rol (~20 s) → vibración → alerta según equipo (system / black_hat / chaotic).
+4. Comienza el **DÍA 1** — debate y votación.
+
+Ver [`TESTING.md`](../TESTING.md) §2.3–2.4 para checklist.
+
+---
+
 ### Tras el fin
 
 - Overlay de victoria con botones: *Volver al lobby*, *Iniciar nueva partida*, *Descargar replay JSON*.

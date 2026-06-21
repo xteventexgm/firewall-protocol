@@ -76,7 +76,28 @@ export function validateNightAction(
     return null;
   }
 
-  if (type !== 'hacker_vote' && type !== 'bgp_swap' && !action.target) return 'invalid_target';
+  if (type === 'noise_burst') {
+    if (meta.trollProvokeUsedTonight) return 'already_acted';
+    if (!action.meta?.messageIndex && action.meta?.messageIndex !== 0) return 'invalid_target';
+    return null;
+  }
+
+  if (type === 'mirage_cloak' || type === 'jam_hacker') {
+    return null;
+  }
+
+  if (type === 'intel_pulse') {
+    if (meta.intelPulseUsed) return 'no_uses_left';
+    return null;
+  }
+
+  if (type === 'backup_mark') {
+    if ((meta.backupMarkUsesLeft ?? 0) <= 0) return 'no_uses_left';
+  }
+
+  if (type !== 'hacker_vote' && type !== 'bgp_swap' && type !== 'chaos_route' && type !== 'intel_pulse' && type !== 'mirage_cloak' && type !== 'jam_hacker' && type !== 'troll_provoke' && type !== 'noise_burst' && !action.target) {
+    return 'invalid_target';
+  }
 
   if (type === 'bgp_swap') {
     const swapWith = action.meta?.swapWith;
@@ -88,10 +109,29 @@ export function validateNightAction(
     if (!t1?.isAlive || !t2?.isAlive) return 'invalid_target';
   }
 
+  if (type === 'chaos_route') {
+    const routeTo = action.meta?.routeTo;
+    if (!action.target || !routeTo) return 'invalid_target';
+    if (action.target === routeTo) return 'invalid_swap';
+    if (action.target === action.actor || routeTo === action.actor) return 'self_target';
+    const t1 = state.getPlayer(action.target);
+    const t2 = state.getPlayer(routeTo);
+    if (!t1?.isAlive || !t2?.isAlive) return 'invalid_target';
+  }
+
   if (type === 'phisher_redirect') {
     const redirectTo = action.meta?.redirectTo;
     if (!redirectTo) return 'invalid_redirect';
     const dest = state.getPlayer(redirectTo);
+    if (!dest?.isAlive) return 'invalid_redirect';
+  }
+
+  if (type === 'mitm_hijack') {
+    const hijackTo = action.meta?.hijackTo;
+    if (!hijackTo) return 'invalid_redirect';
+    const hacker = state.getPlayer(action.target!);
+    const dest = state.getPlayer(hijackTo);
+    if (!hacker?.isAlive || hacker.team !== Team.BLACK_HAT) return 'invalid_target';
     if (!dest?.isAlive) return 'invalid_redirect';
   }
 
@@ -104,13 +144,17 @@ export function validateNightAction(
     if (meta.lastMinedTarget && meta.lastMinedTarget === action.target) return 'miner_target_cooldown';
   }
 
-  const selfTargetTypes = ['pentester_kill', 'ransomware', 'worm_infect', 'worm_kill', 'freeze', 'scan', 'spy', 'protect', 'cure', 'honeypot_drag', 'mine_crypto', 'crypto_bribe'];
+  const selfTargetTypes = ['pentester_kill', 'brute_force', 'ransomware', 'worm_infect', 'worm_kill', 'freeze', 'scan', 'spy', 'protect', 'cure', 'honeypot_drag', 'mine_crypto', 'crypto_bribe', 'ids_watch', 'patch_harden', 'exploit_strip', 'shadow_mask', 'logic_bomb', 'data_leak', 'team_probe', 'forensic_trace', 'backup_mark', 'threat_hunt', 'incident_clear', 'waf_block', 'backdoor_plant', 'lateral_probe', 'vote_trace', 'vuln_scan', 'cred_probe', 'dns_spoof', 'rigged_payload', 'ransom_note'];
   if (selfTargetTypes.includes(type) && action.target === action.actor) {
     return 'self_target';
   }
 
   if (type === 'pentester_kill') {
     if ((meta.pentesterUsesLeft ?? 0) <= 0) return 'no_uses_left';
+  }
+
+  if (type === 'brute_force') {
+    if ((meta.bruteForceUsesLeft ?? 0) <= 0) return 'no_uses_left';
   }
 
   if (type === 'ransomware') {
@@ -157,6 +201,15 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   if (type === 'pentester_kill') {
     meta.pentesterUsesLeft = Math.min(2, (meta.pentesterUsesLeft ?? 0) + 1);
   }
+  if (type === 'brute_force') {
+    meta.bruteForceUsesLeft = Math.min(1, (meta.bruteForceUsesLeft ?? 0) + 1);
+  }
+  if (type === 'backup_mark') {
+    meta.backupMarkUsesLeft = Math.min(1, (meta.backupMarkUsesLeft ?? 0) + 1);
+  }
+  if (type === 'intel_pulse') {
+    meta.intelPulseUsed = false;
+  }
   if (type === 'crypto_bribe') {
     meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
   }
@@ -175,6 +228,9 @@ export function markActionSubmitted(
   if (actionType === 'pentester_kill') {
     meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 0) - 1);
   }
+  if (actionType === 'brute_force') {
+    meta.bruteForceUsesLeft = Math.max(0, (meta.bruteForceUsesLeft ?? 0) - 1);
+  }
   if (actionType === 'ransomware') {
     meta.ransomwareCooldown = ransomwareCooldownNights(playerCount ?? 15);
   }
@@ -184,8 +240,14 @@ export function markActionSubmitted(
   if (actionType === 'cure') {
     meta.lastCuredTarget = targetId ?? null;
   }
-  if (actionType === 'troll_provoke') {
+  if (actionType === 'troll_provoke' || actionType === 'noise_burst') {
     meta.trollProvokeUsedTonight = true;
+  }
+  if (actionType === 'backup_mark') {
+    meta.backupMarkUsesLeft = Math.max(0, (meta.backupMarkUsesLeft ?? 0) - 1);
+  }
+  if (actionType === 'intel_pulse') {
+    meta.intelPulseUsed = true;
   }
   if (actionType === 'crypto_bribe') {
     meta.shieldCharges = Math.max(0, (meta.shieldCharges ?? 0) - 1);

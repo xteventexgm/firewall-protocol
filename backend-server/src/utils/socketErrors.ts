@@ -16,7 +16,8 @@ export type SocketErrorCode =
   | 'dashboard_only'
   | 'not_joined'
   | 'identity_mismatch'
-  | 'room_mismatch';
+  | 'room_mismatch'
+  | 'bots_disabled';
 
 export function formatSocketError(message: string, code: SocketErrorCode): string {
   return `${message} (${code})`;

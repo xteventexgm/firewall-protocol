@@ -85,6 +85,163 @@ export function buildPrivateResultReport(
     return { nightNumber, status: 'resolved', headline: 'Espionaje completado', details };
   }
 
+  if (payload.type === 'team_probe') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    const teamLabels: Record<string, string> = {
+      system: 'System (Blue Team)',
+      black_hat: 'Black Hat (Red Team)',
+      chaotic: 'Caótico',
+    };
+    const team = payload.probedTeam ? teamLabels[payload.probedTeam] ?? payload.probedTeam : '?';
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Sondeo de tráfico completado',
+      details: [`Nodo: ${target}`, `Equipo detectado: ${team}`],
+    };
+  }
+
+  if (payload.type === 'forensic_trace') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    const tally = payload.killTally;
+    const details = [`Nodo consultado: ${target}`];
+    if (tally) {
+      details.push(
+        `Bajas última noche — System: ${tally.system}, Black Hat: ${tally.black_hat}, Caótico: ${tally.chaotic}`,
+      );
+    }
+    if (payload.wasKilledLastNight) {
+      details.push('⚠ Este nodo estuvo entre las víctimas de la última noche.');
+    } else {
+      details.push('Este nodo no figuró entre las víctimas de la última noche.');
+    }
+    return { nightNumber, status: 'resolved', headline: 'Análisis forense', details };
+  }
+
+  if (payload.type === 'ids_alert') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    const count = payload.hostileVisitCount ?? 0;
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: count > 0 ? '⚠ Alerta IDS' : 'Vigilancia IDS — sin alertas',
+      details: [
+        `Nodo vigilado: ${target}`,
+        count > 0
+          ? `${count} visita(s) hostil(es) detectada(s) esta noche.`
+          : 'Ninguna actividad hostil registrada sobre el nodo.',
+      ],
+    };
+  }
+
+  if (payload.type === 'threat_hunt') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Caza de amenazas completada',
+      details: [
+        `Nodo: ${target}`,
+        payload.threatDetected ? 'Resultado: AMENAZA detectada' : 'Resultado: LIMPIO',
+      ],
+    };
+  }
+
+  if (payload.type === 'ally_verify') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Verificación de aliado',
+      details: [
+        `Nodo: ${target}`,
+        payload.isAlly ? 'Pertenece a tu mismo bando.' : 'No es de tu bando.',
+      ],
+    };
+  }
+
+  if (payload.type === 'dns_spoof') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'DNS envenenado',
+      details: [
+        `Nodo: ${target}`,
+        'Su voto en la próxima votación se desviará al azar hacia otro nodo (distinto al que eligió).',
+        'Apareces como SEGURO en escaneos SOC esta noche.',
+      ],
+    };
+  }
+
+  if (payload.type === 'lateral_probe') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Reconocimiento lateral',
+      details: [
+        `Nodo: ${target}`,
+        payload.isSystemMember ? 'Pertenece al bando System.' : 'No es del bando System.',
+      ],
+    };
+  }
+
+  if (payload.type === 'vote_trace') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    const voted = payload.tracedVoteTargetId
+      ? resolvePlayerName(payload.tracedVoteTargetId, players)
+      : null;
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Rastreo de voto',
+      details: [
+        `Nodo rastreado: ${target}`,
+        voted ? `Votó a: ${voted}` : 'No votó o no hay registro de la última votación.',
+      ],
+    };
+  }
+
+  if (payload.type === 'vuln_scan') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Escaneo de vulnerabilidades',
+      details: [
+        `Nodo: ${target}`,
+        payload.compromised ? 'Estado: COMPROMETIDO' : 'Estado: sin señales de compromiso',
+      ],
+    };
+  }
+
+  if (payload.type === 'cred_probe') {
+    const target = resolvePlayerName(payload.targetId ?? '', players);
+    const tier =
+      payload.credentialTier === 'critical_defense' ? 'DEFENSA CRÍTICA' : 'PERFIL ESTÁNDAR';
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Análisis de credenciales',
+      details: [`Nodo: ${target}`, `Clasificación: ${tier}`],
+    };
+  }
+
+  if (payload.type === 'intel_pulse' && payload.factionCounts) {
+    const c = payload.factionCounts;
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: 'Pulso de inteligencia',
+      details: [
+        `System vivos: ${c.system}`,
+        `Black Hat vivos: ${c.black_hat}`,
+        `Caóticos vivos: ${c.chaotic}`,
+      ],
+    };
+  }
+
   if (payload.type === 'role_assigned' && payload.role === 'Zero-Day') {
     return {
       nightNumber,
@@ -226,6 +383,18 @@ export function buildResolvedReport(
       break;
     }
 
+    case 'chaos_route': {
+      const routed = resolution.redirects?.some(
+        (r) => r.actionId === 'chaos_route' && r.from === targetId && r.to === secondaryId,
+      );
+      if (routed && secondaryName) {
+        details.push(`Desviaste ataques de ${targetName} hacia ${secondaryName}.`);
+      } else {
+        details.push(`Ruta caótica: ${targetName} → ${secondaryName ?? '?'}`);
+      }
+      break;
+    }
+
     case 'phisher_redirect':
       details.push(`Marcaste a ${targetName} para redirigir su voto diurno.`);
       if (secondaryName) {
@@ -261,6 +430,15 @@ export function buildResolvedReport(
       }
       break;
 
+    case 'brute_force':
+      if (resolution.kills?.includes(targetId)) {
+        details.push(`Fuerza bruta exitosa — ${targetName} eliminado.`);
+        details.push('Has consumido tu único uso de esta habilidad.');
+      } else {
+        details.push(`Ataque de fuerza bruta contra ${targetName} bloqueado o falló.`);
+      }
+      break;
+
     case 'mine_crypto':
       details.push(`Minaste el procesamiento de ${targetName}.`);
       details.push('Ganaste +1 escudo (máx. 3 acumulables). La víctima no recibe aviso.');
@@ -283,6 +461,24 @@ export function buildResolvedReport(
       } else {
         details.push(`No pudiste infectar a ${targetName} (ya infectado o bloqueado).`);
       }
+      break;
+
+    case 'dns_spoof':
+      details.push(`Envenenaste el resolver DNS de ${targetName}.`);
+      details.push('Su voto en la próxima votación irá a otro nodo al azar (distinto al elegido).');
+      break;
+
+    case 'rigged_payload':
+      details.push(`Carga manipulada sobre ${targetName}.`);
+      details.push('La próxima noche ignorará protect, cure y respaldo.');
+      details.push('+1 escudo caótico si tenías menos de 2.');
+      break;
+
+    case 'jam_hacker':
+      details.push('Jam de señal activado sobre tu nodo.');
+      details.push('Apareces SEGURO en escaneos SOC esta noche.');
+      details.push('El consenso hacker no puede eliminarte esta noche.');
+      details.push('Sobrevives un linchamiento al día siguiente.');
       break;
 
     case 'hacker_vote':
@@ -318,6 +514,10 @@ function pendingHeadline(role: string, actionType: string): string {
     protect: 'Protección enviada',
     freeze: 'Congelación enviada',
     bgp_swap: 'Intercambio BGP enviado',
+    chaos_route: 'Desvío caótico enviado',
+    dns_spoof: 'Envenenamiento DNS enviado',
+    rigged_payload: 'Carga manipulada enviada',
+    jam_hacker: 'Jam de señal enviado',
     honeypot_drag: 'Trampa honeypot configurada',
     hacker_vote: 'Voto hacker registrado',
     ransomware: 'Secuestro enviado',
