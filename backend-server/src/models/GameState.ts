@@ -18,11 +18,14 @@ import { MAX_PLAYERS } from '../utils/constants';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { getPublicChat } from '../game/ChatManager';
 import { buildStatsEntries } from '../game/GameStatsTracker';
+import { collectFrozenActors } from '../game/nightFreeze';
 
 export interface GameState {
   roomId: string;
   phase: GamePhase;
   phaseStartedAt: number;
+  /** Marca de tiempo al iniciar partida (REPARTO); no se reinicia por fase. */
+  gameStartedAt?: number;
   maxPlayers: number;
   players: PlayerProfile[];
   dayNumber: number;
@@ -44,6 +47,8 @@ export interface GameState {
   gameStats?: GameStats;
   lastChatSentAt?: Record<string, number>;
   sessionThreatBrief?: SessionThreatBrief;
+  /** Último voto diurno resuelto por jugador (para Keylogger). */
+  lastVoteByPlayer?: Record<string, string | null>;
 }
 
 /** Modelo mutable del estado de sala; una instancia por `Room`. */
@@ -51,6 +56,7 @@ export class GameStateModel implements GameState {
   roomId: string;
   phase: GamePhase = GamePhase.LOBBY;
   phaseStartedAt: number = Date.now();
+  gameStartedAt?: number;
   maxPlayers: number = MAX_PLAYERS;
   players: Player[] = [];
   dayNumber = 0;
@@ -69,6 +75,7 @@ export class GameStateModel implements GameState {
     nightDurationMs: 90_000,
     dayDurationMs: 120_000,
     voteDurationMs: 90_000,
+    botQaAutoRun: false,
   };
   phaseEndsAt: number | null = null;
   gameStats: GameStats = {
@@ -83,6 +90,7 @@ export class GameStateModel implements GameState {
   };
   lastChatSentAt: Record<string, number> = {};
   sessionThreatBrief?: SessionThreatBrief;
+  lastVoteByPlayer: Record<string, string | null> = {};
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -93,6 +101,7 @@ export class GameStateModel implements GameState {
     const s = new GameStateModel(obj.roomId || '');
     s.phase = obj.phase;
     s.phaseStartedAt = obj.phaseStartedAt || Date.now();
+    s.gameStartedAt = obj.gameStartedAt ?? undefined;
     s.maxPlayers = obj.maxPlayers ?? MAX_PLAYERS;
     s.dayNumber = obj.dayNumber || 0;
     s.nightNumber = obj.nightNumber || 0;
@@ -110,6 +119,7 @@ export class GameStateModel implements GameState {
     s.gameStats = obj.gameStats || s.gameStats;
     s.lastChatSentAt = obj.lastChatSentAt || {};
     s.sessionThreatBrief = obj.sessionThreatBrief;
+    s.lastVoteByPlayer = obj.lastVoteByPlayer || {};
     s.players = (obj.players || []).map((p: any) => {
       const pl = new Player(p.id, p.name, p.socketId);
       pl.role = p.role;
@@ -118,6 +128,8 @@ export class GameStateModel implements GameState {
       pl.isConnected = false;
       pl.joinedAt = p.joinedAt || Date.now();
       pl.metadata = p.metadata || {};
+      pl.isBot = p.isBot === true;
+      if (pl.isBot) pl.isConnected = true;
       return pl;
     });
     return s;
@@ -129,6 +141,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      gameStartedAt: this.gameStartedAt,
       phaseEndsAt: this.phaseEndsAt,
       maxPlayers: this.maxPlayers,
       players: this.players.map(p => this.playerToPlain(p)),
@@ -146,32 +159,42 @@ export class GameStateModel implements GameState {
       phaseConfig: this.phaseConfig,
       gameStats: this.gameStats,
       lastChatSentAt: this.lastChatSentAt,
+      lastVoteByPlayer: this.lastVoteByPlayer,
     };
   }
 
+  /** Jugadores con Deep Freeze activo esta noche (desde cola de acciones). */
+  private frozenPlayerIds(): Set<string> {
+    if (this.phase !== GamePhase.NOCHE) return new Set();
+    return collectFrozenActors(this.actionQueue);
+  }
+
   /**
-   * Estado enviado a un jugador móvil (`roomState`).
    * Oculta rol/equipo ajenos; sanitiza metadata según viewer.
    */
   toPlainForPlayer(viewerId: string) {
     // Durante la partida oculta rol/team de otros vivos y eliminados. El dashboard (publicState) sí revela rol de eliminados.
     const hideRoles = this.phase !== GamePhase.LOBBY && this.phase !== GamePhase.REPARTO && this.phase !== GamePhase.FIN;
+    const frozenIds = this.frozenPlayerIds();
     return {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      gameStartedAt: this.gameStartedAt,
       phaseEndsAt: this.phaseEndsAt,
       maxPlayers: this.maxPlayers,
       playerCount: this.players.length,
       players: this.players.map(p => {
         const plain = this.playerToPlain(p);
+        const frozen = frozenIds.has(p.id);
+        const withFrozen = { ...plain, frozen };
         if (hideRoles && p.id !== viewerId) {
-          return { ...plain, role: undefined, team: undefined, metadata: this.sanitizeMetadata(plain.metadata) };
+          return { ...withFrozen, role: undefined, team: undefined, metadata: this.sanitizeMetadata(plain.metadata) };
         }
         if (hideRoles && p.id === viewerId) {
-          return { ...plain, metadata: this.sanitizeMetadata(plain.metadata, true) };
+          return { ...withFrozen, metadata: this.sanitizeMetadata(plain.metadata, true) };
         }
-        return plain;
+        return withFrozen;
       }),
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
@@ -224,10 +247,12 @@ export class GameStateModel implements GameState {
    * Revela rol de jugadores eliminados; no expone metadata secreta.
    */
   toPublicState(): PublicGameState {
+    const frozenIds = this.frozenPlayerIds();
     return {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      gameStartedAt: this.gameStartedAt,
       phaseEndsAt: this.phaseEndsAt,
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
@@ -240,7 +265,10 @@ export class GameStateModel implements GameState {
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),
         infected: p.isAlive && isInfected(p),
+        frozen: frozenIds.has(p.id),
+        isBot: p.isBot === true,
         ...((!p.isAlive || this.phase === GamePhase.FIN) && p.role ? { role: p.role } : {}),
+        ...(this.phase === GamePhase.FIN && p.team ? { team: p.team } : {}),
       })),
       votes: { ...this.votes },
       winner: this.winner,
@@ -281,6 +309,7 @@ export class GameStateModel implements GameState {
       isConnected: p.isConnected,
       joinedAt: p.joinedAt,
       metadata: p.metadata,
+      isBot: p.isBot === true,
     };
   }
 
@@ -334,5 +363,23 @@ export class GameStateModel implements GameState {
       if (redirects && redirects[voterId]) return redirects[voterId];
     }
     return targetId;
+  }
+
+  /**
+   * Envenenador DNS: si el votante está envenenado este día, su voto va a otro nodo vivo al azar
+   * (nunca al mismo que eligió, si hay alternativas).
+   */
+  applyDnsVoteSpoof(voterId: string, targetId: string | null): string | null {
+    if (!targetId) return targetId;
+    const voter = this.getPlayer(voterId);
+    if (!voter?.isAlive) return targetId;
+    const meta = getMeta(voter);
+    if ((meta.dnsVoteSpoofUntilDay ?? 0) < this.dayNumber) return targetId;
+    const candidates = this.players.filter(
+      p => p.isAlive && p.id !== voterId && p.id !== targetId,
+    );
+    if (!candidates.length) return targetId;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    return picked.id;
   }
 }

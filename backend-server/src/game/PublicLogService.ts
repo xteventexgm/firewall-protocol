@@ -4,6 +4,7 @@
  */
 import { NightResolution } from '../types/events.types';
 import { GameStateModel } from '../models/GameState';
+import { Team } from '../types/roles.types';
 
 export interface PublicLogEntry {
   id: string;
@@ -24,6 +25,20 @@ function nextId(): string {
 function fmtTime(ts: number): string {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} UTC`;
+}
+
+/** Entrada de log de actividad bot (QA / modo dev). */
+export function buildBotQaLog(
+  message: string,
+  severity: 'info' | 'warn' | 'success' = 'info',
+): PublicLogEntry {
+  const ts = Date.now();
+  return {
+    id: nextId(),
+    timestamp: ts,
+    message: `${fmtTime(ts)} — [BOT/QA] ${message}`,
+    severity,
+  };
 }
 
 /** Entradas al iniciar partida. */
@@ -186,6 +201,20 @@ export function buildNightPublicLogs(
     });
   }
 
+  for (const leak of resolution.publicLeaks ?? []) {
+    entries.push(buildDataLeakLog(leak.team, leak.nightNumber));
+  }
+
+  for (const msg of resolution.publicAnnouncements ?? []) {
+    entries.push({
+      id: nextId(),
+      timestamp: ts + 95,
+      nightNumber: night,
+      message: `${fmtTime(ts + 95)} — [ANÓNIMO] ${msg}`,
+      severity: 'warn',
+    });
+  }
+
   entries.push({
     id: nextId(),
     timestamp: ts + 100,
@@ -230,6 +259,24 @@ export function buildTrollProvokeLog(message: string, nightNumber: number): Publ
     timestamp: ts,
     nightNumber,
     message: `${fmtTime(ts)} — [ANÓNIMO] ${message}`,
+    severity: 'warn',
+  };
+}
+
+const LEAK_TEAM_LABELS: Record<Team, string> = {
+  [Team.SYSTEM]: 'infraestructura legítima (System)',
+  [Team.BLACK_HAT]: 'amenaza externa (Black Hat)',
+  [Team.CHAOTIC]: 'actor anómalo (Caótico)',
+};
+
+/** Filtración anónima del Filtrador. */
+export function buildDataLeakLog(team: Team, nightNumber: number): PublicLogEntry {
+  const ts = Date.now();
+  return {
+    id: nextId(),
+    timestamp: ts,
+    nightNumber,
+    message: `${fmtTime(ts)} — [FILTRACIÓN] Inteligencia filtrada: un nodo en la red pertenece a ${LEAK_TEAM_LABELS[team]}.`,
     severity: 'warn',
   };
 }

@@ -12,7 +12,11 @@ export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 /** Metadata propia visible en roomState (backend sanitizeMetadata isSelf). */
 export interface PlayerRoleMeta {
   pentesterUsesLeft?: number;
+  bruteForceUsesLeft?: number;
+  backupMarkUsesLeft?: number;
+  intelPulseUsed?: boolean;
   shieldCharges?: number;
+  chaosShieldCharges?: number;
   ransomwareCooldown?: number;
   isWormImmune?: boolean;
   assumedFromPlayerId?: string | null;
@@ -65,6 +69,7 @@ export interface RoomPlayer {
   isConnected: boolean;
   silenced?: boolean;
   infected?: boolean;
+  frozen?: boolean;
   infectionMaturesAfterNight?: number;
   joinedAt?: number;
   role?: string;
@@ -80,7 +85,18 @@ export type PrivateResultType =
   | 'infected'
   | 'cured'
   | 'infection_warning'
-  | 'miner_update';
+  | 'miner_update'
+  | 'team_probe'
+  | 'forensic_trace'
+  | 'ids_alert'
+  | 'threat_hunt'
+  | 'intel_pulse'
+  | 'ally_verify'
+  | 'dns_spoof'
+  | 'lateral_probe'
+  | 'vote_trace'
+  | 'vuln_scan'
+  | 'cred_probe';
 
 export interface VisitorActivity {
   playerId: string;
@@ -109,12 +125,31 @@ export interface PrivateResultPayload {
   minedTargetId?: string;
   bribedTargetId?: string;
   bribeKilled?: boolean;
+  probedTeam?: string;
+  wasKilledLastNight?: boolean;
+  hostileVisitCount?: number;
+  killTally?: { system: number; black_hat: number; chaotic: number };
+  threatDetected?: boolean;
+  isSystemMember?: boolean;
+  isAlly?: boolean;
+  tracedVoteTargetId?: string | null;
+  compromised?: boolean;
+  credentialTier?: 'critical_defense' | 'standard';
+  factionCounts?: { system: number; black_hat: number; chaotic: number };
 }
 
 export interface PlayerRoomState {
   roomId: string;
   phase: GamePhase;
   phaseStartedAt: number;
+  gameStartedAt?: number;
+  phaseEndsAt?: number | null;
+  phaseConfig?: {
+    autoAdvance: boolean;
+    nightDurationMs: number;
+    dayDurationMs: number;
+    voteDurationMs: number;
+  };
   players: RoomPlayer[];
   dayNumber: number;
   nightNumber: number;
@@ -129,6 +164,14 @@ export interface PlayerRoomState {
   winner?: string | null;
   soloWinner?: { playerId: string; role: string; reason: string } | null;
   lastNightKills?: string[];
+  sessionThreatBrief?: SessionThreatBrief;
+}
+
+export interface SessionThreatBrief {
+  hackerCount: number;
+  intruderCount: number;
+  systemCount: number;
+  nodeCount: number;
 }
 
 /** Payload socket `incidentReport` (backend events.types.ts). */
@@ -190,6 +233,7 @@ export interface PlayerView {
   nightActionHint?: string;
   isDead: boolean;
   silenced?: boolean;
+  frozen?: boolean;
   isConnected?: boolean;
 }
 

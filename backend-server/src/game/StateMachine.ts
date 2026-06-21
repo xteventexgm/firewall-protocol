@@ -48,6 +48,13 @@ export class StateMachine extends EventEmitter {
 
   transitionTo(target: GamePhase) {
     if (target === this.phase) return false;
+    if (target === GamePhase.FIN) {
+      const from = this.phase;
+      this.phase = GamePhase.FIN;
+      this.phaseStartedAt = Date.now();
+      this.emit('phaseChanged', { from, to: target, at: this.phaseStartedAt });
+      return true;
+    }
     if (!this.canTransitionTo(target)) {
       throw new Error(`Invalid transition from ${this.phase} to ${target}`);
     }

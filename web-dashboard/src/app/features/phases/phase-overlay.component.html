@@ -35,13 +35,11 @@
   </div>
 }
 
-@if (phase === 'VERIFICACION') {
-  <div class="phase-banner verificacion-banner">
-    <span class="banner-icon">◉</span>
-    <div>
-      <p class="banner-title">Verificación de integridad</p>
-      <p class="banner-sub">Comprobando condiciones de victoria antes de continuar</p>
-    </div>
+@if (phase === 'VOTACION' && voteUrgentSeconds > 0) {
+  <div class="vote-urgent-overlay" [attr.data-seconds]="voteUrgentSeconds">
+    <div class="vote-urgent-ring"></div>
+    <p class="vote-urgent-label">CIERRE DE VOTACIÓN</p>
+    <p class="vote-urgent-count">{{ voteUrgentSeconds }}</p>
   </div>
 }
 
@@ -67,16 +65,6 @@
         </li>
       }
     </ul>
-  </div>
-}
-
-@if (phase === 'VOTACION') {
-  <div class="vote-banner">
-    <span class="vote-pulse"></span>
-    VOTACIÓN EN CURSO — Trazando conexiones de voto
-    @if (voteTiedMessage) {
-      <span class="vote-tied-inline">{{ voteTiedMessage }}</span>
-    }
   </div>
 }
 

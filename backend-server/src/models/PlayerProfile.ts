@@ -18,6 +18,8 @@ export interface PlayerProfile {
   joinedAt: number;
   /** Flags por rol: cooldowns, infección, escudos, etc. Ver `player-metadata.types.ts`. */
   metadata?: Record<string, any>;
+  /** Jugador simulado para QA (sin socket móvil). */
+  isBot?: boolean;
 }
 
 /** Instancia mutable de jugador en runtime. */
@@ -31,6 +33,7 @@ export class Player implements PlayerProfile {
   isConnected = true;
   joinedAt: number;
   metadata?: Record<string, any>;
+  isBot?: boolean;
   /** 'transport' = caída de socket; 'voluntary' = salió con leaveRoom. */
   lastDisconnectReason?: 'voluntary' | 'transport';
 

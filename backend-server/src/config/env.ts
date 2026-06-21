@@ -21,6 +21,14 @@ export const DAY_DURATION_MS = Number(process.env.DAY_DURATION_MS || 60_000);
 /** Si true, las fases NOCHE y DIA avanzan automáticamente tras el timeout configurado. */
 export const AUTO_ADVANCE = process.env.AUTO_ADVANCE === 'true' || process.env.AUTO_ADVANCE === '1';
 
+/** Bots de QA: relleno de sala y acciones automáticas (solo dev/QA). Desactivar con DEV_BOTS=false. */
+export const DEV_BOTS_ENABLED =
+  process.env.DEV_BOTS !== 'false' && process.env.DEV_BOTS !== '0';
+
+export function devBotsEnabled(): boolean {
+  return DEV_BOTS_ENABLED;
+}
+
 /** Opciones de timer y auto-avance aplicadas al construir cada `Room`. */
 export function defaultRoomOptions() {
   return {

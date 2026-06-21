@@ -11,9 +11,11 @@ export class GameOverOverlayComponent {
   @Input({ required: true }) summary!: GameOverSummary;
   @Input() roomId = '';
   @Input() exportingReplay = false;
+  @Input() exportingSessionLog = false;
 
   @Output() exitRoom = new EventEmitter<void>();
   @Output() exportReplay = new EventEmitter<void>();
+  @Output() exportSessionLog = new EventEmitter<void>();
   @Output() startNewGame = new EventEmitter<void>();
 
   onExitRoom(): void {
@@ -22,6 +24,10 @@ export class GameOverOverlayComponent {
 
   onExportReplay(): void {
     this.exportReplay.emit();
+  }
+
+  onExportSessionLog(): void {
+    this.exportSessionLog.emit();
   }
 
   onStartNewGame(): void {

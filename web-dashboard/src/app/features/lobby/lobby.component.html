@@ -215,6 +215,9 @@
       @if (state) {
         <p class="mt-1">Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}</p>
       }
+      @if (botQaRunning) {
+        <p class="mt-1 text-cyber-accent qa-running-hint">Modo QA: avance automático hasta FIN</p>
+      }
       @if (gameOverActive) {
         <p class="mt-1 text-cyber-accent">Partida finalizada</p>
       }
@@ -240,6 +243,34 @@
           Aplicar timers
         </button>
       </section>
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="onFillBots()"
+        [disabled]="!canFillBots"
+        title="Bots de QA: rellenan hasta la capacidad máxima de la sala"
+      >
+        Añadir bots hasta {{ capacity }}
+      </button>
+      @if (botCount > 0) {
+        <button
+          type="button"
+          class="btn-secondary btn-sm"
+          (click)="onClearBots()"
+          [disabled]="!canClearBots"
+        >
+          Quitar bots ({{ botCount }})
+        </button>
+      }
+      <button
+        type="button"
+        class="btn-secondary btn-qa-match"
+        (click)="onRunBotQaMatch()"
+        [disabled]="!canRunBotQaMatch"
+        title="Rellena bots, inicia y avanza automáticamente hasta el ganador"
+      >
+        Partida QA automática
+      </button>
       <button
         type="button"
         class="btn-primary"
@@ -270,7 +301,12 @@
       <ul class="player-list text-xs max-h-32 overflow-y-auto">
         @for (player of state.players; track player.id) {
           <li class="flex justify-between py-1 border-b border-cyber-border/50">
-            <span>{{ player.name }}</span>
+            <span>
+              {{ player.name }}
+              @if (player.isBot) {
+                <span class="bot-badge">BOT</span>
+              }
+            </span>
             <span class="player-status">
               <span>
                 <span [class.text-cyber-danger]="!player.isAlive">

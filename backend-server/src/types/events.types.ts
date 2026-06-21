@@ -69,13 +69,15 @@ export interface PublicPlayerState {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  /** Nodo con Deep Freeze activo esta noche. */
+  frozen?: boolean;
   /** Nodo con infección activa (visible en dashboard). */
   infected?: boolean;
   /** Visible en dashboard cuando el jugador está eliminado o la partida terminó. */
   role?: RoleId;
 }
 
-/** Resumen de amenaza al iniciar partida (solo dashboard / narrativa TV). */
+/** Resumen de amenaza al iniciar partida (dashboard TV + briefing móvil día 1). */
 export interface SessionThreatBrief {
   hackerCount: number;
   /** Caóticos — etiqueta diegética: "intrusos". */
@@ -110,6 +112,8 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  /** Modo QA: avance automático hasta FIN cuando hay bots (solo dev). */
+  botQaAutoRun?: boolean;
 }
 
 export interface NightProgress {
@@ -156,6 +160,7 @@ export interface PublicGameState {
   roomId: RoomId;
   phase: GamePhase;
   phaseStartedAt: number;
+  gameStartedAt?: number;
   phaseEndsAt?: number | null;
   dayNumber: number;
   nightNumber: number;
@@ -191,7 +196,27 @@ export interface SoloWinner {
 export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 
 export interface PrivateResultPayload {
-  type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned' | 'infected' | 'cured' | 'infection_warning' | 'miner_update';
+  type:
+    | 'scan'
+    | 'spy'
+    | 'hacker_team'
+    | 'role_assigned'
+    | 'infected'
+    | 'cured'
+    | 'infection_warning'
+    | 'miner_update'
+    | 'team_probe'
+    | 'forensic_trace'
+    | 'ids_alert'
+    | 'threat_hunt'
+    | 'intel_pulse'
+    | 'integrity_check'
+    | 'ally_verify'
+    | 'dns_spoof'
+    | 'lateral_probe'
+    | 'vote_trace'
+    | 'vuln_scan'
+    | 'cred_probe';
   targetId?: PlayerId;
   result?: ScanResult;
   visitors?: PlayerId[];
@@ -215,6 +240,27 @@ export interface PrivateResultPayload {
   minedTargetId?: PlayerId;
   bribedTargetId?: PlayerId;
   bribeKilled?: boolean;
+  /** Analista Forense: el objetivo murió en la última noche resuelta. */
+  wasKilledLastNight?: boolean;
+  /** Sniffer: bando del objetivo. */
+  probedTeam?: Team;
+  /** IDS: visitas hostiles detectadas sobre el nodo vigilado. */
+  hostileVisitCount?: number;
+  /** Forense: bajas de la última noche por bando. */
+  killTally?: { system: number; black_hat: number; chaotic: number };
+  /** Cazador / integridad / lateral / aliado. */
+  threatDetected?: boolean;
+  isSystemMember?: boolean;
+  isAlly?: boolean;
+  /** Keylogger: a quién votó el objetivo. */
+  tracedVoteTargetId?: PlayerId | null;
+  /** Vuln scan / cred probe. */
+  compromised?: boolean;
+  credentialTier?: 'critical_defense' | 'standard';
+  /** Intel de amenazas. */
+  factionCounts?: { system: number; black_hat: number; chaotic: number };
+  /** DNS spoof: voto aleatorio aplicado (tras votación). */
+  spoofedVoteTargetId?: PlayerId | null;
 }
 
 export interface VoteTrace {
@@ -243,6 +289,10 @@ export interface NightResolution {
   infections: PlayerId[];
   cures: PlayerId[];
   infectionKills: PlayerId[];
+  /** Filtraciones públicas (Filtrador) para el feed al amanecer. */
+  publicLeaks?: { team: Team; nightNumber: number }[];
+  /** Mensajes anónimos adicionales (Nota de Rescate, etc.). */
+  publicAnnouncements?: string[];
 }
 
 /** Payload reducido de `nightResolved` para namespace `/game` (sin logs ni privateResults). */

@@ -17,6 +17,8 @@ export class PhaseOverlayComponent implements OnChanges {
   @Input() showIncidentReport = false;
   @Input() incidentNightNumber = 0;
   @Input() voteTiedMessage = '';
+  @Input() voteUrgentSeconds = 0;
+  @Input() blockPhaseOverlays = false;
 
   showNightOverlay = false;
   showDawnFlash = false;
@@ -26,8 +28,14 @@ export class PhaseOverlayComponent implements OnChanges {
   private bootTimer?: ReturnType<typeof setTimeout>;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (this.blockPhaseOverlays) {
+      this.showNightOverlay = false;
+      this.showDawnFlash = false;
+      return;
+    }
+
     if (changes['phase']) {
-      if (this.phase === 'DIA' && this.prevPhase === 'REPARTO' && this.dayNumber >= 1) {
+      if (this.phase === 'DIA' && this.prevPhase === 'REPARTO' && this.dayNumber > 1) {
         this.triggerBootSequence();
       }
       this.prevPhase = this.phase;
