@@ -100,3 +100,20 @@ body {
 .animate-blackout {
   animation: blackout 1.5s ease-in forwards;
 }
+
+@keyframes freeze-node-pulse {
+  0%, 100% { stroke-opacity: 0.45; }
+  50% { stroke-opacity: 1; }
+}
+
+.player-node.node-frozen .node-hex-outer {
+  stroke: #7dd3fc88;
+  animation: freeze-node-pulse 1.6s ease-in-out infinite;
+}
+.player-node.node-frozen .node-hex-inner {
+  stroke: #93c5fd;
+  fill: #0a1420;
+}
+.player-node.node-frozen .node-status {
+  fill: #bae6fd;
+}

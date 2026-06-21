@@ -2,7 +2,12 @@
  * Condiciones de victoria y efectos post-noche (cooldowns).
  *
  * Orden en `checkAnyWin`: solitarias (Troll, Gusano, Minero) → bando → desempate por días.
- * Black Hat gana con strictly más hackers que System (`>`).
+ *
+ * Tres bandos en conteo de victoria de equipo:
+ * - System: 0 hackers Y 0 caóticos vivos (≥1 system).
+ * - Black Hat: 0 system vivos, ≥1 hacker, y si quedan caóticos entonces hackers > caóticos.
+ * - Caóticos cuentan como tercer equipo; no se ignoran en el fin de partida por bando.
+ *
  * Zero-Day hereda victoria de bando al asumir rol (rol y team cambian).
  */
 import { SoloWinner } from '../types';
@@ -16,6 +21,22 @@ export type WinResult =
   | { over: true; type: 'team'; winner: Team }
   | { over: true; type: 'solo'; solo: SoloWinner }
   | { over: false };
+
+export interface FactionCounts {
+  hackers: number;
+  system: number;
+  chaotics: number;
+}
+
+/** Conteo de vivos por bando (team, no rol asumido por Zero-Day ya refleja team actualizado). */
+export function countFactionAlive(state: GameStateModel): FactionCounts {
+  const alive = state.getAlivePlayers();
+  return {
+    hackers: alive.filter(p => p.team === Team.BLACK_HAT).length,
+    system: alive.filter(p => p.team === Team.SYSTEM).length,
+    chaotics: alive.filter(p => p.team === Team.CHAOTIC).length,
+  };
+}
 
 function checkSoloWin(state: GameStateModel, context: { justVotedOut?: string } = {}): WinResult {
   const alive = state.getAlivePlayers();
@@ -61,6 +82,16 @@ function pickChaoticStalemateWinner(alive: ReturnType<GameStateModel['getAlivePl
     RoleName.WORM,
     RoleName.CRYPTO_MINER,
     RoleName.TROLL,
+    RoleName.SHADOW,
+    RoleName.LOGIC_BOMB,
+    RoleName.DATA_LEAKER,
+    RoleName.DNS_POISONER,
+    RoleName.RANSOM_NOTE,
+    RoleName.DROPPER,
+    RoleName.SABOTEUR,
+    RoleName.WHITE_NOISE,
+    RoleName.MIRAGE,
+    RoleName.CHAOS_ROUTER,
     RoleName.ZERO_DAY,
   ];
   for (const role of priority) {
@@ -77,51 +108,76 @@ function pickChaoticStalemateWinner(alive: ReturnType<GameStateModel['getAlivePl
 }
 
 function checkTeamWin(state: GameStateModel): WinResult {
-  const alive = state.getAlivePlayers();
-  const hackers = alive.filter(p => p.team === Team.BLACK_HAT);
-  const systemSide = alive.filter(p => p.team === Team.SYSTEM);
+  const { hackers: H, system: S, chaotics: C } = countFactionAlive(state);
 
-  if (hackers.length === 0 && systemSide.length > 0) {
+  // System: red limpia — sin hackers ni caóticos amenazando
+  if (H === 0 && C === 0 && S >= 1) {
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
-  if (hackers.length === 0 && systemSide.length === 0 && alive.length > 0) {
-    const soloOnly = checkSoloWin(state);
-    if (soloOnly.over) return soloOnly;
-    return pickChaoticStalemateWinner(alive);
+  // Black Hat: infraestructura caída; domina caóticos si aún quedan
+  if (S === 0 && H >= 1 && (C === 0 || H > C)) {
+    return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 
-  if (hackers.length > systemSide.length && hackers.length > 0) {
-    return { over: true, type: 'team', winner: Team.BLACK_HAT };
+  if (H === 0 && S === 0 && C > 0) {
+    const soloOnly = checkSoloWin(state);
+    if (soloOnly.over) return soloOnly;
+    return { over: false };
   }
 
   return { over: false };
 }
 
 /**
- * Desempate por límite de días: evita partidas eternas con caóticos bloqueando mayorías.
- * Gana Black Hat si hackers > system; en empate o ventaja system, gana System.
+ * Desempate por límite de días: evita partidas eternas.
+ * Prioriza las mismas condiciones de bando; si nadie las cumple, contención (System) o caótico.
  */
 function checkStalemateBreak(state: GameStateModel): WinResult {
   const limit = stalemateDayLimit(state.initialPlayerCount || state.players.length);
   if (state.dayNumber < limit) return { over: false };
 
-  const alive = state.getAlivePlayers();
-  const hackers = alive.filter(p => p.team === Team.BLACK_HAT);
-  const systemSide = alive.filter(p => p.team === Team.SYSTEM);
+  const team = checkTeamWin(state);
+  if (team.over) return team;
 
-  if (hackers.length === 0) {
-    if (systemSide.length > 0) {
+  const { hackers: H, system: S, chaotics: C } = countFactionAlive(state);
+  const alive = state.getAlivePlayers();
+
+  if (H === 0 && C === 0 && S > 0) {
+    return { over: true, type: 'team', winner: Team.SYSTEM };
+  }
+
+  if (S === 0 && H >= 1 && (C === 0 || H > C)) {
+    return { over: true, type: 'team', winner: Team.BLACK_HAT };
+  }
+
+  if (H === 0 && S > 0 && C > 0) {
+    if (S > C) {
       return { over: true, type: 'team', winner: Team.SYSTEM };
     }
     const chaoticOnly = pickChaoticStalemateWinner(alive);
     if (chaoticOnly.over) return chaoticOnly;
-    return { over: false };
   }
 
-  if (hackers.length > systemSide.length) {
-    return { over: true, type: 'team', winner: Team.BLACK_HAT };
+  if (H > 0 && S === 0 && C > 0) {
+    if (H > C) {
+      return { over: true, type: 'team', winner: Team.BLACK_HAT };
+    }
+    const chaoticOnly = pickChaoticStalemateWinner(alive);
+    if (chaoticOnly.over) return chaoticOnly;
   }
+
+  if (H > 0 && S > 0) {
+    if (S > H && S >= C) {
+      return { over: true, type: 'team', winner: Team.SYSTEM };
+    }
+    if (H > S && H > C) {
+      return { over: true, type: 'team', winner: Team.BLACK_HAT };
+    }
+  }
+
+  const chaoticOnly = pickChaoticStalemateWinner(alive);
+  if (chaoticOnly.over) return chaoticOnly;
 
   return { over: true, type: 'team', winner: Team.SYSTEM };
 }

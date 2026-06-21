@@ -67,7 +67,7 @@ En dispositivo nativo, la app oculta la barra de estado del sistema (`StatusBar.
 
 1. Ingresar código de sala y alias.
 2. Esperar en lobby hasta que el host inicie.
-3. Leer briefing de rol (~14 s) y confirmar.
+3. Leer briefing de rol (~20 s) → vibración → alerta de amenaza según tu equipo (~20 s).
 4. **Noche:** elegir acción/objetivo si el rol lo permite; completar minijuegos (skill checks) cuando el servidor los envíe.
 5. **Día / Votación:** debatir (chat público) y votar objetivo o abstenerse.
 6. **Black Hat en noche:** canal de chat hacker exclusivo del equipo.

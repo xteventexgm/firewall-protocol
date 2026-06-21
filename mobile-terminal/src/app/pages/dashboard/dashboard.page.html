@@ -44,6 +44,21 @@
       <div class="phase-bulletin-banner">{{ phaseBulletin }}</div>
     }
 
+    @if (voteUrgentSeconds > 0 && gamePhase === 'VOTACION') {
+      <div class="vote-urgent-overlay" [attr.data-seconds]="voteUrgentSeconds">
+        <div class="vote-urgent-ring"></div>
+        <p class="vote-urgent-label">CIERRE DE VOTACIÓN</p>
+        <p class="vote-urgent-count">{{ voteUrgentSeconds }}</p>
+      </div>
+    }
+
+    @if (phaseCountdown && gamePhase !== 'LOBBY' && gamePhase !== 'FIN') {
+      <div class="phase-countdown-pill">⏱ {{ phaseCountdown }}</div>
+    }
+    @if (matchElapsed && gamePhase !== 'LOBBY' && gamePhase !== 'FIN') {
+      <div class="match-elapsed-pill" title="Duración de partida">{{ matchElapsed }}</div>
+    }
+
     <div class="metrics-row" *ngIf="!showControlDock">
       <div class="metric">
         <span class="metric-value">{{ players.length }}/{{ maxPlayers }}</span>
@@ -116,6 +131,7 @@
         </div>
         <h2 class="role-name">{{ playerRole }}</h2>
         <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
+        <p *ngIf="isFrozen && gamePhase === 'NOCHE'" class="frozen-warn">❄ Nodo congelado — no puedes actuar esta noche</p>
       </section>
 
       <main class="phase-content">
@@ -406,6 +422,7 @@
               <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
             </ng-container>
             <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+            <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
             <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
             <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
           </li>
@@ -456,6 +473,7 @@
             <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
           </ng-container>
           <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+          <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
           <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
           <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
         </li>
@@ -524,6 +542,54 @@
       <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissRoleBriefing()">
         Entendido — entrar a la red
       </button>
+    </div>
+  </div>
+
+  <!-- Overlay: alerta de amenaza / acceso (post-rol, día 1) -->
+  <div
+    *ngIf="showThreatBriefing && threatBriefingView as threat"
+    class="fullscreen-overlay threat-briefing"
+    [attr.data-team]="threat.accent"
+  >
+    <div class="overlay-content threat-briefing-card">
+      <p class="threat-brief-code">{{ threat.code }}</p>
+      <h1 class="threat-brief-title">{{ threat.title }}</h1>
+      <p class="threat-brief-lead">{{ threat.lead }}</p>
+      <ul class="threat-brief-stats">
+        <li *ngFor="let stat of threat.stats">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
+        </li>
+      </ul>
+      <p class="threat-brief-footer">{{ threat.footer }}</p>
+      <div class="briefing-progress">
+        <div class="briefing-progress-fill threat-progress-fill" [style.width.%]="threatBriefingProgress"></div>
+      </div>
+      <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissThreatBriefing()">
+        Continuar sesión
+      </button>
+    </div>
+  </div>
+
+  <!-- Overlay: nodo desconectado / eliminado -->
+  <div
+    *ngIf="showNodeDeathAlert && nodeDeathAlert"
+    class="node-death-overlay"
+    [class.node-death-overlay--exit]="nodeDeathAlertExiting"
+    role="alert"
+    aria-live="assertive"
+  >
+    <div class="node-death-card" [class.node-death-card--exit]="nodeDeathAlertExiting">
+      <div class="node-death-scanline" aria-hidden="true"></div>
+      <p class="node-death-kicker">ALERTA DE RED</p>
+      <h2 class="node-death-headline">{{ nodeDeathAlert.headline }}</h2>
+      <div class="node-death-names">
+        <span class="node-death-name" *ngFor="let name of nodeDeathAlert.playerNames">{{ name }}</span>
+      </div>
+      <p class="node-death-sub">{{ nodeDeathAlert.subtitle }}</p>
+      <div class="node-death-bar" aria-hidden="true">
+        <span class="node-death-bar-fill"></span>
+      </div>
     </div>
   </div>
 

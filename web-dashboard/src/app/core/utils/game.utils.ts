@@ -29,6 +29,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,
     role: p.role ?? undefined,
+    team: p.team ?? undefined,
   }));
 
   return {

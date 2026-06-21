@@ -4,6 +4,7 @@
 import { Namespace, Socket } from 'socket.io';
 import Room from '../game/Room';
 import { toPublicNightResolution } from '../types/events.types';
+import { attachBotController } from '../game/BotController';
 
 export function broadcastRoomState(gameNs: Namespace, room: Room) {
   for (const p of room.state.players) {
@@ -21,11 +22,14 @@ function broadcastPublicState(dashboardNs: Namespace | undefined, room: Room) {
 export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
   if ((room as any)._bridged) return;
   (room as any)._bridged = true;
+  attachBotController(room);
 
   const refresh = () => {
     broadcastRoomState(gameNs, room);
     broadcastPublicState(dashboardNs, room);
   };
+
+  room.on('actionAccepted', refresh);
 
   room.on('phaseChanged', ({ roomId, to }) => {
     gameNs.to(roomId).emit('phaseChanged', roomId, to);

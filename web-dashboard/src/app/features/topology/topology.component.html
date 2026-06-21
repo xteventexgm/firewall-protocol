@@ -214,6 +214,7 @@
         <g
           [ngClass]="nodeClasses(node.player)"
           [class.glitch]="isGlitching(node.id)"
+          [class.node-banning]="isBanAnimating(node.id)"
           [class.node-spawn]="isSpawning(node.id)"
           [class.node-connected-blink]="isConnectedBlink(node.id)"
           [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"

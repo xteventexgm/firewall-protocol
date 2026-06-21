@@ -46,6 +46,9 @@ export class LobbyComponent implements OnChanges {
   @Output() removeSavedRoom = new EventEmitter<string>();
   @Output() setPhaseConfig = new EventEmitter<Partial<PhaseConfig>>();
   @Output() toggleSound = new EventEmitter<void>();
+  @Output() fillBots = new EventEmitter<void>();
+  @Output() clearBots = new EventEmitter<void>();
+  @Output() runBotQaMatch = new EventEmitter<void>();
 
   autoAdvance = false;
   nightMinutes = 1.5;
@@ -81,6 +84,34 @@ export class LobbyComponent implements OnChanges {
       this.playerCount >= this.minPlayers &&
       this.state?.phase === 'LOBBY'
     );
+  }
+
+  get botCount(): number {
+    return this.state?.players.filter((p) => p.isBot).length ?? 0;
+  }
+
+  get canFillBots(): boolean {
+    return (
+      !this.gameOverActive &&
+      this.state?.phase === 'LOBBY' &&
+      this.playerCount < this.capacity
+    );
+  }
+
+  get botsNeededForCapacity(): number {
+    return Math.max(0, this.capacity - this.playerCount);
+  }
+
+  get canClearBots(): boolean {
+    return !this.gameOverActive && this.state?.phase === 'LOBBY' && this.botCount > 0;
+  }
+
+  get botQaRunning(): boolean {
+    return this.state?.phaseConfig?.botQaAutoRun === true && this.state.phase !== 'LOBBY';
+  }
+
+  get canRunBotQaMatch(): boolean {
+    return !this.gameOverActive && this.state?.phase === 'LOBBY';
   }
 
   get canAdvance(): boolean {
@@ -129,7 +160,7 @@ export class LobbyComponent implements OnChanges {
       autoAdvance: this.autoAdvance,
       nightDurationMs: Math.round(this.nightMinutes * 60_000),
       dayDurationMs: Math.round(this.dayMinutes * 60_000),
-      voteDurationMs: Math.round(this.nightMinutes * 60_000),
+      voteDurationMs: Math.round(this.dayMinutes * 60_000),
     });
   }
 
@@ -141,6 +172,27 @@ export class LobbyComponent implements OnChanges {
   onStartGame(): void {
     this.gameSound.playUi('confirm');
     this.startGame.emit();
+  }
+
+  onFillBots(): void {
+    this.gameSound.playUi('confirm');
+    this.fillBots.emit();
+  }
+
+  onClearBots(): void {
+    this.gameSound.playUi('click');
+    this.clearBots.emit();
+  }
+
+  onRunBotQaMatch(): void {
+    this.gameSound.playUi('confirm');
+    this.setPhaseConfig.emit({
+      autoAdvance: true,
+      nightDurationMs: Math.round(this.nightMinutes * 60_000),
+      dayDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.dayMinutes * 60_000),
+    });
+    this.runBotQaMatch.emit();
   }
 
   onAdvancePhase(): void {

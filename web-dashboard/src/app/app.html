@@ -3,7 +3,7 @@
     <app-home-atmosphere />
   }
 
-  <div class="lobby-wrapper" [class.lobby-wrapper--home]="!inRoom">
+  <div class="lobby-wrapper" [class.lobby-wrapper--home]="!inRoom" [class.lobby-wrapper--hidden]="gameFullscreenMode">
     <app-lobby
       class="shrink-0"
       [class.home-mode]="!inRoom"
@@ -22,6 +22,9 @@
       (advancePhase)="onAdvancePhase()"
       (setPhaseConfig)="onSetPhaseConfig($event)"
       (toggleSound)="toggleSound()"
+      (fillBots)="onFillBots()"
+      (clearBots)="onClearBots()"
+      (runBotQaMatch)="onRunBotQaMatch()"
       [soundMuted]="soundMuted"
     />
   </div>
@@ -31,26 +34,48 @@
       <div class="grid-bg absolute inset-0 pointer-events-none"></div>
 
       @if (state) {
-        <header class="stage-hud">
+        <header class="stage-hud" [class.stage-hud--fullscreen]="gameFullscreenMode">
+          @if (gameFullscreenMode) {
+            <button type="button" class="hud-advance-btn" (click)="onAdvancePhase()">
+              Avanzar fase
+            </button>
+          }
           <div class="hud-phase">
             <span class="hud-dot" [attr.data-phase]="state.phase"></span>
             <span class="hud-label">{{ state.phase }}</span>
             @if (phaseElapsed) {
-              <span class="hud-timer">{{ phaseElapsed }}</span>
+              <span class="hud-timer" title="Duración de partida">{{ phaseElapsed }}</span>
             }
             @if (phaseCountdown) {
-              <span class="hud-countdown">{{ phaseCountdown }}</span>
+              <span class="hud-countdown" title="Tiempo restante de fase">{{ phaseCountdown }}</span>
             }
           </div>
           <div class="hud-meta">
             Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}
             · {{ state.playerCount }}/{{ state.maxPlayers }} nodos
           </div>
+          @if (state.phase === 'NOCHE' && state.nightProgress && state.nightProgress.total > 0) {
+            <div class="hud-night-progress">
+              <span class="hud-np-label">Noche</span>
+              <div class="hud-np-bar">
+                <div
+                  class="hud-np-fill"
+                  [style.width.%]="(state.nightProgress.acted / state.nightProgress.total) * 100"
+                ></div>
+              </div>
+              <span class="hud-np-count">{{ state.nightProgress.acted }}/{{ state.nightProgress.total }}</span>
+            </div>
+          }
           @if (phaseBulletinText) {
             <p class="hud-bulletin">{{ phaseBulletinText }}</p>
           }
         </header>
       }
+
+      <app-role-distribution-overlay
+        [visible]="showRoleDistribution"
+        (dismissed)="onRoleDistributionDismissed()"
+      />
 
       <app-threat-briefing
         [brief]="state?.sessionThreatBrief ?? null"
@@ -71,10 +96,6 @@
         [phase]="state?.phase ?? 'LOBBY'"
         [highlightTrace]="highlightTrace"
         [voteTied]="!!voteTiedMessage"
-      />
-
-      <app-night-progress
-        [progress]="state?.nightProgress ?? null"
       />
 
       <app-public-night-logs
@@ -100,6 +121,15 @@
         [showIncidentReport]="showIncidentReport"
         [incidentNightNumber]="incidentNightNumber"
         [voteTiedMessage]="voteTiedMessage"
+        [voteUrgentSeconds]="voteUrgentSeconds"
+        [blockPhaseOverlays]="blockPhaseOverlays"
+      />
+
+
+      <app-node-death-alert
+        [visible]="nodeDeathAlertVisible"
+        [exiting]="nodeDeathAlertExiting"
+        [alert]="nodeDeathAlert"
       />
 
       @if (showGameOver && gameOverSummary) {
@@ -107,8 +137,10 @@
           [summary]="gameOverSummary"
           [roomId]="roomCode"
           [exportingReplay]="exportingReplay"
+          [exportingSessionLog]="exportingSessionLog"
           (exitRoom)="onBackToLobby()"
           (exportReplay)="onExportReplay()"
+          (exportSessionLog)="onExportSessionLog()"
           (startNewGame)="onStartNewGame()"
         />
       }
@@ -121,7 +153,11 @@
       }
 
       @if (statusMessage) {
-        <div class="toast status-toast" [attr.data-type]="statusMessageType">
+        <div
+          class="toast status-toast"
+          [class.status-toast--bottom]="statusToastBottom"
+          [attr.data-type]="statusMessageType"
+        >
           <span class="toast-prefix">&gt;</span>
           {{ statusMessage }}
         </div>

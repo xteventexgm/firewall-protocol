@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GAMES_DIR, FINISHED_GAMES_DIR, DELETED_GAMES_DIR } from '../utils/constants';
 import { logger } from '../utils/logger';
+import { writeSessionLogFile } from './GameSessionLogService';
 
 export type GameArchiveCategory = 'finishgame' | 'deletegame';
 
@@ -66,6 +67,9 @@ export function archiveGameState(roomId: string, category: GameArchiveCategory, 
       ...state,
     };
     fs.writeFileSync(path.join(targetDir, `${roomId}.json`), JSON.stringify(payload, null, 2), 'utf8');
+    if (category === 'finishgame') {
+      writeSessionLogFile(roomId, payload);
+    }
     fs.unlinkSync(activeFile);
     logger.info('[db] archived', { roomId, category, targetDir });
     return true;
@@ -123,9 +127,24 @@ export function getActiveRoomStatus(roomId: string, playerId?: string): {
   return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
 }
 
+/** Carga JSON activo, o partida archivada en finishgame/ si ya terminó. */
+export function loadGameStateOrArchive(roomId: string): any | null {
+  const active = loadGameState(roomId);
+  if (active) return active;
+  try {
+    const file = path.join(FINISHED_GAMES_DIR, `${roomId}.json`);
+    if (!fs.existsSync(file)) return null;
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err: any) {
+    logger.error('Failed to load archived game state', err.message || err);
+    return null;
+  }
+}
+
 export default {
   saveGameState,
   loadGameState,
+  loadGameStateOrArchive,
   deleteGameState,
   archiveGameState,
   listSavedGames,

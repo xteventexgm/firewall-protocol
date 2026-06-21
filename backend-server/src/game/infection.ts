@@ -25,12 +25,13 @@ export function applyInfection(
   sourcePlayerId: string,
   source: string,
   appliedOnNight: number,
+  maturityRounds: number = INFECTION_ROUNDS,
 ): PlayerInfection {
   const infection: PlayerInfection = {
     sourcePlayerId,
     source,
     appliedOnNight,
-    maturesAfterNight: appliedOnNight + INFECTION_ROUNDS,
+    maturesAfterNight: appliedOnNight + maturityRounds,
   };
   getMeta(target).infection = infection;
   return infection;
