@@ -1,0 +1,34 @@
+<div class="lobby-closed-overlay" role="alertdialog" aria-modal="true" aria-labelledby="lobby-closed-title">
+  <div class="overlay-backdrop"></div>
+
+  <div class="overlay-card">
+    <div class="overlay-scanline" aria-hidden="true"></div>
+
+    <header class="overlay-header">
+      <span class="overlay-icon" aria-hidden="true">✕</span>
+      <p class="overlay-tag">Alerta de red</p>
+      <h2 id="lobby-closed-title" class="overlay-title">Sala eliminada</h2>
+    </header>
+
+    <div class="overlay-divider" aria-hidden="true"></div>
+
+    @if (roomId) {
+      <div class="room-chip">
+        <span class="chip-label">Código de sala</span>
+        <span class="chip-value">{{ roomId }}</span>
+      </div>
+    }
+
+    <p class="overlay-message">
+      El host cerró esta sala desde el dashboard. La sesión ya no está disponible.
+    </p>
+
+    <p class="overlay-hint">
+      Escanea el QR de una sala nueva o ingresa otro código para volver a conectarte.
+    </p>
+
+    <button type="button" class="overlay-btn" (click)="onDismiss()">
+      Entendido
+    </button>
+  </div>
+</div>

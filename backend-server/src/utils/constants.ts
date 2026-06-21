@@ -1,25 +1,35 @@
+/**
+ * Constantes globales del servidor (límites de sala y proporciones de matchmaking).
+ *
+ * Nota: la proporción de hackers por mesa se escala en `game/balance.ts` (`playersPerBlackHat`).
+ * `PLAYERS_PER_BLACK_HAT` aquí es referencia legacy; Matchmaking usa `balance.ts`.
+ */
 import * as path from 'path';
 import { DATA_DIRECTORY } from '../config/env';
 
+/** Mínimo de jugadores conectados para permitir `startGame`. */
 export const MIN_PLAYERS = 5;
+
 /** Tope absoluto del servidor; el dashboard elige un máximo por sala ≤ este valor. */
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 16;
 
 /**
- * Proporción de equipo Black Hat al repartir roles.
- * 1 hacker cada N jugadores (ej. 3 → en 9 jugadores hay 3 black_hat).
- * Ajustar aquí para cambiar el balance sin tocar la lógica de Matchmaking.
- */
-export const PLAYERS_PER_BLACK_HAT = 3;
-
-/**
- * Proporción de roles caóticos (únicos especiales) en la sala.
- * 1 rol caótico cada N jugadores (ej. 5 → en 10 jugadores hay 2 caóticos como máximo).
- * Ajustar aquí para cambiar el balance sin tocar la lógica de Matchmaking.
+ * Referencia documental: proporción caótica en Matchmaking.
+ * 1 rol caótico cada N jugadores (ej. 10 jugadores → 2 caóticos como máximo).
  */
 export const PLAYERS_PER_CHAOTIC_ROLE = 5;
 
-export const DATA_DIR = DATA_DIRECTORY;
-export const GAMES_DIR = path.join(DATA_DIR, 'games');
+/**
+ * Referencia legacy (Matchmaking usa `playersPerBlackHat` de `balance.ts`).
+ * Mantener por compatibilidad con documentación antigua.
+ */
+export const PLAYERS_PER_BLACK_HAT = 3;
 
-export default { MIN_PLAYERS, MAX_PLAYERS, DATA_DIR, GAMES_DIR };
+/** Directorio donde se guardan los JSON de partida activa: `<DATA_DIRECTORY>/games/`. */
+export const GAMES_DIR = path.join(DATA_DIRECTORY, 'games');
+
+/** Partidas terminadas (archivo de test / historial). */
+export const FINISHED_GAMES_DIR = path.join(DATA_DIRECTORY, 'finishgame');
+
+/** Lobbies abandonados sin iniciar. */
+export const DELETED_GAMES_DIR = path.join(DATA_DIRECTORY, 'deletegame');

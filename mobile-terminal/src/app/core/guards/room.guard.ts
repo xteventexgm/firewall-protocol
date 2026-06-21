@@ -3,7 +3,8 @@ import { CanActivateFn, Router } from '@angular/router';
 
 export const roomGuard: CanActivateFn = () => {
   const playerId = localStorage.getItem('myPlayerId');
-  if (playerId) {
+  const roomCode = localStorage.getItem('roomCode');
+  if (playerId && roomCode) {
     return true;
   }
 

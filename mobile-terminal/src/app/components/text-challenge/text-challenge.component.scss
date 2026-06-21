@@ -1,0 +1,234 @@
+.challenge-panel {
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  background: rgba(0, 240, 255, 0.04);
+  border: 1px solid rgba(0, 240, 255, 0.28);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &.feedback-error {
+    border-color: rgba(255, 45, 85, 0.55);
+    box-shadow: 0 0 18px rgba(255, 45, 85, 0.15);
+  }
+
+  &.feedback-success {
+    border-color: rgba(34, 197, 94, 0.45);
+  }
+}
+
+.ch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ch-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ch-step {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ch-tag {
+  font-size: 0.72rem;
+  color: #00f0ff;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ch-timer {
+  flex-shrink: 0;
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.ch-objective {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(26, 58, 74, 0.75);
+}
+
+.ch-objective-label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00f0ff;
+  margin-bottom: 0.25rem;
+}
+
+.ch-objective-text {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.ch-prompt {
+  margin: 0 0 0.5rem;
+  color: #e2f4ff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.ch-context {
+  margin: 0 0 0.75rem;
+
+  code {
+    display: block;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(26, 58, 74, 0.8);
+    color: #7dd3fc;
+    font-family: inherit;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+}
+
+.ch-outcomes {
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(13, 21, 32, 0.55);
+  border: 1px dashed rgba(26, 58, 74, 0.8);
+}
+
+.ch-outcome {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: #94a3b8;
+
+  & + & {
+    margin-top: 0.35rem;
+  }
+
+  &.success .ch-outcome-icon { color: #22c55e; }
+  &.fail .ch-outcome-icon { color: #ff6b6b; }
+}
+
+.ch-outcome-icon {
+  font-weight: 800;
+  margin-right: 0.25rem;
+}
+
+.ch-feedback {
+  margin-bottom: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  font-weight: 600;
+
+  &.success {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+  }
+
+  &.error {
+    color: #ff6b6b;
+    background: rgba(255, 45, 85, 0.1);
+    border: 1px solid rgba(255, 45, 85, 0.35);
+    animation: ch-shake 0.45s ease;
+  }
+}
+
+.ch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.ch-option {
+  padding: 0.7rem 0.85rem;
+  background: rgba(5, 10, 18, 0.85);
+  border: 1px solid rgba(26, 58, 74, 0.85);
+  border-radius: 10px;
+  color: #cbd5e1;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+
+  &.selected {
+    border-color: #00f0ff;
+    background: rgba(0, 240, 255, 0.1);
+    color: #00f0ff;
+    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+  }
+}
+
+.ch-confirm {
+  width: 100%;
+  margin-bottom: 0.45rem;
+  padding: 0.85rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #006677, #00a8c4);
+  color: #050a12;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+.ch-skip {
+  width: 100%;
+  padding: 0.65rem;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(100, 116, 139, 0.5);
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+
+  &:disabled {
+    opacity: 0.45;
+  }
+}
+
+@keyframes ch-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}

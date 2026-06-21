@@ -1,3 +1,9 @@
+/**
+ * Deep Freeze y BGP: jugadores con acciones anuladas por congelamiento.
+ *
+ * Usado en RuleEngine (resolución) y ActionValidator (rechazar acción si actor frozen).
+ * Respeta redirecciones BGP al calcular quién queda congelado.
+ */
 import { PlayerAction } from '../types/events.types';
 
 function actionType(a: PlayerAction) {
@@ -5,7 +11,7 @@ function actionType(a: PlayerAction) {
 }
 
 /** Mapa BGP swap target → swapWith (sin resolver cadena). */
-export function buildSwapMapFromActions(actions: PlayerAction[]): Map<string, string> {
+function buildSwapMapFromActions(actions: PlayerAction[]): Map<string, string> {
   const swapMap = new Map<string, string>();
   for (const a of actions) {
     if (actionType(a) === 'bgp_swap' && a.target && a.meta?.swapWith) {
@@ -16,7 +22,7 @@ export function buildSwapMapFromActions(actions: PlayerAction[]): Map<string, st
   return swapMap;
 }
 
-export function resolveSwappedTarget(targetId: string, swapMap: Map<string, string>): string {
+function resolveSwappedTarget(targetId: string, swapMap: Map<string, string>): string {
   let t = targetId;
   const visited = new Set<string>();
   while (swapMap.has(t) && !visited.has(t)) {

@@ -1,10 +1,20 @@
-import { PlayerAction, GamePhase, SoloWinner } from '../types';
+/**
+ * Valida acciones nocturnas antes de encolarlas en `GameStateModel.actionQueue`.
+ *
+ * Reglas: fase NOCHE, actor vivo, no silenciado/congelado, una acción/noche,
+ * tipo acorde al rol, cooldowns y usos (Pentester, Antivirus, Ransomware, Zero-Day).
+ *
+ * Errores legibles para móvil vía `formatActionValidationError`.
+ */
+import { PlayerAction, GamePhase } from '../types';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { RoleName, Team } from '../types/roles.types';
 import { GameStateModel } from '../models/GameState';
 import { Player } from '../models/PlayerProfile';
 import { getMeta, isSilenced } from './playerMetadata';
+import { ransomwareCooldownNights, MINER_MAX_SHIELDS } from './balance';
 
+/** Códigos de error machine-readable (también en mensaje al cliente entre paréntesis). */
 export type ActionValidationError =
   | 'wrong_phase'
   | 'actor_not_found'
@@ -18,8 +28,17 @@ export type ActionValidationError =
   | 'antivirus_cure_cooldown'
   | 'ransomware_cooldown'
   | 'invalid_target'
-  | 'role_mismatch';
+  | 'role_mismatch'
+  | 'zero_day_already_used'
+  | 'self_target'
+  | 'invalid_redirect'
+  | 'invalid_swap'
+  | 'patch_already_used'
+  | 'no_shields_left'
+  | 'shields_at_max'
+  | 'miner_target_cooldown';
 
+/** Valida acción entrante; retorna null si es aceptable. */
 export function validateNightAction(
   action: PlayerAction,
   state: GameStateModel,
@@ -45,15 +64,50 @@ export function validateNightAction(
   const allowed = ROLE_NIGHT_ACTIONS[role] ?? [];
   const type = (action.type || '').toLowerCase();
 
-  if (role === RoleName.SYSADMIN || role === RoleName.TROLL || role === RoleName.CRYPTO_MINER) {
+  if (role === RoleName.SYSADMIN) {
     return 'invalid_action_type';
   }
 
   if (!allowed.includes(type)) return 'invalid_action_type';
 
+  if (type === 'troll_provoke') {
+    if (meta.trollProvokeUsedTonight) return 'already_acted';
+    if (!action.meta?.messageIndex && action.meta?.messageIndex !== 0) return 'invalid_target';
+    return null;
+  }
+
   if (type !== 'hacker_vote' && type !== 'bgp_swap' && !action.target) return 'invalid_target';
 
-  if (type === 'bgp_swap' && (!action.target || !action.meta?.swapWith)) return 'invalid_target';
+  if (type === 'bgp_swap') {
+    const swapWith = action.meta?.swapWith;
+    if (!action.target || !swapWith) return 'invalid_target';
+    if (action.target === swapWith) return 'invalid_swap';
+    if (action.target === action.actor || swapWith === action.actor) return 'self_target';
+    const t1 = state.getPlayer(action.target);
+    const t2 = state.getPlayer(swapWith);
+    if (!t1?.isAlive || !t2?.isAlive) return 'invalid_target';
+  }
+
+  if (type === 'phisher_redirect') {
+    const redirectTo = action.meta?.redirectTo;
+    if (!redirectTo) return 'invalid_redirect';
+    const dest = state.getPlayer(redirectTo);
+    if (!dest?.isAlive) return 'invalid_redirect';
+  }
+
+  if (type === 'crypto_bribe') {
+    if ((meta.shieldCharges ?? 0) <= 0) return 'no_shields_left';
+  }
+
+  if (type === 'mine_crypto') {
+    if ((meta.shieldCharges ?? 0) >= MINER_MAX_SHIELDS) return 'shields_at_max';
+    if (meta.lastMinedTarget && meta.lastMinedTarget === action.target) return 'miner_target_cooldown';
+  }
+
+  const selfTargetTypes = ['pentester_kill', 'ransomware', 'worm_infect', 'worm_kill', 'freeze', 'scan', 'spy', 'protect', 'cure', 'honeypot_drag', 'mine_crypto', 'crypto_bribe'];
+  if (selfTargetTypes.includes(type) && action.target === action.actor) {
+    return 'self_target';
+  }
 
   if (type === 'pentester_kill') {
     if ((meta.pentesterUsesLeft ?? 0) <= 0) return 'no_uses_left';
@@ -76,6 +130,7 @@ export function validateNightAction(
   }
 
   if (type === 'zero_day_assume') {
+    if (meta.assumedFromPlayerId) return 'zero_day_already_used';
     const target = state.getPlayer(action.target!);
     if (!target || target.isAlive) return 'invalid_target';
   }
@@ -88,7 +143,7 @@ export function validateNightAction(
   return null;
 }
 
-/** Deshace marcas de cooldown/usos de una acción encolada que se va a reemplazar. */
+/** Deshace metadata consumida si se retira acción de la cola antes de resolver noche. */
 export function revertQueuedActionMetadata(actor: Player, actionType: string, targetId?: string | null) {
   const meta = getMeta(actor);
   const type = (actionType || '').toLowerCase();
@@ -102,17 +157,26 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   if (type === 'pentester_kill') {
     meta.pentesterUsesLeft = Math.min(2, (meta.pentesterUsesLeft ?? 0) + 1);
   }
+  if (type === 'crypto_bribe') {
+    meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
+  }
 }
 
-export function markActionSubmitted(actor: Player, actionType: string, targetId?: string | null) {
+/** Marca metadata post-validación (cooldowns, usos, flags de noche) al encolar acción. */
+export function markActionSubmitted(
+  actor: Player,
+  actionType: string,
+  targetId?: string | null,
+  playerCount?: number,
+) {
   const meta = getMeta(actor);
   meta.actedThisNight = true;
 
   if (actionType === 'pentester_kill') {
-    meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 2) - 1);
+    meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 0) - 1);
   }
   if (actionType === 'ransomware') {
-    meta.ransomwareCooldown = 2;
+    meta.ransomwareCooldown = ransomwareCooldownNights(playerCount ?? 15);
   }
   if (actionType === 'protect') {
     meta.lastProtectedTarget = targetId ?? null;
@@ -120,8 +184,45 @@ export function markActionSubmitted(actor: Player, actionType: string, targetId?
   if (actionType === 'cure') {
     meta.lastCuredTarget = targetId ?? null;
   }
+  if (actionType === 'troll_provoke') {
+    meta.trollProvokeUsedTonight = true;
+  }
+  if (actionType === 'crypto_bribe') {
+    meta.shieldCharges = Math.max(0, (meta.shieldCharges ?? 0) - 1);
+  }
 }
 
+const ACTION_VALIDATION_MESSAGES: Record<ActionValidationError, string> = {
+  wrong_phase: 'Solo puedes actuar durante la noche (NOCHE)',
+  actor_not_found: 'Jugador no encontrado en la sala',
+  actor_dead: 'No puedes actuar si estás eliminado',
+  actor_silenced: 'Estás silenciado y no puedes actuar esta noche',
+  actor_frozen: 'Estás congelado y no puedes actuar esta noche',
+  already_acted: 'Ya enviaste una acción esta noche',
+  invalid_action_type: 'Acción no válida para tu rol',
+  no_uses_left: 'No te quedan usos de esta habilidad',
+  antivirus_cooldown: 'No puedes proteger al mismo jugador dos noches seguidas',
+  antivirus_cure_cooldown: 'No puedes curar al mismo jugador dos noches seguidas',
+  ransomware_cooldown: 'Debes esperar antes de volver a usar Ransomware',
+  invalid_target: 'Objetivo no válido',
+  role_mismatch: 'El rol indicado no coincide con tu rol asignado',
+  zero_day_already_used: 'Ya usaste tu exploit 0-day en esta partida',
+  self_target: 'No puedes seleccionarte a ti mismo como objetivo',
+  invalid_redirect: 'Destino de redirección no válido',
+  invalid_swap: 'Los nodos del intercambio BGP deben ser distintos',
+  patch_already_used: 'Ya usaste el parche de emergencia en esta partida',
+  no_shields_left: 'No tienes escudos para un soborno cripto',
+  shields_at_max: 'Ya tienes el máximo de escudos (3)',
+  miner_target_cooldown: 'No puedes minar el mismo nodo dos noches seguidas',
+};
+
+/** Mensaje legible para el móvil; incluye código entre paréntesis para parsing opcional. */
+export function formatActionValidationError(err: ActionValidationError): string {
+  const message = ACTION_VALIDATION_MESSAGES[err] ?? 'Acción rechazada';
+  return `${message} (${err})`;
+}
+
+/** Lista de IDs Black Hat vivos (para evento `hacker_team` al inicio). */
 export function getHackerTeam(state: GameStateModel): string[] {
   return state.players
     .filter(p => p.isAlive && p.team === Team.BLACK_HAT)
