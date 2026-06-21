@@ -1,23 +1,25 @@
 /**
  * Persistencia de partidas en disco (JSON).
- *
- * Cada sala se guarda en `GAMES_DIR/<roomId>.json`.
- * Invocado vía `config/database.ts` (adapter). Migración futura a MongoDB
- * reemplazará este módulo manteniendo la interfaz `DBAdapter`.
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { GAMES_DIR } from '../utils/constants';
+import { GAMES_DIR, FINISHED_GAMES_DIR, DELETED_GAMES_DIR } from '../utils/constants';
 import { logger } from '../utils/logger';
 
-function ensureGamesDir() {
-  if (!fs.existsSync(GAMES_DIR)) fs.mkdirSync(GAMES_DIR, { recursive: true });
+export type GameArchiveCategory = 'finishgame' | 'deletegame';
+
+function ensureDir(dir: string) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-/** Serializa y escribe el estado de la partida. @returns false si falla el filesystem. */
+function archiveDir(category: GameArchiveCategory): string {
+  return category === 'finishgame' ? FINISHED_GAMES_DIR : DELETED_GAMES_DIR;
+}
+
+/** Serializa y escribe el estado de la partida activa. */
 export function saveGameState(roomId: string, state: any) {
   try {
-    ensureGamesDir();
+    ensureDir(GAMES_DIR);
     const file = path.join(GAMES_DIR, `${roomId}.json`);
     fs.writeFileSync(file, JSON.stringify(state, null, 2), { encoding: 'utf8' });
     logger.info('[db] wrote file', { roomId, file, bytes: JSON.stringify(state).length });
@@ -28,25 +30,52 @@ export function saveGameState(roomId: string, state: any) {
   }
 }
 
-/** Carga JSON de partida o null si no existe / parse error. */
+/** Carga JSON de partida activa o null si no existe. */
 export function loadGameState(roomId: string): any | null {
   try {
-    ensureGamesDir();
+    ensureDir(GAMES_DIR);
     const file = path.join(GAMES_DIR, `${roomId}.json`);
     if (!fs.existsSync(file)) {
       logger.debug('[db] file not found', { roomId, file });
       return null;
     }
     const raw = fs.readFileSync(file, 'utf8');
-    const obj = JSON.parse(raw);
-    return obj;
+    return JSON.parse(raw);
   } catch (err: any) {
     logger.error('Failed to load game state', err.message || err);
     return null;
   }
 }
 
-/** Elimina el archivo JSON de una sala. */
+/** Mueve JSON activo a finishgame/ o deletegame/ y lo quita de games/. */
+export function archiveGameState(roomId: string, category: GameArchiveCategory, extraMeta?: Record<string, unknown>) {
+  try {
+    const activeFile = path.join(GAMES_DIR, `${roomId}.json`);
+    if (!fs.existsSync(activeFile)) {
+      logger.info('[db] archive skip — no active file', { roomId, category });
+      return false;
+    }
+    const raw = fs.readFileSync(activeFile, 'utf8');
+    const state = JSON.parse(raw);
+    const targetDir = archiveDir(category);
+    ensureDir(targetDir);
+    const payload = {
+      archivedAt: new Date().toISOString(),
+      archiveCategory: category,
+      ...extraMeta,
+      ...state,
+    };
+    fs.writeFileSync(path.join(targetDir, `${roomId}.json`), JSON.stringify(payload, null, 2), 'utf8');
+    fs.unlinkSync(activeFile);
+    logger.info('[db] archived', { roomId, category, targetDir });
+    return true;
+  } catch (err: any) {
+    logger.error('Failed to archive game state', err.message || err);
+    return false;
+  }
+}
+
+/** Elimina el archivo JSON activo de una sala. */
 export function deleteGameState(roomId: string) {
   try {
     const file = path.join(GAMES_DIR, `${roomId}.json`);
@@ -59,15 +88,46 @@ export function deleteGameState(roomId: string) {
   }
 }
 
-/** Lista roomIds con JSON persistido (sin extensión). */
+/** Lista roomIds con JSON en games/ (partidas activas). */
 export function listSavedGames(): string[] {
   try {
-    ensureGamesDir();
-    return fs.readdirSync(GAMES_DIR).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, ''));
+    ensureDir(GAMES_DIR);
+    return fs.readdirSync(GAMES_DIR).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, ''));
   } catch (err: any) {
     logger.error('Failed to list saved games', err.message || err);
     return [];
   }
 }
 
-export default { saveGameState, loadGameState, deleteGameState, listSavedGames };
+/** Estado rápido para login/reconnect (solo partidas activas en games/). */
+export function getActiveRoomStatus(roomId: string, playerId?: string): {
+  exists: boolean;
+  phase: string | null;
+  playerCount: number;
+  connectedCount: number;
+  canJoin: boolean;
+  canReconnect: boolean;
+} {
+  const data = loadGameState(roomId);
+  if (!data) {
+    return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
+  }
+  const phase = data.phase ?? null;
+  const players = data.players ?? [];
+  const playerCount = players.length;
+  const connectedCount = players.filter((p: { isConnected?: boolean }) => p.isConnected !== false).length;
+  const canJoin = phase === 'LOBBY';
+  const inProgress = phase && phase !== 'LOBBY' && phase !== 'FIN';
+  const playerKnown = !playerId || (data.players ?? []).some((p: { id: string }) => p.id === playerId);
+  const canReconnect = !!inProgress && playerKnown;
+  return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
+}
+
+export default {
+  saveGameState,
+  loadGameState,
+  deleteGameState,
+  archiveGameState,
+  listSavedGames,
+  getActiveRoomStatus,
+};

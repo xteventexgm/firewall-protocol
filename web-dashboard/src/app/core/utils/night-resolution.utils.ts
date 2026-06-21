@@ -1,7 +1,6 @@
 import {
   NightResolution,
   PublicGameState,
-  ScanResult,
 } from '../models/game-state.model';
 import { playerNameById } from './game.utils';
 
@@ -11,12 +10,6 @@ export interface NightResolutionSection {
   items: string[];
   tone: 'danger' | 'warn' | 'info' | 'success' | 'muted';
 }
-
-const SCAN_LABELS: Record<ScanResult, string> = {
-  safe: 'Seguro',
-  suspicious: 'Sospechoso',
-  malicious: 'Malicioso',
-};
 
 export function buildNightResolutionSections(
   resolution: NightResolution,
@@ -101,43 +94,6 @@ export function buildNightResolutionSections(
     });
   }
 
-  if (resolution.privateResults?.length) {
-    const items = resolution.privateResults.map((pr) => {
-      const player = name(pr.playerId);
-      const payload = pr.payload;
-      switch (payload.type) {
-        case 'scan':
-          return `${player}: escaneo → ${SCAN_LABELS[payload.result ?? 'safe']}`;
-        case 'spy': {
-          const acts = payload.visitorActivities?.length
-            ? payload.visitorActivities
-                .map((v) => `${name(v.playerId)} (${v.activity})`)
-                .join(', ')
-            : (payload.visitors ?? []).map(name).join(', ');
-          return `${player}: espía → ${acts || 'sin visitantes'}`;
-        }
-        case 'hacker_team':
-          return `${player}: equipo hacker (${(payload.members ?? []).map(name).join(', ')})`;
-        case 'infected':
-          return `${player}: infectado${payload.critical ? ' [CRÍTICO]' : ''}`;
-        case 'cured':
-          return `${player}: curado`;
-        case 'infection_warning':
-          return `${player}: alerta de infección`;
-        case 'role_assigned':
-          return `${player}: rol asignado — ${payload.displayName ?? payload.role ?? '?'}`;
-        default:
-          return `${player}: ${payload.type}`;
-      }
-    });
-    sections.push({
-      key: 'privateResults',
-      label: 'Resultados privados (host)',
-      items,
-      tone: 'info',
-    });
-  }
-
   return sections;
 }
 
@@ -150,8 +106,6 @@ export function hasNightResolutionContent(resolution: NightResolution): boolean 
     !!resolution.infectionKills?.length ||
     !!resolution.honeypotDrags?.length ||
     !!resolution.prevented?.length ||
-    !!resolution.redirects?.length ||
-    !!resolution.privateResults?.length ||
-    !!resolution.logs?.length
+    !!resolution.redirects?.length
   );
 }

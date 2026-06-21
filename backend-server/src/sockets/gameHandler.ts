@@ -1,32 +1,35 @@
 /**
  * Handlers socket móvil: gameplay en partida activa.
- *
- * Eventos: `playerAction`, `startGame`, `advancePhase`, `submitVote`.
- * Delega validación y mutación de estado a `Room`.
  */
 import { Socket } from 'socket.io';
 import RoomManager from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
+import { assertSocketActor } from '../utils/socketPlayerBinding';
 
-/** Registra handlers de juego en namespace `/game`. */
+import { formatSocketError } from '../utils/socketErrors';
+
 export default function registerGameHandlers(socket: Socket) {
   socket.on('playerAction', (roomId: string, action: any) => {
     try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, action?.actor, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+
       logClient('mobile', 'playerAction', socket.id, {
-        roomId,
+        roomId: code,
         actor: action?.actor,
         type: action?.type,
         target: action?.target,
       });
-      const room = RoomManager.getRoom(roomId);
-      if (!room) { socket.emit('error', 'room not found'); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada (room_not_found)'); return; }
       const result = room.submitAction(action);
       if (result.ok) {
         logClient('mobile', 'playerAction accepted', socket.id, { actionId: action.id });
         socket.emit('actionAccepted', action.id);
       } else {
-        logger.warn('[mobile] playerAction rejected', { roomId, actor: action?.actor, reason: result.reason });
+        logger.warn('[mobile] playerAction rejected', { roomId: code, actor: action?.actor, reason: result.reason });
         socket.emit('error', result.reason);
       }
     } catch (err: any) {
@@ -35,54 +38,114 @@ export default function registerGameHandlers(socket: Socket) {
     }
   });
 
-  socket.on('startGame', (roomId: string) => {
+  socket.on('requestMinigame', (roomId: string, playerId: string) => {
     try {
-      logClient('mobile', 'startGame', socket.id, { roomId });
-      const room = RoomManager.getRoom(roomId);
-      if (!room) { socket.emit('error', 'room not found'); return; }
-      room.startGame();
-      logClient('mobile', 'startGame OK', socket.id, { roomId, phase: room.state.phase });
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      room.requestMinigame(playerId);
     } catch (err: any) {
-      logger.error('[mobile] startGame FAIL', err.message || err);
       socket.emit('error', err.message || String(err));
     }
   });
 
-  socket.on('advancePhase', async (roomId: string) => {
+  socket.on('submitMinigameAnswer', (roomId: string, payload: { playerId: string; token: string; answer: string | number }) => {
     try {
-      const room = RoomManager.getRoom(roomId);
-      logClient('mobile', 'advancePhase', socket.id, { roomId, from: room?.state.phase });
-      if (!room) { socket.emit('error', 'room not found'); return; }
-      room.advancePhase()
-        .then((next) => {
-          logClient('mobile', 'advancePhase OK', socket.id, { roomId, to: next });
-        })
-        .catch((err: any) => {
-          logger.error('[mobile] advancePhase FAIL', err.message || err);
-          socket.emit('error', err.message || String(err));
-        });
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      const result = room.submitMinigameAnswer(payload.playerId, payload.token, payload.answer);
+      if (!result.ok) socket.emit('error', result.reason);
     } catch (err: any) {
-      logger.error('[mobile] advancePhase FAIL', err.message || err);
       socket.emit('error', err.message || String(err));
     }
+  });
+
+  socket.on('skipMinigame', (roomId: string, payload: { playerId: string; token: string }) => {
+    try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      room.skipMinigame(payload.playerId, payload.token);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('submitChat', (roomId: string, payload: { playerId: string; text: string; channel?: string }) => {
+    try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      const result = room.submitChat(
+        payload.playerId,
+        payload.text,
+        payload.channel as 'public' | 'dead' | 'hacker' | undefined,
+      );
+      if (!result.ok) socket.emit('error', result.reason);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('submitDayAction', (roomId: string, payload: { actor: string; type: string; target?: string }) => {
+    try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.actor, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
+      const result = room.submitDayAction(payload.actor, payload.type, payload.target);
+      if (!result.ok) socket.emit('error', result.reason);
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('startGame', (_roomId: string) => {
+    logger.warn('[mobile] startGame rechazado — solo el dashboard puede iniciar');
+    socket.emit(
+      'error',
+      formatSocketError('Solo el dashboard puede iniciar la partida.', 'dashboard_only'),
+    );
+  });
+
+  socket.on('advancePhase', (_roomId: string) => {
+    logger.warn('[mobile] advancePhase rechazado — solo el dashboard puede avanzar fases');
+    socket.emit(
+      'error',
+      formatSocketError('Solo el dashboard puede avanzar fases.', 'dashboard_only'),
+    );
   });
 
   socket.on('submitVote', (roomId: string, vote: any) => {
     try {
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, vote?.voter, code);
+      if (authErr) { socket.emit('error', authErr); return; }
+
       logClient('mobile', 'submitVote', socket.id, {
-        roomId,
+        roomId: code,
         voter: vote?.voter,
         target: vote?.target,
       });
-      const room = RoomManager.getRoom(roomId);
-      if (!room) { socket.emit('error', 'room not found'); return; }
+      const room = RoomManager.getRoom(code);
+      if (!room) { socket.emit('error', 'Sala no encontrada'); return; }
       const { voter, target } = vote;
       const result = room.submitVote(voter, target ?? null);
       if (!result.ok) {
-        logger.warn('[mobile] submitVote rejected', { roomId, voter, reason: result.reason });
+        logger.warn('[mobile] submitVote rejected', { roomId: code, voter, reason: result.reason });
         socket.emit('error', result.reason);
       } else {
-        logClient('mobile', 'submitVote OK', socket.id, { roomId, voter, target });
+        logClient('mobile', 'submitVote OK', socket.id, { roomId: code, voter, target });
       }
     } catch (err: any) {
       logger.error('[mobile] submitVote FAIL', err.message || err);

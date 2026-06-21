@@ -258,3 +258,61 @@
   border-radius: 50%;
   animation: pulse-glow 1s ease-in-out infinite;
 }
+
+.boot-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: #020408f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.boot-terminal {
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: #00f0ff;
+  max-width: min(640px, 90%);
+  padding: 24px 32px;
+  border: 1px solid #00f0ff44;
+  box-shadow: 0 0 40px #00f0ff22;
+  background: #0a1018ee;
+}
+
+.boot-title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  color: #00ff88;
+}
+
+.boot-line {
+  margin: 6px 0;
+  font-size: 12px;
+  opacity: 0;
+  animation: boot-line-in 0.35s ease forwards;
+}
+
+.boot-cursor {
+  display: inline-block;
+  margin-top: 8px;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes boot-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

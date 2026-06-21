@@ -15,12 +15,24 @@ import {
   Team,
   VoteTiedPayload,
   VoteTrace,
+  ChatMessage,
+  GameStatsEntry,
+  NightProgress,
+  PhaseConfig,
+  PublicLogEntry,
 } from '../models/game-state.model';
 import {
   generateRoomCode,
   incidentsFromServerReport,
   sanitizeGameState,
 } from '../utils/game.utils';
+import {
+  formatServerErrorForToast,
+  inferJoinErrorCode,
+  isFatalJoinError,
+  isJoinPendingError,
+  parseServerErrorMessage,
+} from '../utils/error.utils';
 
 @Injectable({ providedIn: 'root' })
 export class GameSocketService implements OnDestroy {
@@ -29,6 +41,7 @@ export class GameSocketService implements OnDestroy {
   private listenersAttached = false;
   private gameEnded = false;
   private pendingCreateCode: string | null = null;
+  private joinPending = false;
 
   readonly roomState$ = new BehaviorSubject<PublicGameState | null>(null);
   readonly phaseTransition$ = new Subject<PhaseTransition>();
@@ -37,11 +50,18 @@ export class GameSocketService implements OnDestroy {
   readonly voteTrace$ = new Subject<VoteTrace>();
   readonly nightResolved$ = new Subject<{ roomId: string; resolution: NightResolution }>();
   readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
-  readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string }>();
-  readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string }>();
+  readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
+  readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
+  readonly playerConnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly error$ = new Subject<string>();
   readonly incidents$ = new Subject<{ incidents: IncidentDisplay[]; nightNumber: number }>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
+  readonly publicLog$ = new Subject<PublicLogEntry>();
+  readonly chatMessage$ = new Subject<ChatMessage>();
+  readonly nightProgress$ = new Subject<NightProgress>();
+  readonly gameStats$ = new Subject<GameStatsEntry[]>();
+  /** Emite cuando un joinDashboard pendiente termina (éxito o fallo). */
+  readonly joinOutcome$ = new Subject<{ ok: boolean; error?: string }>();
 
   get currentRoomId(): string | null {
     return this.roomId;
@@ -111,6 +131,7 @@ export class GameSocketService implements OnDestroy {
     const code = roomId.toUpperCase().trim();
     this.roomId = code;
     this.gameEnded = false;
+    this.joinPending = true;
     this.roomState$.next(null);
     this.socket?.emit('joinDashboard', code);
   }
@@ -121,7 +142,18 @@ export class GameSocketService implements OnDestroy {
     }
     this.roomId = null;
     this.gameEnded = false;
+    this.joinPending = false;
     this.roomState$.next(null);
+  }
+
+  abandonLobby(roomId?: string): void {
+    const code = (roomId ?? this.roomId)?.toUpperCase().trim();
+    if (code) {
+      this.socket?.emit('abandonLobby', code);
+    }
+    if (!roomId || code === this.roomId) {
+      this.softLeave();
+    }
   }
 
   leaveLobby(): void {
@@ -138,6 +170,11 @@ export class GameSocketService implements OnDestroy {
     const phase = this.roomState$.value?.phase;
     if (phase === 'FIN') return;
     this.socket?.emit('advancePhase', this.roomId);
+  }
+
+  setPhaseConfig(config: Partial<PhaseConfig>): void {
+    if (!this.roomId) return;
+    this.socket?.emit('setPhaseConfig', this.roomId, config);
   }
 
   get isGameEnded(): boolean {
@@ -191,6 +228,10 @@ export class GameSocketService implements OnDestroy {
         this.gameEnded = true;
       }
       this.roomState$.next(sanitized);
+      if (this.joinPending) {
+        this.joinPending = false;
+        this.joinOutcome$.next({ ok: true });
+      }
     });
 
     this.socket.on('phaseChanged', (rid: string, phase: GamePhase) => {
@@ -220,8 +261,8 @@ export class GameSocketService implements OnDestroy {
         kills: resolution.kills ?? [],
         prevented: resolution.prevented ?? [],
         redirects: resolution.redirects ?? [],
-        logs: resolution.logs ?? [],
-        privateResults: resolution.privateResults ?? [],
+        logs: [],
+        privateResults: [],
         silenced: resolution.silenced ?? [],
         honeypotDrags: resolution.honeypotDrags ?? [],
         infections: resolution.infections ?? [],
@@ -236,14 +277,19 @@ export class GameSocketService implements OnDestroy {
       this.playerEliminated$.next({ roomId: roomId.toUpperCase(), playerId, reason });
     });
 
-    this.socket.on('playerDisconnected', (roomId: string, playerId: string) => {
+    this.socket.on('playerDisconnected', (roomId: string, playerId: string, playerName?: string) => {
       if (!this.matchesRoom(roomId)) return;
-      this.playerDisconnected$.next({ roomId: roomId.toUpperCase(), playerId });
+      this.playerDisconnected$.next({ roomId: roomId.toUpperCase(), playerId, playerName });
     });
 
-    this.socket.on('playerReconnected', (roomId: string, playerId: string) => {
+    this.socket.on('playerReconnected', (roomId: string, playerId: string, playerName?: string) => {
       if (!this.matchesRoom(roomId)) return;
-      this.playerReconnected$.next({ roomId: roomId.toUpperCase(), playerId });
+      this.playerReconnected$.next({ roomId: roomId.toUpperCase(), playerId, playerName });
+    });
+
+    this.socket.on('playerConnected', (roomId: string, playerId: string, playerName?: string) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.playerConnected$.next({ roomId: roomId.toUpperCase(), playerId, playerName });
     });
 
     this.socket.on('voteTrace', (trace: VoteTrace) => {
@@ -273,13 +319,44 @@ export class GameSocketService implements OnDestroy {
       },
     );
 
-    this.socket.on('error', (msg: string) => this.error$.next(msg));
-  }
+    this.socket.on('error', (msg: string) => this.handleServerError(msg));
 
-  private matchesRoom(roomId: string | undefined | null): boolean {
-    if (!roomId) return false;
-    if (!this.roomId) return true;
-    return roomId.toUpperCase() === this.roomId.toUpperCase();
+    this.socket.on('publicLog', (roomId: string, entry: PublicLogEntry) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.publicLog$.next(entry);
+      const current = this.roomState$.value;
+      if (current) {
+        const logs = [...(current.publicLogs ?? []), entry].slice(-50);
+        this.patchRoomState({ publicLogs: logs });
+      }
+    });
+
+    this.socket.on('chatMessage', (roomId: string, message: ChatMessage) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.chatMessage$.next(message);
+      const current = this.roomState$.value;
+      if (current) {
+        const msgs = [...(current.chatMessages ?? []), message].slice(-50);
+        this.patchRoomState({ chatMessages: msgs });
+      }
+    });
+
+    this.socket.on('nightProgress', (roomId: string, progress: NightProgress) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.nightProgress$.next(progress);
+      this.patchRoomState({ nightProgress: progress });
+    });
+
+    this.socket.on('gameStats', (roomId: string, stats: GameStatsEntry[]) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.gameStats$.next(stats);
+      this.patchRoomState({ gameStats: stats });
+    });
+
+    this.socket.on('phaseConfigChanged', (roomId: string, config: PhaseConfig) => {
+      if (!this.matchesRoom(roomId)) return;
+      this.patchRoomState({ phaseConfig: config });
+    });
   }
 
   private patchRoomState(patch: Partial<PublicGameState>): void {
@@ -302,5 +379,28 @@ export class GameSocketService implements OnDestroy {
       return;
     }
     this.roomState$.next({ ...current, ...patch });
+  }
+
+  private matchesRoom(roomId: string | undefined | null): boolean {
+    if (!roomId) return false;
+    if (!this.roomId) return true;
+    return roomId.toUpperCase() === this.roomId.toUpperCase();
+  }
+
+  private handleServerError(msg: string): void {
+    const { message, code } = parseServerErrorMessage(msg);
+    const resolvedCode = code ?? inferJoinErrorCode(message);
+    const toastMsg = formatServerErrorForToast(msg);
+
+    if (this.joinPending && isJoinPendingError(resolvedCode, message)) {
+      this.joinPending = false;
+      this.roomId = null;
+      this.joinOutcome$.next({ ok: false, error: toastMsg });
+    } else if (isFatalJoinError(resolvedCode, message)) {
+      this.roomId = null;
+      this.roomState$.next(null);
+    }
+
+    this.error$.next(toastMsg);
   }
 }

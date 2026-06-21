@@ -4,7 +4,7 @@
  * Abstrae `dbSyncService` (JSON en disco hoy) para migrar a MongoDB sin cambiar
  * `Room` ni `RoomManager`. Métodos `delete` y `list` preparados para admin futuro.
  */
-import dbSync from '../services/dbSyncService';
+import dbSync, { GameArchiveCategory } from '../services/dbSyncService';
 import { logger } from '../utils/logger';
 
 /** Contrato de persistencia; implementación actual: JSON vía dbSyncService. */
@@ -12,7 +12,9 @@ export interface DBAdapter {
 	save(roomId: string, state: any): boolean;
 	load(roomId: string): any | null;
 	delete(roomId: string): boolean;
+	archive(roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>): boolean;
 	list(): string[];
+	getStatus(roomId: string, playerId?: string): ReturnType<typeof dbSync.getActiveRoomStatus>;
 }
 
 const adapter: DBAdapter = {
@@ -41,7 +43,13 @@ const adapter: DBAdapter = {
 		logger.info('[db] delete', ok ? 'OK' : 'FAIL', { roomId });
 		return ok;
 	},
+	archive: (roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>) => {
+		const ok = dbSync.archiveGameState(roomId, category, extra);
+		logger.info('[db] archive', ok ? 'OK' : 'FAIL', { roomId, category });
+		return ok;
+	},
 	list: () => dbSync.listSavedGames(),
+	getStatus: (roomId: string, playerId?: string) => dbSync.getActiveRoomStatus(roomId, playerId),
 };
 
 export default adapter;

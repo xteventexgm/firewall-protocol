@@ -11,7 +11,7 @@ import { DATA_DIRECTORY } from '../config/env';
 export const MIN_PLAYERS = 5;
 
 /** Tope absoluto del servidor; el dashboard elige un máximo por sala ≤ este valor. */
-export const MAX_PLAYERS = 15;
+export const MAX_PLAYERS = 16;
 
 /**
  * Referencia documental: proporción caótica en Matchmaking.
@@ -25,5 +25,11 @@ export const PLAYERS_PER_CHAOTIC_ROLE = 5;
  */
 export const PLAYERS_PER_BLACK_HAT = 3;
 
-/** Directorio donde se guardan los JSON de partida: `<DATA_DIRECTORY>/games/`. */
+/** Directorio donde se guardan los JSON de partida activa: `<DATA_DIRECTORY>/games/`. */
 export const GAMES_DIR = path.join(DATA_DIRECTORY, 'games');
+
+/** Partidas terminadas (archivo de test / historial). */
+export const FINISHED_GAMES_DIR = path.join(DATA_DIRECTORY, 'finishgame');
+
+/** Lobbies abandonados sin iniciar. */
+export const DELETED_GAMES_DIR = path.join(DATA_DIRECTORY, 'deletegame');

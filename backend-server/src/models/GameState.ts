@@ -9,11 +9,15 @@
  *
  * La orquestación de fases y eventos socket está en `game/Room.ts`.
  */
-import { GamePhase, PlayerAction, PublicGameState, SoloWinner } from '../types';
+import { GamePhase, PlayerAction, PublicGameState, SoloWinner, ChatMessage, PublicLogEntry, PhaseConfig, GameStats, NightProgress, SessionThreatBrief } from '../types';
 import { Team } from '../types/roles.types';
 import { Player, PlayerProfile } from './PlayerProfile';
 import { isSilenced, getMeta } from '../game/playerMetadata';
+import { isInfected } from '../game/infection';
 import { MAX_PLAYERS } from '../utils/constants';
+import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
+import { getPublicChat } from '../game/ChatManager';
+import { buildStatsEntries } from '../game/GameStatsTracker';
 
 export interface GameState {
   roomId: string;
@@ -33,6 +37,13 @@ export interface GameState {
   lastNightKills: string[];
   /** Jugadores al iniciar partida; fija escalado de balance y límite de días. */
   initialPlayerCount?: number;
+  publicLogs?: PublicLogEntry[];
+  chatMessages?: ChatMessage[];
+  phaseConfig?: PhaseConfig;
+  phaseEndsAt?: number | null;
+  gameStats?: GameStats;
+  lastChatSentAt?: Record<string, number>;
+  sessionThreatBrief?: SessionThreatBrief;
 }
 
 /** Modelo mutable del estado de sala; una instancia por `Room`. */
@@ -51,6 +62,27 @@ export class GameStateModel implements GameState {
   soloWinner: SoloWinner | null = null;
   lastNightKills: string[] = [];
   initialPlayerCount = 0;
+  publicLogs: PublicLogEntry[] = [];
+  chatMessages: ChatMessage[] = [];
+  phaseConfig: PhaseConfig = {
+    autoAdvance: false,
+    nightDurationMs: 90_000,
+    dayDurationMs: 120_000,
+    voteDurationMs: 90_000,
+  };
+  phaseEndsAt: number | null = null;
+  gameStats: GameStats = {
+    scansPerformed: 0,
+    killsPrevented: 0,
+    infectionsApplied: 0,
+    votesCast: 0,
+    honeypotDrags: 0,
+    playerActions: {},
+    mvpPlayerId: null,
+    mvpReason: null,
+  };
+  lastChatSentAt: Record<string, number> = {};
+  sessionThreatBrief?: SessionThreatBrief;
 
   constructor(roomId: string) {
     this.roomId = roomId;
@@ -71,6 +103,13 @@ export class GameStateModel implements GameState {
     s.soloWinner = obj.soloWinner ?? null;
     s.lastNightKills = obj.lastNightKills || [];
     s.initialPlayerCount = obj.initialPlayerCount ?? (obj.players?.length ?? 0);
+    s.publicLogs = obj.publicLogs || [];
+    s.chatMessages = obj.chatMessages || [];
+    s.phaseConfig = obj.phaseConfig || s.phaseConfig;
+    s.phaseEndsAt = obj.phaseEndsAt ?? null;
+    s.gameStats = obj.gameStats || s.gameStats;
+    s.lastChatSentAt = obj.lastChatSentAt || {};
+    s.sessionThreatBrief = obj.sessionThreatBrief;
     s.players = (obj.players || []).map((p: any) => {
       const pl = new Player(p.id, p.name, p.socketId);
       pl.role = p.role;
@@ -90,6 +129,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      phaseEndsAt: this.phaseEndsAt,
       maxPlayers: this.maxPlayers,
       players: this.players.map(p => this.playerToPlain(p)),
       dayNumber: this.dayNumber,
@@ -101,6 +141,11 @@ export class GameStateModel implements GameState {
       soloWinner: this.soloWinner,
       lastNightKills: this.lastNightKills,
       initialPlayerCount: this.initialPlayerCount,
+      publicLogs: this.publicLogs,
+      chatMessages: this.chatMessages,
+      phaseConfig: this.phaseConfig,
+      gameStats: this.gameStats,
+      lastChatSentAt: this.lastChatSentAt,
     };
   }
 
@@ -115,6 +160,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      phaseEndsAt: this.phaseEndsAt,
       maxPlayers: this.maxPlayers,
       playerCount: this.players.length,
       players: this.players.map(p => {
@@ -131,10 +177,46 @@ export class GameStateModel implements GameState {
       nightNumber: this.nightNumber,
       votes: this.votes,
       logs: this.logs,
+      publicLogs: this.publicLogs.slice(-30),
+      chatMessages: this.getChatForViewer(viewerId),
+      nightProgress: this.computeNightProgress(),
+      phaseConfig: this.phaseConfig,
       winner: this.winner,
       soloWinner: this.soloWinner,
       lastNightKills: this.lastNightKills,
+      gameStats: this.phase === GamePhase.FIN ? buildStatsEntries(this) : undefined,
     };
+  }
+
+  private getChatForViewer(viewerId: string): ChatMessage[] {
+    const viewer = this.getPlayer(viewerId);
+    if (!viewer) return this.chatMessages.filter((m) => m.channel === 'public');
+    const isDead = !viewer.isAlive;
+    const isHacker = viewer.team === 'black_hat';
+    return this.chatMessages.filter((m) => {
+      if (m.channel === 'public') return true;
+      if (m.channel === 'dead' && isDead) return true;
+      if (m.channel === 'hacker' && isHacker && viewer.isAlive) return true;
+      return false;
+    });
+  }
+
+  computeNightProgress(): NightProgress {
+    let total = 0;
+    let acted = 0;
+    for (const p of this.getAlivePlayers()) {
+      const role = p.role;
+      if (!role) continue;
+      const actions = ROLE_NIGHT_ACTIONS[role as keyof typeof ROLE_NIGHT_ACTIONS];
+      if (!actions?.length) continue;
+      if (isSilenced(p, this.dayNumber)) continue;
+      total += 1;
+      const meta = getMeta(p);
+      if (meta.actedThisNight || this.actionQueue.some((a) => a.actor === p.id)) {
+        acted += 1;
+      }
+    }
+    return { acted, total };
   }
 
   /**
@@ -146,6 +228,7 @@ export class GameStateModel implements GameState {
       roomId: this.roomId,
       phase: this.phase,
       phaseStartedAt: this.phaseStartedAt,
+      phaseEndsAt: this.phaseEndsAt,
       dayNumber: this.dayNumber,
       nightNumber: this.nightNumber,
       maxPlayers: this.maxPlayers,
@@ -156,11 +239,18 @@ export class GameStateModel implements GameState {
         isAlive: p.isAlive,
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),
+        infected: p.isAlive && isInfected(p),
         ...((!p.isAlive || this.phase === GamePhase.FIN) && p.role ? { role: p.role } : {}),
       })),
       votes: { ...this.votes },
       winner: this.winner,
       soloWinner: this.soloWinner,
+      publicLogs: this.publicLogs.slice(-40),
+      chatMessages: getPublicChat(this),
+      nightProgress: this.phase === GamePhase.NOCHE ? this.computeNightProgress() : undefined,
+      phaseConfig: this.phaseConfig,
+      gameStats: this.phase === GamePhase.FIN ? buildStatsEntries(this) : undefined,
+      sessionThreatBrief: this.sessionThreatBrief,
     };
   }
 
@@ -174,6 +264,7 @@ export class GameStateModel implements GameState {
       lastCuredTarget,
       assumedFromPlayerId,
       honeypotDragTarget,
+      lastMinedTarget,
       ...rest
     } = metadata;
     return rest;

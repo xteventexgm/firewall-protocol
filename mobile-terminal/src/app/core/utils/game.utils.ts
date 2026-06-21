@@ -40,7 +40,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     players,
     dayNumber,
     nightNumber: raw?.nightNumber ?? 0,
-    maxPlayers: raw?.maxPlayers ?? 15,
+    maxPlayers: raw?.maxPlayers ?? 16,
     playerCount: raw?.playerCount ?? players.length,
     votes: raw?.votes ?? {},
     logs: raw?.logs ?? [],

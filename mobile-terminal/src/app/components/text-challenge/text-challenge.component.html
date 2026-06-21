@@ -1,0 +1,62 @@
+<section
+  class="challenge-panel"
+  *ngIf="challenge"
+  [class.feedback-success]="feedbackType === 'success'"
+  [class.feedback-error]="feedbackType === 'error'">
+  <header class="ch-header">
+    <div class="ch-header-left">
+      <span class="ch-step">Paso 1 · Opcional</span>
+      <span class="ch-tag">{{ typeLabel }}</span>
+    </div>
+    <span class="ch-timer" *ngIf="secondsLeft > 0">{{ secondsLeft }}s</span>
+  </header>
+
+  <div class="ch-objective">
+    <span class="ch-objective-label">Objetivo</span>
+    <p class="ch-objective-text">{{ challenge.objective }}</p>
+  </div>
+
+  <p class="ch-prompt">{{ challenge.prompt }}</p>
+
+  <p *ngIf="challenge.context" class="ch-context">
+    <code>{{ challenge.context }}</code>
+  </p>
+
+  <div class="ch-outcomes">
+    <p class="ch-outcome success">
+      <span class="ch-outcome-icon">✓</span>
+      Si aciertas: {{ challenge.successHint }}
+    </p>
+    <p class="ch-outcome fail">
+      <span class="ch-outcome-icon">✗</span>
+      Si fallas u omites: {{ challenge.failHint }}
+    </p>
+  </div>
+
+  <div *ngIf="feedbackType !== 'none' && feedbackMessage" class="ch-feedback" [class.error]="feedbackType === 'error'" [class.success]="feedbackType === 'success'">
+    {{ feedbackMessage }}
+  </div>
+
+  <div class="ch-options" *ngIf="challenge.options?.length">
+    <button
+      *ngFor="let opt of challenge.options"
+      type="button"
+      class="ch-option"
+      [class.selected]="selectedAnswer === opt"
+      [disabled]="pending"
+      (click)="selectAnswer(opt)">
+      {{ opt }}
+    </button>
+  </div>
+
+  <button
+    type="button"
+    class="ch-confirm"
+    [disabled]="selectedAnswer === '' || pending"
+    (click)="confirm()">
+    {{ pending ? 'Verificando…' : 'Confirmar respuesta' }}
+  </button>
+  <button type="button" class="ch-skip" [disabled]="pending" (click)="skip.emit()">
+    Omitir y continuar (acción degradada)
+  </button>
+</section>

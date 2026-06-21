@@ -85,6 +85,12 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
+  if (hackers.length === 0 && systemSide.length === 0 && alive.length > 0) {
+    const soloOnly = checkSoloWin(state);
+    if (soloOnly.over) return soloOnly;
+    return pickChaoticStalemateWinner(alive);
+  }
+
   if (hackers.length > systemSide.length && hackers.length > 0) {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
@@ -150,8 +156,10 @@ export function applyZeroDayAssume(state: GameStateModel, actorId: string, deadP
   actor.team = dead.team ?? ROLE_CATALOG[assumedRole].team;
 
   const tableSize = state.initialPlayerCount || state.players.length;
+  const deadMeta = dead.metadata ? { ...dead.metadata } : initRoleMetadata(assumedRole, tableSize);
   actor.metadata = {
-    ...initRoleMetadata(assumedRole, tableSize),
+    ...deadMeta,
+    actedThisNight: false,
     assumedFromPlayerId: deadPlayerId,
   };
 

@@ -69,14 +69,94 @@ export interface PublicPlayerState {
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
+  /** Nodo con infección activa (visible en dashboard). */
+  infected?: boolean;
   /** Visible en dashboard cuando el jugador está eliminado o la partida terminó. */
   role?: RoleId;
+}
+
+/** Resumen de amenaza al iniciar partida (solo dashboard / narrativa TV). */
+export interface SessionThreatBrief {
+  hackerCount: number;
+  /** Caóticos — etiqueta diegética: "intrusos". */
+  intruderCount: number;
+  systemCount: number;
+  nodeCount: number;
+}
+
+export type ChatChannel = 'public' | 'dead' | 'hacker';
+
+export interface ChatMessage {
+  id: string;
+  playerId: PlayerId;
+  playerName: string;
+  text: string;
+  channel: ChatChannel;
+  timestamp: number;
+  phase: GamePhase;
+}
+
+export interface PublicLogEntry {
+  id: string;
+  timestamp: number;
+  nightNumber?: number;
+  dayNumber?: number;
+  message: string;
+  severity: 'info' | 'warn' | 'critical' | 'success';
+}
+
+export interface PhaseConfig {
+  autoAdvance: boolean;
+  nightDurationMs: number;
+  dayDurationMs: number;
+  voteDurationMs: number;
+}
+
+export interface NightProgress {
+  acted: number;
+  total: number;
+}
+
+export interface GameStats {
+  scansPerformed: number;
+  killsPrevented: number;
+  infectionsApplied: number;
+  votesCast: number;
+  honeypotDrags: number;
+  playerActions: Record<PlayerId, number>;
+  mvpPlayerId: PlayerId | null;
+  mvpReason: string | null;
+}
+
+export interface GameStatsEntry {
+  label: string;
+  value: string;
+  detail?: string;
+}
+
+export interface MinigameChallengePayload {
+  token: string;
+  type: string;
+  objective: string;
+  prompt: string;
+  context?: string;
+  options?: string[];
+  successHint: string;
+  failHint: string;
+  expiresAt: number;
+}
+
+export interface MinigameAnswerResultPayload {
+  result: 'success' | 'failed' | 'skipped' | 'expired';
+  successHint?: string;
+  failHint?: string;
 }
 
 export interface PublicGameState {
   roomId: RoomId;
   phase: GamePhase;
   phaseStartedAt: number;
+  phaseEndsAt?: number | null;
   dayNumber: number;
   nightNumber: number;
   maxPlayers: number;
@@ -85,6 +165,12 @@ export interface PublicGameState {
   votes: Record<string, PlayerId[]>;
   winner: Team | null;
   soloWinner: SoloWinner | null;
+  publicLogs?: PublicLogEntry[];
+  chatMessages?: ChatMessage[];
+  nightProgress?: NightProgress;
+  phaseConfig?: PhaseConfig;
+  gameStats?: GameStatsEntry[];
+  sessionThreatBrief?: SessionThreatBrief;
 }
 
 export interface VoteTiedPayload {
@@ -105,7 +191,7 @@ export interface SoloWinner {
 export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 
 export interface PrivateResultPayload {
-  type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned' | 'infected' | 'cured' | 'infection_warning';
+  type: 'scan' | 'spy' | 'hacker_team' | 'role_assigned' | 'infected' | 'cured' | 'infection_warning' | 'miner_update';
   targetId?: PlayerId;
   result?: ScanResult;
   visitors?: PlayerId[];
@@ -119,10 +205,16 @@ export interface PrivateResultPayload {
   teamLabel?: string;
   nightAction?: string | null;
   nightActionHint?: string;
+  victoryHint?: string;
   infectionSource?: string;
   maturesAfterNight?: number;
   /** Infección madura esta noche — el nodo caerá si no fue curado. */
   critical?: boolean;
+  /** Minero: escudos tras mine_crypto o crypto_bribe. */
+  shieldCharges?: number;
+  minedTargetId?: PlayerId;
+  bribedTargetId?: PlayerId;
+  bribeKilled?: boolean;
 }
 
 export interface VoteTrace {
@@ -166,6 +258,7 @@ export interface PlayerRoomState {
   roomId: RoomId;
   phase: GamePhase;
   phaseStartedAt: number;
+  phaseEndsAt?: number | null;
   maxPlayers: number;
   playerCount: number;
   players: Array<{
@@ -181,9 +274,14 @@ export interface PlayerRoomState {
   nightNumber: number;
   votes: Record<string, PlayerId[]>;
   logs: string[];
+  publicLogs?: PublicLogEntry[];
+  chatMessages?: ChatMessage[];
+  nightProgress?: NightProgress;
+  phaseConfig?: PhaseConfig;
   winner: Team | null;
   soloWinner: SoloWinner | null;
   lastNightKills: PlayerId[];
+  gameStats?: GameStatsEntry[];
 }
 
 export interface RoomCreatedPayload {
@@ -196,6 +294,11 @@ export interface ClientToServerEvents {
   leaveRoom: (roomId: RoomId, playerId: PlayerId) => void;
   playerAction: (roomId: RoomId, action: PlayerAction) => void;
   submitVote: (roomId: RoomId, vote: VoteRecord) => void;
+  submitChat: (roomId: RoomId, payload: { playerId: PlayerId; text: string; channel?: ChatChannel }) => void;
+  submitDayAction: (roomId: RoomId, payload: { actor: PlayerId; type: string; target?: PlayerId }) => void;
+  requestMinigame: (roomId: RoomId, playerId: PlayerId) => void;
+  submitMinigameAnswer: (roomId: RoomId, payload: { playerId: PlayerId; token: string; answer: string | number }) => void;
+  skipMinigame: (roomId: RoomId, payload: { playerId: PlayerId; token: string }) => void;
   startGame: (roomId: RoomId) => void;
   advancePhase: (roomId: RoomId) => void;
   createRoom: (roomId: RoomId) => void;
@@ -207,6 +310,7 @@ export interface DashboardClientEvents {
   createRoom: (roomId: RoomId, maxPlayers: number) => void;
   startGame: (roomId: RoomId) => void;
   advancePhase: (roomId: RoomId) => void;
+  setPhaseConfig: (roomId: RoomId, config: Partial<PhaseConfig>) => void;
 }
 
 export interface ServerToClientEvents {
@@ -221,14 +325,25 @@ export interface ServerToClientEvents {
   voteTied: (payload: VoteTiedPayload) => void;
   /** `/game`: payload reducido (`PublicNightResolution`). `/dashboard`: resolución completa. */
   nightResolved: (roomId: RoomId, resolution: NightResolution | PublicNightResolution) => void;
-  playerReconnected: (roomId: RoomId, playerId: PlayerId) => void;
-  playerDisconnected: (roomId: RoomId, playerId: PlayerId) => void;
+  playerReconnected: (roomId: RoomId, playerId: PlayerId, playerName?: string) => void;
+  playerDisconnected: (roomId: RoomId, playerId: PlayerId, playerName?: string) => void;
+  /** Host eliminó la sala desde el dashboard. */
+  lobbyClosed: (roomId: RoomId, payload?: { reason?: string }) => void;
   playerEliminated: (roomId: RoomId, playerId: PlayerId, reason: string) => void;
   gameOver: (roomId: RoomId, winner: Team | null, soloWinner?: SoloWinner | null) => void;
+  chatMessage: (roomId: RoomId, message: ChatMessage) => void;
+  publicLog: (roomId: RoomId, entry: PublicLogEntry) => void;
+  publicLogsBatch: (roomId: RoomId, entries: PublicLogEntry[]) => void;
+  minigameChallenge: (roomId: RoomId, challenge: MinigameChallengePayload) => void;
+  minigameAnswerResult: (roomId: RoomId, payload: MinigameAnswerResultPayload) => void;
+  nightProgress: (roomId: RoomId, progress: NightProgress) => void;
+  phaseConfigChanged: (roomId: RoomId, config: PhaseConfig) => void;
+  gameStats: (roomId: RoomId, stats: GameStatsEntry[]) => void;
   error: (msg: string) => void;
 }
 
 /** Eventos exclusivos del namespace `/dashboard` (además de los compartidos). */
 export interface DashboardServerToClientEvents {
   roomCreated: (payload: RoomCreatedPayload) => void;
+  playerConnected: (roomId: RoomId, playerId: PlayerId, playerName?: string) => void;
 }

@@ -6,7 +6,7 @@ import { MAX_PLAYERS, MIN_PLAYERS } from './constants';
 
 /**
  * Normaliza y valida maxPlayers del host.
- * @throws Error si falta, no es entero o está fuera de rango 5–15.
+ * @throws Error si falta, no es entero o está fuera de rango 5–16.
  */
 export function normalizeRoomMaxPlayers(value: unknown): number {
   if (value === undefined || value === null || value === '') {

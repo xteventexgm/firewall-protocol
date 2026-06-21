@@ -29,6 +29,17 @@
   stroke-dasharray: 4 6;
 }
 
+.vote-lines-svg.vote-tie-active .vote-line {
+  stroke: #ffb800;
+  stroke-opacity: 0.9;
+  animation: vote-tie-chaos 0.8s ease-in-out infinite;
+}
+
+@keyframes vote-tie-chaos {
+  0%, 100% { stroke-dashoffset: 0; stroke-opacity: 0.7; }
+  50% { stroke-dashoffset: 12; stroke-opacity: 1; }
+}
+
 .vote-line-pulse {
   stroke: #00ffcc;
   stroke-opacity: 1;

@@ -102,6 +102,20 @@ export class RoomManager {
     return this.rooms.get(this.normalizeId(id)) || null;
   }
 
+  /** Archiva lobby abandonado y elimina de memoria. */
+  abandonLobby(roomId: string) {
+    const code = this.normalizeId(roomId);
+    const room = this.rooms.get(code);
+    if (room && room.state.phase === GamePhase.LOBBY) {
+      database.archive(code, 'deletegame', { reason: 'lobby_abandoned' });
+    } else if (room) {
+      database.archive(code, 'deletegame', { reason: 'host_left', phase: room.state.phase });
+    } else {
+      database.archive(code, 'deletegame', { reason: 'room_not_in_memory' });
+    }
+    this.deleteRoom(code);
+  }
+
   deleteRoom(id: string) {
     const roomId = this.normalizeId(id);
     const r = this.rooms.get(roomId);

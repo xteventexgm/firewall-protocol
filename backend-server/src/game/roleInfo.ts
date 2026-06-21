@@ -30,10 +30,31 @@ const NIGHT_ACTION_HINTS: Record<string, string> = {
   worm_infect: 'Propagación autónoma: infectas a un nodo; caerá tras dos noches sin cura. Tu primera eliminación nocturna falla (inmunidad de persistencia); luego eres vulnerable.',
   worm_kill: 'Alias de worm_infect.',
   zero_day_assume: 'Exploit 0-day (una vez por partida): asumes el rol de un jugador ya eliminado y heredas sus habilidades. Los escaneos SOC reflejan tu rol asumido.',
+  troll_provoke: 'Deja un mensaje anónimo en el feed público del amanecer. Elige tu provocación con cuidado.',
+  mine_crypto: 'Cryptojacking sigiloso: parasitizas el procesamiento de un nodo y ganas +1 escudo (máx. 3 acumulables). La víctima no recibe aviso.',
+  crypto_bribe: 'Soborno letal: gastas 1 escudo para eliminar directamente a un objetivo (kill directo, sujeto a protect). Requiere al menos 1 escudo.',
 };
 
 const PASSIVE_NIGHT_HINT =
   'No tienes acción nocturna. Participa en el debate diurno y en las votaciones.';
+
+const TEAM_VICTORY_HINTS: Record<Team, string> = {
+  [Team.SYSTEM]: 'Victoria del Sistema: eliminar a todos los hackers (0 Black Hat vivos).',
+  [Team.BLACK_HAT]: 'Victoria Black Hat: superar en número a los defensores vivos (hackers > system).',
+  [Team.CHAOTIC]: 'Victoria según tu rol caótico — revisa tu condición especial abajo.',
+};
+
+const ROLE_VICTORY_HINTS: Partial<Record<RoleName, string>> = {
+  [RoleName.TROLL]: 'Victoria solitaria: ser expulsado por votación diurna (te banean).',
+  [RoleName.WORM]: 'Victoria solitaria: quedar como único jugador vivo.',
+  [RoleName.CRYPTO_MINER]: 'Victoria solitaria: quedar como único jugador vivo.',
+  [RoleName.ZERO_DAY]: 'Hereda la victoria del rol que asumas con zero_day_assume.',
+  [RoleName.SYSADMIN]: 'Victoria del Sistema al eliminar a todos los hackers.',
+};
+
+function victoryHintFor(role: RoleName, team: Team): string {
+  return ROLE_VICTORY_HINTS[role] ?? TEAM_VICTORY_HINTS[team];
+}
 
 /** Construye payload de asignación de rol (inicio de partida o Zero-Day asume). */
 export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateResultPayload {
@@ -55,7 +76,14 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
   }
   if (role === RoleName.CRYPTO_MINER) {
     nightActionHint =
-      'Cryptojacking pasivo: sin acción nocturna. Tienes capas de resistencia a kills directos (según tamaño de sala); las infecciones maduras sí pueden eliminarte. Ganas si eres el único jugador vivo.';
+      'Economía cripto — una acción por noche: mine_crypto (minar +1 escudo, máx. 3) O crypto_bribe (gasta 1 escudo → kill directo). Los escudos bloquean ataques directos; infección madura te elimina. Ganas si eres el único jugador vivo.';
+  }
+  if (role === RoleName.SYSADMIN) {
+    nightActionHint =
+      'Sin acción nocturna. Durante VOTACION puedes usar Parche de emergencia (1×/partida) para anular el voto de un jugador.';
+  }
+  if (role === RoleName.TROLL) {
+    nightActionHint = NIGHT_ACTION_HINTS.troll_provoke;
   }
 
   return {
@@ -67,5 +95,6 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
     teamLabel: TEAM_LABELS[resolvedTeam],
     nightAction,
     nightActionHint,
+    victoryHint: victoryHintFor(role, resolvedTeam),
   };
 }

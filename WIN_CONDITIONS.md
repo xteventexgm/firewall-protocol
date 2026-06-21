@@ -2,6 +2,8 @@
 
 Referencia para jugar, diseñar partidas y testear. Refleja la implementación en `backend-server/src/game/VictoryChecker.ts` y `balance.ts`.
 
+Índice del proyecto: [`README.md`](./README.md) · Cambios: [`CHANGELOG.md`](./CHANGELOG.md)
+
 ---
 
 ## Resumen rápido
@@ -31,11 +33,13 @@ El servidor comprueba en este orden; la **primera condición que se cumple** ter
 
 | Momento | Fase / acción | Contexto especial |
 |---------|---------------|-------------------|
+| **Al eliminar por voto** | Durante `resolveVotes` en VOTACIÓN | `justVotedOut` → victoria del Troll; victoria de bando inmediata |
+| Tras **honeypot drag** | Misma resolución de voto | Si el arrastre elimina al último hacker, fin inmediato |
 | Tras resolver **NOCHE** | `advancePhase` desde NOCHE | Tras kills, infecciones, silencios |
-| Tras **VOTACION** con eliminado | `advancePhase` desde VOTACION | `justVotedOut` → detecta win del Troll |
-| Tras **VOTACION** sin empate | Entrada a VERIFICACION | Segunda comprobación de bando |
-| Al avanzar otras fases | DIA, VERIFICACION, etc. | Si no es NOCHE |
-| Recuperación de partida atascada | Cualquier fase ≠ NOCHE | Ej. solo Gusano vivo en DIA |
+| En **VERIFICACION** | Host avanza fase | Primero `checkAnyWin`; si no hay ganador, pasa a NOCHE |
+| Recuperación | Cualquier fase ≠ NOCHE | Partidas atascadas (ej. solo Gusano vivo en DÍA) |
+
+> **Importante:** al cumplirse la condición de victoria en votación, la partida pasa a `FIN` **sin** requerir una segunda fase de verificación manual.
 
 Evento socket al terminar: `gameOver(roomId, winner, soloWinner)`.
 

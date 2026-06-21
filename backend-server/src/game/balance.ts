@@ -37,6 +37,9 @@
  * - **Grande**: 10+ jugadores (`LARGE_TABLE_MIN`) — Ransomware con cooldown más corto.
  */
 
+/** Tope absoluto de escudos acumulables del Minero (mine_crypto). */
+export const MINER_MAX_SHIELDS = 3;
+
 /** Mesa pequeña (5–7 jugadores): reglas más favorables al Sistema (más usos defensivos, menos presión hacker). */
 export const SMALL_TABLE_MAX = 7;
 

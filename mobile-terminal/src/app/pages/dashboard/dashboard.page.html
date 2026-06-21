@@ -6,36 +6,52 @@
   [class.player-dead-screen]="isPlayerDead"
   [attr.data-phase]="gamePhase"
   [attr.data-team-theme]="teamTheme">
-  <div class="page-scroll">
-  <div class="terminal-shell">
+  <app-home-atmosphere />
 
-    <!-- Cabecera -->
-    <header class="terminal-header">
-      <div class="header-left">
-        <span class="header-label">Nodo activo</span>
-        <span class="header-value accent">{{ playerName }}</span>
+  <div class="page-scroll terminal-page">
+  <div class="terminal-outer">
+  <div class="terminal-shell" [class.interference-shake]="interferenceShake" [class.in-game]="isInGamePhase">
+
+    <header class="room-hero" [class.compact]="isInGamePhase">
+      <div class="room-hero-top">
+        <div class="conn-pill" [class.online]="connected && !reconnecting" [class.reconnecting]="reconnecting">
+          <span class="conn-dot" [class.online]="connected && !reconnecting" [class.offline]="!connected && !reconnecting" [class.reconnecting]="reconnecting"></span>
+          <span>{{ reconnecting ? 'Reconectando…' : (connected ? 'Enlace activo' : 'Sin señal') }}</span>
+        </div>
+        <div class="hero-actions">
+          <button type="button" class="icon-btn" (click)="toggleSound()" [title]="soundMuted ? 'Modo discreto — activar sonido' : 'Silenciar terminal'">
+            {{ soundMuted ? '🔇' : '🔊' }}
+          </button>
+          <button type="button" class="exit-room-btn" (click)="exitRoomCompletely()" title="Salir de la sala">
+            Salir
+          </button>
+        </div>
       </div>
-      <div class="header-center">
-        <span class="room-badge">{{ roomCode }}</span>
-      </div>
-      <div class="header-right">
-        <span class="conn-dot" [class.online]="connected" [class.offline]="!connected"></span>
-        <div>
-          <span class="header-label">Fase</span>
-          <span class="header-value phase" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
+
+      <div class="room-brand" [class.compact]="isInGamePhase">
+        <div class="room-icon-wrap" *ngIf="!isInGamePhase" [class.lobby-pulse]="isLobbyPhase">
+          <img src="assets/icon.png" alt="" class="room-app-icon" width="56" height="56" />
+        </div>
+        <div class="room-brand-text">
+          <span class="room-eyebrow">{{ roomCode }} · D{{ dayNumber }} N{{ nightNumber }}</span>
+          <h1 class="room-player-name">{{ playerName }}</h1>
+          <span class="phase-pill" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
         </div>
       </div>
     </header>
 
-    <!-- Métricas rápidas -->
-    <div class="metrics-row">
+    @if (phaseBulletin) {
+      <div class="phase-bulletin-banner">{{ phaseBulletin }}</div>
+    }
+
+    <div class="metrics-row" *ngIf="!showControlDock">
       <div class="metric">
         <span class="metric-value">{{ players.length }}/{{ maxPlayers }}</span>
         <span class="metric-label">Sala</span>
       </div>
       <div class="metric">
         <span class="metric-value">{{ connectedCount }}/{{ players.length }}</span>
-        <span class="metric-label">Conectados</span>
+        <span class="metric-label">Online</span>
       </div>
       <div class="metric">
         <span class="metric-value">{{ aliveCount }}</span>
@@ -51,77 +67,109 @@
       </div>
     </div>
 
-    <section class="panel role-panel">
-      <div class="panel-header">
-        <span class="panel-tag">Nivel de acceso</span>
-        <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
-      </div>
-      <h2 class="role-name">{{ playerRole }}</h2>
-      <p *ngIf="roleDescription" class="role-description">{{ roleDescription }}</p>
-      <p *ngIf="nightActionHint" class="night-hint">{{ nightActionHint }}</p>
-      <ul *ngIf="roleStatusLines.length" class="role-status-lines">
-        <li *ngFor="let line of roleStatusLines">{{ line }}</li>
-      </ul>
-      <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
-    </section>
-
-    <section *ngIf="isInfected && gamePhase !== 'LOBBY' && gamePhase !== 'FIN'" class="panel infection-panel">
-      <div class="panel-header">
-        <span class="panel-tag danger">Alerta biológica</span>
-      </div>
-      <h3 class="infection-title">☣ Infección activa</h3>
-      <p class="infection-sub">Fuente: <strong>{{ infectionSourceText }}</strong>. Un Antivirus puede curarte de noche.</p>
-      <p *ngIf="myInfectionMaturesAfterNight != null" class="infection-timer">
-        Madura tras resolver la noche N{{ myInfectionMaturesAfterNight }} sin cura.
-      </p>
-    </section>
-
     <div *ngIf="statusMessage" class="status-toast" [attr.data-type]="statusType">
       <span class="status-prefix">></span> {{ statusMessage }}
     </div>
 
-    <!-- Registro persistente de acción nocturna / resultado por rol -->
-    <section
-      *ngIf="nightActionReport"
-      class="panel action-report-panel"
-      [attr.data-status]="nightActionReport.status">
-      <div class="panel-header">
-        <span class="panel-tag">Registro nocturno</span>
-        <span class="report-night">N{{ nightActionReport.nightNumber }}</span>
-      </div>
-      <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
-      <ul class="report-details">
-        <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
-      </ul>
-      <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
-        ⏳ Pendiente de resolución al amanecer
-      </p>
-    </section>
+    <nav *ngIf="showControlDock" class="control-dock" aria-label="Panel de control">
+      <button type="button" class="dock-btn" [class.active]="activeControlTab === 'mission'" (click)="selectControlTab('mission')">
+        <span class="dock-icon">◈</span>
+        <span>Misión</span>
+      </button>
+      <button type="button" class="dock-btn" [class.active]="activeControlTab === 'intel'" (click)="selectControlTab('intel')">
+        <span class="dock-icon">◎</span>
+        <span>Intel</span>
+        <span *ngIf="intelAlert" class="dock-badge"></span>
+      </button>
+      <button type="button" class="dock-btn" [class.active]="activeControlTab === 'network'" (click)="selectControlTab('network')">
+        <span class="dock-icon">⬡</span>
+        <span>Red</span>
+      </button>
+      <button type="button" class="dock-btn" [class.active]="activeControlTab === 'comms'" (click)="selectControlTab('comms')" [disabled]="!canShowChat">
+        <span class="dock-icon">💬</span>
+        <span>Chat</span>
+        <span *ngIf="commsUnreadHint" class="dock-badge"></span>
+      </button>
+    </nav>
 
-    <!-- Reporte de incidentes (amanecer) -->
-    <section *ngIf="showIncidentReport" class="panel incident-panel animate-fade-in">
-      <h3 class="panel-title danger">Reporte de incidentes</h3>
-      <p class="panel-sub">Nodos caídos durante la noche:</p>
-      <ul class="incident-list">
-        <li *ngFor="let name of incidentNames">{{ name }}</li>
-        <li *ngIf="incidentNames.length === 0" class="muted">Sin bajas registradas</li>
-      </ul>
-    </section>
+    <div class="control-body" [class.with-dock]="showControlDock">
 
-    <!-- Contenido por fase -->
-    <main class="phase-content">
+    <!-- Pestaña MISIÓN / lobby sin dock -->
+    <div class="tab-pane" *ngIf="!showControlDock || activeControlTab === 'mission'">
+
+      <section *ngIf="!showRolePanel && (isLobbyPhase || gamePhase === 'REPARTO')" class="panel pending-cred-panel">
+        <div class="panel-header">
+          <span class="panel-tag accent">◈ Credencial</span>
+        </div>
+        <h2 class="pending-cred-title">{{ gamePhase === 'REPARTO' ? 'Asignando roles…' : 'En espera de despliegue' }}</h2>
+        <p class="pending-cred-sub">
+          {{ gamePhase === 'REPARTO'
+            ? 'El host está repartiendo credenciales de acceso a cada nodo.'
+            : 'Tu rol se revelará cuando el host inicie la partida.' }}
+        </p>
+      </section>
+
+      <section class="panel role-panel role-panel-compact" *ngIf="showRolePanel">
+        <div class="panel-header">
+          <span class="panel-tag">Nivel de acceso</span>
+          <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
+        </div>
+        <h2 class="role-name">{{ playerRole }}</h2>
+        <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
+      </section>
+
+      <main class="phase-content">
 
       <!-- LOBBY -->
-      <section *ngIf="gamePhase === 'LOBBY'" class="panel idle-panel">
-        <div class="idle-icon pulse-glow">◉</div>
-        <h3 class="panel-title">Sala en espera</h3>
-        <p class="panel-sub">Esperando que el host inicie la partida desde el dashboard.</p>
-        <p class="player-count">{{ players.length }}/{{ maxPlayers }} participantes · mín. {{ minPlayers }}</p>
-        <ul class="lobby-balance">
-          <li>~1 Black Hat cada {{ playersPerBlackHat }} jugadores</li>
-          <li>~1 rol caótico cada {{ playersPerChaotic }} jugadores</li>
-          <li>El resto del equipo Sistema (incl. Antivirus, Analista…)</li>
-        </ul>
+      <section *ngIf="gamePhase === 'LOBBY'" class="panel lobby-panel">
+        <div class="lobby-hero">
+          <div class="lobby-signal-ring">
+            <span class="lobby-signal-core"></span>
+          </div>
+          <span class="panel-tag lobby-tag">◈ ENLACE ESTABLECIDO</span>
+          <h3 class="lobby-title">Sala en espera</h3>
+          <p class="lobby-sub">El host iniciará la partida desde el dashboard central.</p>
+        </div>
+
+        <div class="lobby-progress-block">
+          <div class="lobby-progress-head">
+            <span class="lobby-progress-label">Ocupación de red</span>
+            <span class="lobby-progress-count">{{ players.length }}/{{ maxPlayers }}</span>
+          </div>
+          <div class="lobby-progress-track">
+            <div class="lobby-progress-fill" [style.width.%]="lobbyProgressPercent" [class.ready]="lobbyHasMinimum"></div>
+          </div>
+          <p class="lobby-min-hint" [class.ready]="lobbyHasMinimum">
+            {{ lobbyHasMinimum ? '✓ Mínimo alcanzado — listo para iniciar' : 'Mínimo ' + minPlayers + ' jugadores para comenzar' }}
+          </p>
+        </div>
+
+        <div class="lobby-nodes-block" *ngIf="players.length">
+          <span class="lobby-nodes-label">Nodos conectados</span>
+          <ul class="lobby-node-chips">
+            <li
+              *ngFor="let p of players"
+              class="lobby-node-chip"
+              [class.self]="p.id === myPlayerId"
+              [class.offline]="p.isConnected === false">
+              <span class="chip-dot" [class.online]="p.isConnected !== false"></span>
+              <span class="chip-name">{{ p.name }}</span>
+              <span *ngIf="p.id === myPlayerId" class="chip-badge">TÚ</span>
+            </li>
+            <li *ngIf="lobbyEmptySlotCount > 0" class="lobby-node-chip vacant">
+              +{{ lobbyEmptySlotCount }} libre{{ lobbyEmptySlotCount === 1 ? '' : 's' }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="lobby-balance-card">
+          <span class="lobby-balance-title">Balance de roles</span>
+          <ul class="lobby-balance">
+            <li>~1 Black Hat cada {{ playersPerBlackHat }} jugadores</li>
+            <li>~1 rol caótico cada {{ playersPerChaotic }} jugadores</li>
+            <li>El resto del equipo Sistema (Antivirus, Analista…)</li>
+          </ul>
+        </div>
       </section>
 
       <!-- REPARTO -->
@@ -139,8 +187,32 @@
 
       <!-- NOCHE con acción -->
       <section *ngIf="isNightPhase" class="panel action-panel night">
+        <app-action-progress [progress]="nightProgress"></app-action-progress>
+
+        <app-text-challenge
+          *ngIf="minigameChallenge && !isTrollNight"
+          [challenge]="minigameChallenge"
+          [pending]="minigamePending"
+          [feedbackType]="minigameFeedbackType"
+          [feedbackMessage]="minigameFeedbackMessage"
+          (answered)="onChallengeAnswered($event)"
+          (skip)="onChallengeSkipped()">
+        </app-text-challenge>
+
+        <p class="night-step-label" *ngIf="minigameChallenge && !isTrollNight">Paso 2 · Tu acción nocturna</p>
         <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
+        <ng-container *ngIf="isTrollNight">
+          <label class="field-label">Mensaje anónimo</label>
+          <select [(ngModel)]="selectedProvokeIndex" class="terminal-select">
+            <option *ngFor="let msg of trollMessages; let i = index" [value]="i">{{ msg }}</option>
+          </select>
+          <button (click)="executeNightAction()" class="terminal-btn danger">
+            Enviar provocación
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="!isTrollNight">
         <ng-container *ngIf="nightActionVariants.length > 1">
           <label class="field-label">Tipo de acción</label>
           <select [(ngModel)]="selectedNightActionType" class="terminal-select">
@@ -168,10 +240,14 @@
 
         <button
           (click)="executeNightAction()"
-          [disabled]="!selectedTarget || (needsSecondary && !selectedSecondary)"
+          [disabled]="nightActionDisabled"
           class="terminal-btn danger">
           Confirmar comando
         </button>
+        <p *ngIf="selectedNightActionType === 'crypto_bribe' && !canCryptoBribe(myRoleMeta)" class="field-hint warn">
+          Necesitas al menos 1 escudo para sobornar al sistema.
+        </p>
+        </ng-container>
       </section>
 
       <!-- DÍA -->
@@ -212,6 +288,26 @@
 
         <p *ngIf="voteTiedMessage" class="vote-tied-msg">{{ voteTiedMessage }}</p>
         <p *ngIf="myVoteConfirmed" class="vote-confirmed">✓ Voto confirmado por el servidor</p>
+
+        <ng-container *ngIf="canEmergencyPatch">
+          <hr class="section-divider" />
+          <h4 class="sub-action-title">Parche de emergencia (1×/partida)</h4>
+          <p class="panel-sub">Anula el voto de un jugador esta ronda.</p>
+          <select [(ngModel)]="selectedTarget" class="terminal-select">
+            <option value="" disabled>-- Jugador a anular --</option>
+            <option *ngFor="let player of aliveTargets" [value]="player.id">{{ player.name }}</option>
+          </select>
+          <button (click)="executeEmergencyPatch()" [disabled]="!selectedTarget" class="terminal-btn warn">
+            Aplicar parche
+          </button>
+          <div *ngIf="showPatchConfirm" class="patch-confirm">
+            <p>¿Anular el voto de este jugador? Solo puedes usar el parche <strong>una vez</strong> por partida.</p>
+            <div class="patch-confirm-actions">
+              <button type="button" class="terminal-btn danger" (click)="confirmEmergencyPatch()">Confirmar parche</button>
+              <button type="button" class="terminal-btn ghost" (click)="cancelEmergencyPatch()">Cancelar</button>
+            </div>
+          </div>
+        </ng-container>
       </section>
 
       <!-- VERIFICACIÓN -->
@@ -222,9 +318,131 @@
       </section>
 
     </main>
+    </div>
 
-    <!-- Lista de nodos (colapsable) -->
-    <section class="panel nodes-panel" *ngIf="players.length > 0">
+    <!-- Pestaña INTEL -->
+    <div class="tab-pane" *ngIf="showControlDock && activeControlTab === 'intel'">
+      <section *ngIf="isInfected && gamePhase !== 'LOBBY' && gamePhase !== 'FIN'" class="panel infection-panel">
+        <div class="panel-header">
+          <span class="panel-tag danger">Alerta biológica</span>
+        </div>
+        <h3 class="infection-title">☣ Infección activa</h3>
+        <p class="infection-sub">Fuente: <strong>{{ infectionSourceText }}</strong>. Un Antivirus puede curarte de noche.</p>
+        <p *ngIf="myInfectionMaturesAfterNight != null" class="infection-timer">
+          Madura tras resolver la noche N{{ myInfectionMaturesAfterNight }} sin cura.
+        </p>
+      </section>
+
+      <section
+        *ngIf="nightActionReport"
+        class="panel action-report-panel"
+        [attr.data-status]="nightActionReport.status">
+        <div class="panel-header">
+          <span class="panel-tag">Registro nocturno</span>
+          <span class="report-night">N{{ nightActionReport.nightNumber }}</span>
+        </div>
+        <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
+        <ul class="report-details">
+          <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
+        </ul>
+        <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
+          ⏳ Pendiente de resolución al amanecer
+        </p>
+      </section>
+
+      <section *ngIf="nightHistory.length > 1" class="panel history-panel">
+        <div class="panel-header">
+          <span class="panel-tag">Historial nocturno</span>
+        </div>
+        <ul class="history-list">
+          <li *ngFor="let item of nightHistory.slice(1)" class="history-item">
+            <span class="history-night">N{{ item.nightNumber }}</span>
+            <span class="history-headline">{{ item.headline }}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section *ngIf="showIncidentReport" class="panel incident-panel animate-fade-in">
+        <h3 class="panel-title danger">Reporte de incidentes</h3>
+        <p class="panel-sub">Nodos caídos durante la noche:</p>
+        <ul class="incident-list">
+          <li *ngFor="let name of incidentNames">{{ name }}</li>
+          <li *ngIf="incidentNames.length === 0" class="muted">Sin bajas registradas</li>
+        </ul>
+      </section>
+
+      <p *ngIf="!nightActionReport && !showIncidentReport && !isInfected" class="tab-empty">
+        Sin alertas de inteligencia por ahora.
+      </p>
+    </div>
+
+    <!-- Pestaña RED -->
+    <div class="tab-pane" *ngIf="showControlDock && activeControlTab === 'network'">
+      <div class="metrics-row metrics-inline">
+        <div class="metric">
+          <span class="metric-value">{{ players.length }}/{{ maxPlayers }}</span>
+          <span class="metric-label">Sala</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">{{ connectedCount }}/{{ players.length }}</span>
+          <span class="metric-label">Online</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">{{ aliveCount }}</span>
+          <span class="metric-label">Vivos</span>
+        </div>
+      </div>
+
+      <section class="panel nodes-panel" *ngIf="players.length > 0">
+        <div class="panel-header">
+          <span class="panel-tag">Topología · {{ players.length }} nodos</span>
+        </div>
+        <ul class="node-list node-list-open">
+          <li *ngFor="let p of players" class="node-item" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
+            <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
+            <span class="node-name">{{ p.name }}</span>
+            <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
+            <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
+              <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
+            </ng-container>
+            <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+            <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
+            <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- Pestaña CHAT -->
+    <div class="tab-pane tab-pane-comms" *ngIf="showControlDock && activeControlTab === 'comms' && canShowChat">
+      <section class="panel chat-panel chat-panel-full">
+        <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
+          <label class="field-label">Canal</label>
+          <select [(ngModel)]="chatChannel" class="terminal-select">
+            <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
+          </select>
+        </div>
+        <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
+        <ul class="chat-list chat-list-tall">
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
+            <span class="chat-author">{{ m.playerName }}:</span>
+            <span class="chat-text">{{ m.text }}</span>
+          </li>
+          <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
+        </ul>
+        <div class="chat-compose">
+          <input [(ngModel)]="chatInput" class="chat-input" placeholder="Mensaje (máx 120 chars)" maxlength="120" (keyup.enter)="sendChat()" />
+          <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">
+            {{ chatCooldownSec > 0 ? chatCooldownSec + 's' : 'Enviar' }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    </div><!-- control-body -->
+
+    <!-- Lobby: nodos colapsables fuera del dock -->
+    <section class="panel nodes-panel" *ngIf="!showControlDock && players.length > 0">
       <button type="button" class="topology-toggle" (click)="toggleTopology()">
         <span class="panel-tag">Topología · {{ players.length }} nodos</span>
         <span class="toggle-icon">{{ topologyOpen ? '▾' : '▸' }}</span>
@@ -244,7 +462,69 @@
       </ul>
     </section>
 
+    <!-- Chat solo en lobby -->
+    <section class="panel chat-panel" *ngIf="!showControlDock && canShowChat">
+      <button type="button" class="topology-toggle" (click)="chatOpen = !chatOpen">
+        <span class="panel-tag">💬 Chat</span>
+        <span class="toggle-icon">{{ chatOpen ? '▾' : '▸' }}</span>
+      </button>
+      <div *ngIf="chatOpen" class="chat-body">
+        <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
+          <label class="field-label">Canal</label>
+          <select [(ngModel)]="chatChannel" class="terminal-select">
+            <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
+          </select>
+        </div>
+        <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
+        <ul class="chat-list">
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
+            <span class="chat-author">{{ m.playerName }}:</span>
+            <span class="chat-text">{{ m.text }}</span>
+          </li>
+          <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
+        </ul>
+        <div class="chat-compose">
+          <input [(ngModel)]="chatInput" class="chat-input" placeholder="Mensaje (máx 120 chars)" maxlength="120" (keyup.enter)="sendChat()" />
+          <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">
+            {{ chatCooldownSec > 0 ? chatCooldownSec + 's' : 'Enviar' }}
+          </button>
+        </div>
+      </div>
+    </section>
+
   </div>
+  </div>
+  </div>
+
+  <!-- Overlay: briefing de rol al iniciar partida -->
+  <div *ngIf="showRoleBriefing" class="fullscreen-overlay role-briefing" [attr.data-team]="roleRevealTeam">
+    <div class="overlay-content briefing-card">
+      <p class="reveal-label">BRIEFING DE CREDENCIAL</p>
+      <h1 class="reveal-role">{{ playerRole }}</h1>
+      <p class="reveal-team">{{ playerTeamLabel }}</p>
+
+      <section class="briefing-block">
+        <h4 class="briefing-heading">Descripción</h4>
+        <p class="briefing-text">{{ roleDescription }}</p>
+      </section>
+
+      <section *ngIf="nightActionHint" class="briefing-block ability">
+        <h4 class="briefing-heading">Habilidad nocturna</h4>
+        <p class="briefing-text">{{ nightActionHint }}</p>
+      </section>
+
+      <section *ngIf="roleVictoryHint" class="briefing-block victory">
+        <h4 class="briefing-heading">Condición de victoria</h4>
+        <p class="briefing-text">{{ roleVictoryHint }}</p>
+      </section>
+
+      <div class="briefing-progress">
+        <div class="briefing-progress-fill" [style.width.%]="roleBriefingProgress"></div>
+      </div>
+      <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissRoleBriefing()">
+        Entendido — entrar a la red
+      </button>
+    </div>
   </div>
 
   <!-- Overlay: eliminado -->
@@ -256,6 +536,28 @@
         <p>> ERR_CONNECTION_REFUSED</p>
         <p>> Nodo comprometido.</p>
       </div>
+
+      <section class="dead-chat-panel">
+        <p class="chat-channel-badge">Chat de espectadores (eliminados)</p>
+        <ul class="chat-list">
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
+            <span class="chat-author">{{ m.playerName }}:</span>
+            <span class="chat-text">{{ m.text }}</span>
+          </li>
+          <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
+        </ul>
+        <div class="chat-compose">
+          <input
+            [(ngModel)]="chatInput"
+            class="chat-input"
+            placeholder="Mensaje (máx 120 chars)"
+            maxlength="120"
+            (keyup.enter)="sendChat()" />
+          <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">
+            {{ chatCooldownSec > 0 ? chatCooldownSec + 's' : 'Enviar' }}
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -278,6 +580,13 @@
         </ul>
       </section>
 
+      <section *ngIf="gameStats.length" class="reveal-panel stats-panel">
+        <h4 class="reveal-title">Estadísticas</h4>
+        <ul class="reveal-list">
+          <li *ngFor="let s of gameStats">{{ s.label }}: {{ s.value }}</li>
+        </ul>
+      </section>
+
       <button
         class="terminal-btn return-btn"
         [class.loss]="!gameOverView.didWin"
@@ -286,5 +595,11 @@
       </button>
     </div>
   </div>
+
+  <app-lobby-closed-overlay
+    *ngIf="showLobbyClosedOverlay"
+    [roomId]="lobbyClosedRoomId"
+    (dismissed)="onLobbyClosedDismiss()"
+  />
 
 </ion-content>

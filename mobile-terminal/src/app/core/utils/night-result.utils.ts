@@ -150,6 +150,31 @@ export function buildPrivateResultReport(
     };
   }
 
+  if (payload.type === 'miner_update') {
+    const details: string[] = [];
+    if (payload.minedTargetId) {
+      const target = resolvePlayerName(payload.minedTargetId, players);
+      details.push(`Minaste ${target} — +1 escudo.`);
+      details.push(`Escudos actuales: ${payload.shieldCharges ?? '?'}/3`);
+    }
+    if (payload.bribedTargetId) {
+      const target = resolvePlayerName(payload.bribedTargetId, players);
+      details.push(`Soborno enviado contra ${target} (−1 escudo).`);
+      details.push(
+        payload.bribeKilled
+          ? `✓ ${target} eliminado por soborno cripto.`
+          : `El ataque contra ${target} fue bloqueado o falló.`,
+      );
+      details.push(`Escudos restantes: ${payload.shieldCharges ?? '?'}/3`);
+    }
+    return {
+      nightNumber,
+      status: 'resolved',
+      headline: payload.minedTargetId ? 'Cryptojacking completado' : 'Soborno cripto resuelto',
+      details,
+    };
+  }
+
   return null;
 }
 
@@ -236,6 +261,20 @@ export function buildResolvedReport(
       }
       break;
 
+    case 'mine_crypto':
+      details.push(`Minaste el procesamiento de ${targetName}.`);
+      details.push('Ganaste +1 escudo (máx. 3 acumulables). La víctima no recibe aviso.');
+      break;
+
+    case 'crypto_bribe':
+      if (resolution.kills?.includes(targetId)) {
+        details.push(`Soborno exitoso — ${targetName} eliminado.`);
+      } else {
+        details.push(`Sobornaste al sistema contra ${targetName}, pero el nodo sobrevivió.`);
+      }
+      details.push('Consumiste 1 escudo de tu inventario.');
+      break;
+
     case 'worm_infect':
     case 'worm_kill':
       if (resolution.infections?.includes(targetId)) {
@@ -288,6 +327,8 @@ function pendingHeadline(role: string, actionType: string): string {
     cure: 'Curación enviada',
     pentester_kill: 'Eliminación enviada',
     zero_day_assume: 'Asunción de identidad enviada',
+    mine_crypto: 'Minado cripto enviado',
+    crypto_bribe: 'Soborno cripto enviado',
   };
   return map[actionType] ?? `Comando nocturno — ${role}`;
 }
@@ -308,6 +349,8 @@ function resolvedHeadline(role: string, actionType: string): string {
     cure: 'Curación aplicada',
     pentester_kill: 'Ataque del pentester',
     zero_day_assume: 'Identidad asumida',
+    mine_crypto: 'Cryptojacking resuelto',
+    crypto_bribe: 'Soborno cripto resuelto',
   };
   return map[actionType] ?? `Resultado nocturno — ${role}`;
 }

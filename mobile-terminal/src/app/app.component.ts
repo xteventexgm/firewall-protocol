@@ -12,12 +12,14 @@ export class AppComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
 
+    document.documentElement.classList.add('immersive-native');
+
     try {
-      await StatusBar.setOverlaysWebView({ overlay: false });
-      await StatusBar.setBackgroundColor({ color: '#050a12' });
+      await StatusBar.setOverlaysWebView({ overlay: true });
+      await StatusBar.setBackgroundColor({ color: '#00000000' });
       await StatusBar.setStyle({ style: Style.Dark });
     } catch {
-      // StatusBar no disponible en este entorno
+      /* StatusBar no disponible */
     }
   }
 }

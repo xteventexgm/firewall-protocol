@@ -27,6 +27,11 @@ export function initSockets(server: http.Server) {
     registerGameHandlers(socket);
 
     socket.on('disconnect', (reason) => {
+      const data = socket.data as { leavingVoluntarily?: boolean };
+      if (data.leavingVoluntarily) {
+        logClient('mobile', 'disconnect (salida voluntaria)', socket.id, { reason });
+        return;
+      }
       const found = RoomManager.findPlayerBySocketId(socket.id);
       if (found) {
         logClient('mobile', 'player disconnected from room', socket.id, {
@@ -34,7 +39,7 @@ export function initSockets(server: http.Server) {
           playerId: found.player.id,
           reason,
         });
-        found.room.markPlayerDisconnected(socket.id);
+        found.room.markPlayerDisconnected(socket.id, 'transport');
         broadcastRoomState(gameNs, found.room);
       } else {
         logClient('mobile', 'disconnect (no room)', socket.id, { reason });

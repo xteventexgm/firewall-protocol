@@ -1,5 +1,6 @@
 .dashboard {
   font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  position: relative;
 
   &.lobby-only {
     justify-content: center;
@@ -11,6 +12,8 @@
   display: flex;
   height: 100%;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 
   &:not(.lobby-wrapper--home) {
     height: 100%;
@@ -21,7 +24,8 @@
     justify-content: center;
     width: 100%;
     height: 100%;
-    padding: 1.5rem;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    overflow: hidden;
   }
 }
 
@@ -46,7 +50,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 14px 24px;
   background: linear-gradient(180deg, #050a12ee 0%, #050a1200 100%);
   pointer-events: none;
 }
@@ -58,8 +62,8 @@
 }
 
 .hud-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #00f0ff;
   box-shadow: 0 0 8px #00f0ff88;
@@ -85,23 +89,40 @@
 }
 
 .hud-label {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   color: #00f0ff;
 }
 
 .hud-timer {
-  font-size: 11px;
-  color: #6a8a9a;
-  padding-left: 8px;
+  font-size: 14px;
+  color: #8aa8b8;
+  padding-left: 10px;
   border-left: 1px solid #1a3a4a;
 }
 
+.hud-countdown {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd000;
+  padding-left: 10px;
+}
+
 .hud-meta {
-  font-size: 10px;
-  color: #5a7a8a;
-  letter-spacing: 0.08em;
+  font-size: 14px;
+  color: #7a9aaa;
+  letter-spacing: 0.06em;
+}
+
+.hud-bulletin {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #00f0ff;
+  letter-spacing: 0.05em;
+  max-width: min(560px, 72vw);
+  line-height: 1.4;
+  opacity: 0.95;
 }
 
 .toast {

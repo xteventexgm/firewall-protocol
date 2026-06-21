@@ -31,6 +31,8 @@ export class Player implements PlayerProfile {
   isConnected = true;
   joinedAt: number;
   metadata?: Record<string, any>;
+  /** 'transport' = caída de socket; 'voluntary' = salió con leaveRoom. */
+  lastDisconnectReason?: 'voluntary' | 'transport';
 
   constructor(id: PlayerId, name: string, socketId?: string) {
     this.id = id;

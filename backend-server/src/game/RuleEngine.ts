@@ -25,6 +25,7 @@ import {
   isInfectionMature,
   infectionSourceLabel,
 } from './infection';
+import { MINER_MAX_SHIELDS } from './balance';
 
 function actionType(a: PlayerAction) {
   return (a.type || '').toLowerCase();
@@ -97,6 +98,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
   honeypot_drag: 'señuelo',
   phisher_redirect: 'engaño social',
   zero_day_assume: 'exploit 0-day',
+  mine_crypto: 'cryptojacking',
+  crypto_bribe: 'soborno cripto',
 };
 
 function activityLabel(actionType: string): string {
@@ -117,7 +120,7 @@ function tryKill(
   opts: KillOptions = {},
 ): boolean {
   if (!opts.bypassProtection && protections.has(targetId)) {
-    res.logs.push(`Kill on ${targetId} prevented by Antivirus protection`);
+    res.logs.push(`Kill on ${targetId} prevented by EDR protection`);
     return false;
   }
 
@@ -127,7 +130,7 @@ function tryKill(
   const meta = getMeta(target);
   if (target.role === RoleName.WORM && meta.isWormImmune) {
     meta.isWormImmune = false;
-    res.logs.push(`Kill on ${targetId} prevented: Gusano immune (first attack consumed)`);
+    res.logs.push(`Kill on ${targetId} prevented: first-strike immunity consumed`);
     return false;
   }
 
@@ -137,7 +140,7 @@ function tryKill(
     (meta.shieldCharges ?? 0) > 0
   ) {
     meta.shieldCharges = (meta.shieldCharges ?? 0) - 1;
-    res.logs.push(`Crypto Miner ${targetId} blocked direct attack (${meta.shieldCharges} shields left)`);
+    res.logs.push(`${targetId} blocked direct attack (shield absorbed, ${meta.shieldCharges} remaining)`);
     return false;
   }
 
@@ -163,6 +166,7 @@ function processMatureInfections(
       playerId: player.id,
       payload: {
         type: 'infection_warning',
+        targetId: player.id,
         infectionSource: infection.source,
         maturesAfterNight: currentNight,
         critical: true,
@@ -275,7 +279,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
         const meta = getMeta(actor);
         if (!meta.phisherRedirects) meta.phisherRedirects = {};
         meta.phisherRedirects[a.target] = a.meta.redirectTo;
-        res.logs.push(`Phisher redirect ${a.target} -> ${a.meta.redirectTo}`);
+        res.logs.push(`Social-engineering redirect ${a.target} -> ${a.meta.redirectTo}`);
       }
     }
   }
@@ -286,7 +290,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
     const type = actionType(a);
     if ((type !== 'protect' && type !== 'cure') || !a.target) continue;
     if (antivirusResolved.has(a.actor)) {
-      res.logs.push(`Antivirus ${a.actor}: extra ${type} ignored (single choice per night)`);
+      res.logs.push(`EDR node ${a.actor}: extra ${type} ignored (single choice per night)`);
       continue;
     }
     if (isActorBlocked(a, frozenTargets, res)) continue;
@@ -296,7 +300,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
     if (type === 'protect') {
       protections.add(finalTarget);
-      res.logs.push(`Antivirus protected ${finalTarget}`);
+      res.logs.push(`EDR protected ${finalTarget}`);
       continue;
     }
 
@@ -305,13 +309,13 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
 
     if (clearInfection(target)) {
       res.cures.push(finalTarget);
-      res.logs.push(`Antivirus cured infection on ${finalTarget}`);
+      res.logs.push(`EDR cured infection on ${finalTarget}`);
       res.privateResults.push({
         playerId: a.actor,
         payload: { type: 'cured', targetId: finalTarget },
       });
     } else {
-      res.logs.push(`Antivirus cure on ${finalTarget}: no infection present`);
+      res.logs.push(`EDR cure on ${finalTarget}: no infection present`);
     }
   }
 
@@ -337,7 +341,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       if (target?.isAlive) {
         getMeta(target).silencedUntilDay = state.dayNumber + 1;
         if (!res.silenced.includes(final)) res.silenced.push(final);
-        res.logs.push(`DDoS degraded ${final} until day ${state.dayNumber + 1}`);
+        res.logs.push(`Traffic flood degraded ${final} until day ${state.dayNumber + 1}`);
       }
     }
   }
@@ -359,7 +363,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
           if (sameTeam) {
             actor.isAlive = false;
             res.kills.push(a.actor);
-            res.logs.push(`Pentester ${a.actor} died of guilt`);
+            res.logs.push(`${a.actor} died during authorized penetration test`);
           }
         }
       }
@@ -369,13 +373,13 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const target = playersById.get(final);
       if (!target?.isAlive) continue;
       if (isInfected(target)) {
-        res.logs.push(`Worm ${a.actor} tried to infect ${final}: already infected`);
+        res.logs.push(`${a.actor} tried to propagate malware to ${final}: already infected`);
         continue;
       }
 
       const infection = applyInfection(target, a.actor, 'worm', state.nightNumber);
       res.infections.push(final);
-      res.logs.push(`Worm ${a.actor} infected ${final} (matures after night ${infection.maturesAfterNight})`);
+      res.logs.push(`${a.actor} propagated malware to ${final} (matures after night ${infection.maturesAfterNight})`);
       res.privateResults.push({
         playerId: a.actor,
         payload: {
@@ -389,10 +393,47 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
         playerId: final,
         payload: {
           type: 'infection_warning',
+          targetId: final,
           infectionSource: 'worm',
           maturesAfterNight: infection.maturesAfterNight,
         },
       });
+    } else if (type === 'mine_crypto') {
+      const final = resolveTarget(a.target);
+      const actor = playersById.get(a.actor);
+      if (actor?.isAlive) {
+        const meta = getMeta(actor);
+        if ((meta.shieldCharges ?? 0) < MINER_MAX_SHIELDS) {
+          meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
+          meta.lastMinedTarget = final;
+          res.logs.push(`${a.actor} ran cryptojacking on ${final} (+1 shield → ${meta.shieldCharges}/${MINER_MAX_SHIELDS})`);
+          res.privateResults.push({
+            playerId: a.actor,
+            payload: {
+              type: 'miner_update',
+              shieldCharges: meta.shieldCharges,
+              minedTargetId: final,
+            },
+          });
+        }
+      }
+    } else if (type === 'crypto_bribe') {
+      const final = resolveTarget(a.target);
+      recordVisit(a.actor, final, activityLabel(type));
+      const actor = playersById.get(a.actor);
+      const killed = tryKill(final, state, res, `covert strike by ${a.actor}`, protections);
+      if (killed) processHoneypotDrag(final, state, res, protections);
+      if (actor) {
+        res.privateResults.push({
+          playerId: a.actor,
+          payload: {
+            type: 'miner_update',
+            shieldCharges: getMeta(actor).shieldCharges ?? 0,
+            bribedTargetId: final,
+            bribeKilled: killed,
+          },
+        });
+      }
     } else if (type === 'ransomware') {
       const final = resolveTarget(a.target);
       recordVisit(a.actor, final, activityLabel(type));
@@ -400,7 +441,7 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       if (target?.isAlive) {
         getMeta(target).silencedUntilDay = state.dayNumber + 1;
         res.silenced.push(final);
-        res.logs.push(`Ransomware silenced ${final} until day ${state.dayNumber + 1}`);
+        res.logs.push(`${final} silenced until day ${state.dayNumber + 1}`);
       }
     }
   }
@@ -414,7 +455,12 @@ export function resolveNightActions(batch: NightActionBatch, state: GameStateMod
       const finalTarget = resolveTarget(a.target);
       recordVisit(a.actor, finalTarget, activityLabel(type));
       const targetPlayer = playersById.get(finalTarget);
-      const result = scanResult(targetPlayer?.role as RoleName);
+      let result = scanResult(targetPlayer?.role as RoleName);
+      const minigame = a.meta?.minigameResult;
+      if (minigame === 'failed' && result === 'malicious') {
+        result = 'suspicious';
+        res.logs.push(`SOC scan on ${finalTarget} degraded by failed skill check`);
+      }
       res.privateResults.push({
         playerId: a.actor,
         payload: { type: 'scan', targetId: finalTarget, result },
