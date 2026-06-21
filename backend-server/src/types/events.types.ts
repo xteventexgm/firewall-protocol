@@ -361,6 +361,7 @@ export interface DashboardClientEvents {
   startGame: (roomId: RoomId) => void;
   advancePhase: (roomId: RoomId) => void;
   setPhaseConfig: (roomId: RoomId, config: Partial<PhaseConfig>) => void;
+  kickPlayer: (roomId: RoomId, playerId: PlayerId) => void;
 }
 
 export interface ServerToClientEvents {
@@ -379,6 +380,8 @@ export interface ServerToClientEvents {
   playerDisconnected: (roomId: RoomId, playerId: PlayerId, playerName?: string) => void;
   /** Host eliminó la sala desde el dashboard. */
   lobbyClosed: (roomId: RoomId, payload?: { reason?: string }) => void;
+  /** Host expulsó a este jugador de la sala (solo LOBBY). */
+  playerKicked: (roomId: RoomId, payload: { playerId: PlayerId; playerName?: string; reason?: string }) => void;
   playerEliminated: (roomId: RoomId, playerId: PlayerId, reason: string) => void;
   gameOver: (roomId: RoomId, winner: Team | null, soloWinner?: SoloWinner | null) => void;
   chatMessage: (roomId: RoomId, message: ChatMessage) => void;

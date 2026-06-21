@@ -17,7 +17,10 @@ export type SocketErrorCode =
   | 'not_joined'
   | 'identity_mismatch'
   | 'room_mismatch'
-  | 'bots_disabled';
+  | 'bots_disabled'
+  | 'bots_need_humans'
+  | 'player_not_found'
+  | 'kick_not_allowed';
 
 export function formatSocketError(message: string, code: SocketErrorCode): string {
   return `${message} (${code})`;

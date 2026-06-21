@@ -196,18 +196,26 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
         socket.emit('error', formatSocketError('Sala no encontrada.', 'room_not_found'));
         return;
       }
-      let added: number;
-      if (count == null || count === 0) {
-        added = room.fillBotsToCapacity();
-      } else if (count === -1) {
-        added = room.fillBotsToMinimum();
-      } else {
-        added = room.addBotPlayers(Math.max(0, Math.floor(count)));
-      }
+      const added = room.addOneBotPlayer();
       socket.emit('publicState', room.state.toPublicState());
-      logClient('dashboard', 'fillBots OK', socket.id, { roomId: code, added, total: room.state.players.length });
+      logClient('dashboard', 'fillBots OK', socket.id, {
+        roomId: code,
+        added,
+        total: room.state.players.length,
+      });
     } catch (err: any) {
       logger.warn('[dashboard] fillBots FAIL', err.message || err);
+      const msg = String(err.message || err);
+      if (msg.includes('jugador real')) {
+        socket.emit(
+          'error',
+          formatSocketError(
+            'Entra al menos un jugador real desde el móvil antes de añadir bots.',
+            'bots_need_humans',
+          ),
+        );
+        return;
+      }
       socket.emit('error', err.message || String(err));
     }
   });
@@ -228,6 +236,54 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
       socket.emit('publicState', room.state.toPublicState());
       logClient('dashboard', 'clearBots OK', socket.id, { roomId: code, removed });
     } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('kickPlayer', (roomId: string, playerId: string) => {
+    try {
+      const code = normalizeRoomCode(roomId);
+      const targetId = playerId?.trim();
+      if (!targetId) {
+        socket.emit('error', formatSocketError('Identificador de jugador requerido.', 'invalid_player_id'));
+        return;
+      }
+      const room = RoomManager.getRoom(code);
+      if (!room) {
+        socket.emit('error', formatSocketError('Sala no encontrada.', 'room_not_found'));
+        return;
+      }
+      const kicked = room.kickPlayer(targetId);
+      if (kicked.socketId) {
+        const targetSocket = gameNs.sockets.get(kicked.socketId);
+        if (targetSocket) {
+          (targetSocket.data as { leavingVoluntarily?: boolean }).leavingVoluntarily = true;
+          targetSocket.emit('playerKicked', code, {
+            playerId: kicked.playerId,
+            playerName: kicked.playerName,
+            reason: 'host_kick',
+          });
+          targetSocket.leave(code);
+        }
+      }
+      socket.emit('publicState', room.state.toPublicState());
+      logClient('dashboard', 'kickPlayer OK', socket.id, {
+        roomId: code,
+        playerId: kicked.playerId,
+        playerName: kicked.playerName,
+        isBot: kicked.isBot,
+      });
+    } catch (err: any) {
+      logger.warn('[dashboard] kickPlayer FAIL', err.message || err);
+      const msg = String(err.message || err);
+      if (msg.includes('LOBBY')) {
+        socket.emit('error', formatSocketError('Solo puedes expulsar en el lobby.', 'kick_not_allowed'));
+        return;
+      }
+      if (msg.includes('no encontrado')) {
+        socket.emit('error', formatSocketError('Jugador no encontrado en la sala.', 'player_not_found'));
+        return;
+      }
       socket.emit('error', err.message || String(err));
     }
   });

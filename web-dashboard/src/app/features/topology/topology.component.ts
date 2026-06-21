@@ -3,14 +3,16 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
   Input,
   NgZone,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
   AfterViewInit,
-  HostListener,
   inject,
 } from '@angular/core';
 import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
@@ -85,6 +87,11 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() phase: GamePhase = 'LOBBY';
   @Input() glitchPlayerIds: string[] = [];
   @Input() skipVotes = 0;
+  @Input() kickEnabled = false;
+
+  @Output() kickPlayer = new EventEmitter<PublicPlayer>();
+
+  kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
 
   @ViewChild('svgContainer', { static: true }) svgContainer!: ElementRef<HTMLElement>;
   @ViewChild('particlesCanvas') particlesCanvas?: ElementRef<HTMLCanvasElement>;
@@ -935,6 +942,44 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   isNodeHealthy(player: PublicPlayer): boolean {
     return player.isAlive && player.isConnected && !player.silenced;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeKickMenu();
+  }
+
+  onNodeClick(node: NodePosition, event: MouseEvent): void {
+    if (!this.kickEnabled) return;
+    event.stopPropagation();
+    if (this.kickMenu?.player.id === node.id) {
+      this.closeKickMenu();
+      return;
+    }
+    this.kickMenu = { player: node.player, x: node.x, y: node.y };
+    this.cdr.markForCheck();
+  }
+
+  confirmKick(): void {
+    if (!this.kickMenu) return;
+    this.kickPlayer.emit(this.kickMenu.player);
+    this.closeKickMenu();
+  }
+
+  closeKickMenu(): void {
+    if (!this.kickMenu) return;
+    this.kickMenu = null;
+    this.cdr.markForCheck();
+  }
+
+  kickMenuLeftPct(): number {
+    if (!this.kickMenu || !this.width) return 50;
+    return (this.kickMenu.x / this.width) * 100;
+  }
+
+  kickMenuTopPct(): number {
+    if (!this.kickMenu || !this.height) return 50;
+    return (this.kickMenu.y / this.height) * 100;
   }
 
   get nodeMetrics() {

@@ -89,6 +89,8 @@
         [phase]="state?.phase ?? 'LOBBY'"
         [glitchPlayerIds]="glitchPlayerIds"
         [skipVotes]="lastVoteTiedSkipVotes"
+        [kickEnabled]="!gameOverActive && state?.phase === 'LOBBY'"
+        (kickPlayer)="onKickPlayer($event)"
       />
 
       <app-vote-lines

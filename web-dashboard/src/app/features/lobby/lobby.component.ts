@@ -90,10 +90,15 @@ export class LobbyComponent implements OnChanges {
     return this.state?.players.filter((p) => p.isBot).length ?? 0;
   }
 
+  get humanCount(): number {
+    return this.state?.players.filter((p) => !p.isBot).length ?? 0;
+  }
+
   get canFillBots(): boolean {
     return (
       !this.gameOverActive &&
       this.state?.phase === 'LOBBY' &&
+      this.humanCount > 0 &&
       this.playerCount < this.capacity
     );
   }

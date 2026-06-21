@@ -172,10 +172,16 @@ export class GameSocketService implements OnDestroy {
     this.socket?.emit('advancePhase', this.roomId);
   }
 
-  /** Rellena bots de QA hasta la capacidad máxima de la sala. Solo en LOBBY. */
-  fillBots(count = 0): void {
+  /** Añade un bot de QA (un clic = un bot). Solo en LOBBY con jugador real. */
+  fillBots(): void {
     if (!this.roomId || this.gameEnded) return;
-    this.socket?.emit('fillBots', this.roomId, count);
+    this.socket?.emit('fillBots', this.roomId);
+  }
+
+  /** Expulsa un nodo de la sala (solo LOBBY). */
+  kickPlayer(playerId: string): void {
+    if (!this.roomId || this.gameEnded) return;
+    this.socket?.emit('kickPlayer', this.roomId, playerId);
   }
 
   /** Quita todos los bots de QA de la sala. Solo en LOBBY. */

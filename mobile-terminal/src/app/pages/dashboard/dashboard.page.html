@@ -665,6 +665,7 @@
   <app-lobby-closed-overlay
     *ngIf="showLobbyClosedOverlay"
     [roomId]="lobbyClosedRoomId"
+    [reason]="lobbyClosedReason"
     (dismissed)="onLobbyClosedDismiss()"
   />
 

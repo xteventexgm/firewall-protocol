@@ -1,0 +1,220 @@
+{
+  "archivedAt": "2026-06-21T20:02:08.523Z",
+  "archiveCategory": "deletegame",
+  "reason": "lobby_abandoned",
+  "roomId": "FIRE-GQL4",
+  "phase": "LOBBY",
+  "phaseStartedAt": 1782071616391,
+  "phaseEndsAt": null,
+  "maxPlayers": 10,
+  "players": [
+    {
+      "id": "usr_gg5wm38ye",
+      "name": "Kaisser",
+      "isAlive": true,
+      "isConnected": false,
+      "joinedAt": 1782071628805,
+      "metadata": {},
+      "isBot": false
+    },
+    {
+      "id": "bot-a81f42fb",
+      "name": "BOT-01",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071652971,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-515c98e6",
+      "name": "BOT-02",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071660981,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-66ece073",
+      "name": "BOT-03",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071744326,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "usr_r75cewoce",
+      "name": "Heberon",
+      "socketId": "Z1lYtC8sXwgpqEx2AAAH",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071765237,
+      "metadata": {},
+      "isBot": false
+    },
+    {
+      "id": "bot-d95867b3",
+      "name": "BOT-04",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071773701,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-58d5fb15",
+      "name": "BOT-05",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071775596,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-045f627e",
+      "name": "BOT-06",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071777245,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-ed6938bc",
+      "name": "BOT-07",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071778733,
+      "metadata": {},
+      "isBot": true
+    },
+    {
+      "id": "bot-784a4bce",
+      "name": "BOT-08",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782071780422,
+      "metadata": {},
+      "isBot": true
+    }
+  ],
+  "dayNumber": 0,
+  "nightNumber": 0,
+  "actionQueue": [],
+  "votes": {},
+  "logs": [],
+  "winner": null,
+  "soloWinner": null,
+  "lastNightKills": [],
+  "initialPlayerCount": 0,
+  "publicLogs": [
+    {
+      "id": "plog_1782071652972_1",
+      "timestamp": 1782071652972,
+      "message": "14:54 UTC — [BOT/QA] Nodo bot conectado: BOT-01 — 2/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071660984_2",
+      "timestamp": 1782071660984,
+      "message": "14:54 UTC — [BOT/QA] Nodo bot conectado: BOT-02 — 3/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071744328_3",
+      "timestamp": 1782071744328,
+      "message": "14:55 UTC — [BOT/QA] Nodo bot conectado: BOT-03 — 4/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071773704_4",
+      "timestamp": 1782071773704,
+      "message": "14:56 UTC — [BOT/QA] Nodo bot conectado: BOT-04 — 6/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071775598_5",
+      "timestamp": 1782071775598,
+      "message": "14:56 UTC — [BOT/QA] Nodo bot conectado: BOT-05 — 7/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071777248_6",
+      "timestamp": 1782071777248,
+      "message": "14:56 UTC — [BOT/QA] Nodo bot conectado: BOT-06 — 8/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071778735_7",
+      "timestamp": 1782071778735,
+      "message": "14:56 UTC — [BOT/QA] Nodo bot conectado: BOT-07 — 9/10",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782071780424_8",
+      "timestamp": 1782071780424,
+      "message": "14:56 UTC — [BOT/QA] Nodo bot conectado: BOT-08 — 10/10",
+      "severity": "info"
+    }
+  ],
+  "chatMessages": [
+    {
+      "id": "chat_1782071909990_i2gpw",
+      "playerId": "usr_r75cewoce",
+      "playerName": "Heberon",
+      "text": "XD",
+      "channel": "public",
+      "timestamp": 1782071909990,
+      "phase": "LOBBY"
+    },
+    {
+      "id": "chat_1782071925418_6io0e",
+      "playerId": "usr_r75cewoce",
+      "playerName": "Heberon",
+      "text": "Ustedes contra mi solo",
+      "channel": "public",
+      "timestamp": 1782071925418,
+      "phase": "LOBBY"
+    },
+    {
+      "id": "chat_1782071932050_bn6vc",
+      "playerId": "usr_r75cewoce",
+      "playerName": "Heberon",
+      "text": "Zzzz",
+      "channel": "public",
+      "timestamp": 1782071932050,
+      "phase": "LOBBY"
+    },
+    {
+      "id": "chat_1782071937754_62227",
+      "playerId": "usr_r75cewoce",
+      "playerName": "Heberon",
+      "text": "Izi tutorial",
+      "channel": "public",
+      "timestamp": 1782071937754,
+      "phase": "LOBBY"
+    }
+  ],
+  "phaseConfig": {
+    "autoAdvance": true,
+    "nightDurationMs": 60000,
+    "dayDurationMs": 60000,
+    "voteDurationMs": 60000
+  },
+  "gameStats": {
+    "scansPerformed": 0,
+    "killsPrevented": 0,
+    "infectionsApplied": 0,
+    "votesCast": 0,
+    "honeypotDrags": 0,
+    "playerActions": {},
+    "mvpPlayerId": null,
+    "mvpReason": null
+  },
+  "lastChatSentAt": {
+    "usr_r75cewoce": 1782071937754
+  },
+  "lastVoteByPlayer": {}
+}

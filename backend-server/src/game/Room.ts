@@ -60,8 +60,7 @@ import {
 import { TROLL_PROVOKE_MESSAGES } from './trollProvoke';
 import { WHITE_NOISE_MESSAGES } from './whiteNoise';
 import { PhaseConfig } from '../types';
-import { devBotsEnabled } from '../config/env';
-import { fillBotsToMinimum, fillBotsToCapacity, fillBots, clearBots, runBotQaMatch as startBotQaMatch, verificationPhaseDurationMs } from './BotController';
+import { clearBots, runBotQaMatch as startBotQaMatch, verificationPhaseDurationMs, addOneBot } from './BotController';
 
 /** Intento de unirse a partida ya iniciada (solo LOBBY acepta nuevos jugadores). */
 export class RoomJoinDeniedError extends Error {
@@ -348,21 +347,38 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on removePlayer', e); }
   }
 
-  /** QA: rellena con bots hasta el mínimo para iniciar (solo LOBBY, DEV_BOTS). */
-  fillBotsToMinimum(): number {
-    return fillBotsToMinimum(this);
+  /**
+   * Expulsa un nodo de la sala (solo LOBBY). Bots y jugadores reales.
+   * Devuelve datos del socket antes de eliminar al jugador.
+   */
+  kickPlayer(playerId: string): { playerId: string; playerName: string; socketId?: string; isBot: boolean } {
+    if (this.sm.getPhase() !== GamePhase.LOBBY) {
+      throw new Error('Solo se puede expulsar jugadores en LOBBY');
+    }
+    const player = this.state.getPlayer(playerId);
+    if (!player) {
+      throw new Error('Jugador no encontrado');
+    }
+
+    const meta = {
+      playerId: player.id,
+      playerName: player.name,
+      socketId: player.socketId,
+      isBot: player.isBot === true,
+    };
+
+    this.removePlayer(playerId);
+    this.emit('playerKicked', { roomId: this.id, ...meta });
+
+    const tag = meta.isBot ? 'bot' : 'nodo';
+    this.state.log(`Host kicked ${tag} ${meta.playerName} (${meta.playerId})`);
+
+    return meta;
   }
 
-  /** QA: rellena bots hasta la capacidad máxima de la sala (solo LOBBY). */
-  fillBotsToCapacity(): number {
-    return fillBotsToCapacity(this);
-  }
-
-  /** QA: añade N bots (solo LOBBY). */
-  addBotPlayers(count: number): number {
-    if (!devBotsEnabled()) throw new Error('Bots desactivados (DEV_BOTS=false)');
-    if (this.sm.getPhase() !== GamePhase.LOBBY) throw new Error('Solo en LOBBY');
-    return fillBots(this, count);
+  /** Añade un bot (solo LOBBY, requiere jugador real en sala). */
+  addOneBotPlayer(): number {
+    return addOneBot(this);
   }
 
   /** QA: elimina todos los bots (solo LOBBY). */

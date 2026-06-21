@@ -217,9 +217,13 @@
           [class.node-banning]="isBanAnimating(node.id)"
           [class.node-spawn]="isSpawning(node.id)"
           [class.node-connected-blink]="isConnectedBlink(node.id)"
+          [class.node-kickable]="kickEnabled"
           [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
           [attr.filter]="isSpawning(node.id) || isConnectedBlink(node.id) ? 'url(#node-glow-strong)' : 'url(#node-glow)'"
         >
+          @if (kickEnabled) {
+            <circle r="42" class="node-hit" (click)="onNodeClick(node, $event)" />
+          }
           @if (isSpawning(node.id)) {
             @for (line of hexScaffoldLines(node, nodeMetrics.outer); track $index) {
               <line
@@ -309,6 +313,26 @@
       }
     }
   </svg>
+
+  @if (kickMenu && kickEnabled) {
+    <div
+      class="node-kick-popover"
+      [style.left.%]="kickMenuLeftPct()"
+      [style.top.%]="kickMenuTopPct()"
+      (click)="$event.stopPropagation()"
+    >
+      <p class="node-kick-title">{{ kickMenu.player.name }}</p>
+      <p class="node-kick-sub">
+        {{ kickMenu.player.isBot ? 'Bot de QA' : 'Jugador real' }}
+      </p>
+      <button type="button" class="node-kick-btn" (click)="confirmKick()">
+        Expulsar de la sala
+      </button>
+      <button type="button" class="node-kick-cancel" (click)="closeKickMenu()">
+        Cancelar
+      </button>
+    </div>
+  }
 
   @if (!nodes.length && !leavingNodes.length) {
     <div class="empty-state" [class.empty-state-boot]="networkBooting || networkBootFading">

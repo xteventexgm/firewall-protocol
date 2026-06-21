@@ -28,28 +28,37 @@ export class PhaseOverlayComponent implements OnChanges {
   private bootTimer?: ReturnType<typeof setTimeout>;
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (this.blockPhaseOverlays) {
-      this.showNightOverlay = false;
-      this.showDawnFlash = false;
-      return;
-    }
-
     if (changes['phase']) {
       if (this.phase === 'DIA' && this.prevPhase === 'REPARTO' && this.dayNumber > 1) {
         this.triggerBootSequence();
       }
       this.prevPhase = this.phase;
       this.showNightOverlay = this.phase === 'NOCHE';
-      if (this.phase === 'DIA' && !changes['phaseFlash']) {
+      if (this.phase === 'DIA' && !changes['phaseFlash'] && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
     }
 
     if (changes['phaseFlash'] && this.phaseFlash) {
       this.showNightOverlay = this.phaseFlash === 'NOCHE';
-      if (this.phaseFlash === 'DIA') {
+      if (this.phaseFlash === 'DIA' && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
+    }
+
+    // Si el aviso quedó bloqueado por animación de muerte, mostrarlo al desbloquear.
+    if (changes['blockPhaseOverlays'] && !this.blockPhaseOverlays) {
+      this.syncNightOverlayIfNeeded();
+    }
+
+    if (this.blockPhaseOverlays) {
+      this.showDawnFlash = false;
+    }
+  }
+
+  private syncNightOverlayIfNeeded(): void {
+    if (this.phase === 'NOCHE' || this.phaseFlash === 'NOCHE') {
+      this.showNightOverlay = true;
     }
   }
 

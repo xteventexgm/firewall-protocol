@@ -655,6 +655,13 @@
   animation: qa-pulse 2s ease-in-out infinite;
 }
 
+.lobby-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.68rem;
+  color: var(--color-cyber-muted, #4a6a7a);
+  line-height: 1.35;
+}
+
 @keyframes qa-pulse {
   0%,
   100% {

@@ -248,10 +248,15 @@
         class="btn-secondary"
         (click)="onFillBots()"
         [disabled]="!canFillBots"
-        title="Bots de QA: rellenan hasta la capacidad máxima de la sala"
+        title="Añade un bot por clic. Requiere al menos un jugador real en la sala."
       >
-        Añadir bots hasta {{ capacity }}
+        Añadir bot
       </button>
+      @if (state?.phase === 'LOBBY' && humanCount === 0) {
+        <p class="lobby-hint">Esperando jugadores reales desde el móvil para poder añadir bots.</p>
+      } @else if (canFillBots) {
+        <p class="lobby-hint">{{ capacity - playerCount }} plaza(s) libre(s). Un bot por clic.</p>
+      }
       @if (botCount > 0) {
         <button
           type="button"

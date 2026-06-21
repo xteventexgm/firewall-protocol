@@ -1,0 +1,747 @@
+{
+  "archivedAt": "2026-06-21T20:24:07.580Z",
+  "archiveCategory": "finishgame",
+  "roomId": "FIRE-63HM",
+  "phase": "FIN",
+  "phaseStartedAt": 1782073447576,
+  "gameStartedAt": 1782072937427,
+  "phaseEndsAt": null,
+  "maxPlayers": 16,
+  "players": [
+    {
+      "id": "usr_opbrxqcaz",
+      "name": "Kaisser",
+      "role": "Saboteador",
+      "team": "chaotic",
+      "isAlive": false,
+      "isConnected": false,
+      "joinedAt": 1782072832684,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "scanMaskedUntilNight": 2,
+        "consensusBlockedUntilNight": 2,
+        "lynchSurvivorUntilDay": 3,
+        "lynchSurvivorConsumed": false,
+        "silencedUntilDay": 0,
+        "voteBlockedUntilDay": 0,
+        "wormBlockedUntilNight": 2
+      },
+      "isBot": false
+    },
+    {
+      "id": "usr_db3izr5zc",
+      "name": "Heberon",
+      "socketId": "e2yVocq_RNeUjePsAAAF",
+      "role": "Envenenador DNS",
+      "team": "chaotic",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072849361,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": false
+    },
+    {
+      "id": "usr_v1othismj",
+      "name": "Chmaba444",
+      "role": "Kit de Exploits",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": false,
+      "joinedAt": 1782072911456,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": false
+    },
+    {
+      "id": "bot-ea9f2b1f",
+      "name": "BOT-01",
+      "role": "Implante Backdoor",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072927857,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "consensusBlockedUntilNight": 3
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-9a054d0e",
+      "name": "BOT-02",
+      "role": "Honeypot",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072928008,
+      "metadata": {
+        "actedThisNight": true,
+        "honeypotDragTarget": "bot-9b16da38",
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-7a90bf9a",
+      "name": "BOT-03",
+      "role": "SysAdmin",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072928182,
+      "metadata": {
+        "actedThisNight": false,
+        "emergencyPatchUsed": false,
+        "patchedVoterId": null,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-ed01cd45",
+      "name": "BOT-04",
+      "role": "Intel de Amenazas",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072928358,
+      "metadata": {
+        "actedThisNight": false,
+        "intelPulseUsed": true,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-a5cca62b",
+      "name": "BOT-05",
+      "role": "Cortafuegos WAF",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072928525,
+      "metadata": {
+        "actedThisNight": true,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-a69a7d7c",
+      "name": "BOT-06",
+      "role": "Cazador de Amenazas",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072928672,
+      "metadata": {
+        "actedThisNight": true,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-a8d7396b",
+      "name": "BOT-07",
+      "role": "Sniffer",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072928867,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-9fc891f5",
+      "name": "BOT-08",
+      "role": "Bomba Lógica",
+      "team": "chaotic",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072929055,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "wormBlockedUntilNight": 1,
+        "consensusBlockedUntilNight": 1
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-f097d4c5",
+      "name": "BOT-09",
+      "role": "Pentester",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072929210,
+      "metadata": {
+        "actedThisNight": false,
+        "pentesterUsesLeft": 0,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-9b16da38",
+      "name": "BOT-10",
+      "role": "Fuerza Bruta",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072929390,
+      "metadata": {
+        "actedThisNight": false,
+        "bruteForceUsesLeft": 0,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "wormBlockedUntilNight": 5,
+        "consensusBlockedUntilNight": 5
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-3c5c0293",
+      "name": "BOT-11",
+      "role": "Parcheador",
+      "team": "system",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1782072929585,
+      "metadata": {
+        "actedThisNight": true,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-e0a53c7f",
+      "name": "BOT-12",
+      "role": "Respondedor de Incidentes",
+      "team": "system",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072929733,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "logicBombArmed": false
+      },
+      "isBot": true
+    },
+    {
+      "id": "bot-222399ea",
+      "name": "BOT-13",
+      "role": "Spyware",
+      "team": "black_hat",
+      "isAlive": false,
+      "isConnected": true,
+      "joinedAt": 1782072929926,
+      "metadata": {
+        "actedThisNight": false,
+        "trollProvokeUsedTonight": false,
+        "backdoorBonusTonight": false,
+        "wormBlockedUntilNight": 4,
+        "consensusBlockedUntilNight": 4
+      },
+      "isBot": true
+    }
+  ],
+  "dayNumber": 6,
+  "nightNumber": 5,
+  "actionQueue": [],
+  "votes": {
+    "bot-9b16da38": [
+      "bot-9a054d0e",
+      "bot-7a90bf9a",
+      "bot-ed01cd45",
+      "bot-a5cca62b",
+      "bot-a69a7d7c",
+      "bot-f097d4c5",
+      "bot-3c5c0293"
+    ],
+    "bot-f097d4c5": [
+      "bot-9b16da38"
+    ]
+  },
+  "logs": [
+    "[2026-06-21T20:15:37.427Z] Assigned roles: hackers=5, intruders=3",
+    "[2026-06-21T20:16:37.452Z] Voted out: usr_db3izr5zc (8 votes, skip: 1)",
+    "[2026-06-21T20:17:07.457Z] Saboteur usr_opbrxqcaz jammed own signal — SOC masked, consensus-immune, lynch shield armed",
+    "[2026-06-21T20:17:07.457Z] Backdoor implant on bot-e0a53c7f (+1 consensus weight)",
+    "[2026-06-21T20:17:07.457Z] WAF blocked worm propagation on bot-9fc891f5",
+    "[2026-06-21T20:17:07.457Z] Logic bomb armed on bot-e0a53c7f (detonates if acts next night)",
+    "[2026-06-21T20:17:07.457Z] Hardening patch on bot-9fc891f5 blocks hacker consensus this night",
+    "[2026-06-21T20:17:07.457Z] Incident clear on usr_opbrxqcaz: no active restrictions",
+    "[2026-06-21T20:17:07.457Z] bot-e0a53c7f killed: logic bomb detonation",
+    "[2026-06-21T20:17:07.457Z] Logic bomb detonated on bot-e0a53c7f before action resolved",
+    "[2026-06-21T20:17:07.457Z] bot-9fc891f5 killed: pentester bot-f097d4c5",
+    "[2026-06-21T20:18:07.472Z] Voted out: usr_v1othismj (8 votes, skip: 0)",
+    "[2026-06-21T20:18:37.479Z] Saboteur usr_opbrxqcaz jammed own signal — SOC masked, consensus-immune, lynch shield armed",
+    "[2026-06-21T20:18:37.479Z] Backdoor implant on bot-a69a7d7c (+1 consensus weight)",
+    "[2026-06-21T20:18:37.479Z] WAF blocked worm propagation on usr_opbrxqcaz",
+    "[2026-06-21T20:18:37.479Z] Hardening patch on usr_opbrxqcaz blocks hacker consensus this night",
+    "[2026-06-21T20:18:37.479Z] usr_opbrxqcaz killed: pentester bot-f097d4c5",
+    "[2026-06-21T20:19:37.494Z] Voted out: bot-a8d7396b (7 votes, skip: 0)",
+    "[2026-06-21T20:20:07.510Z] Backdoor implant on bot-3c5c0293 (+1 consensus weight)",
+    "[2026-06-21T20:20:07.510Z] WAF blocked worm propagation on bot-222399ea",
+    "[2026-06-21T20:20:07.510Z] Hardening patch on bot-ea9f2b1f blocks hacker consensus this night",
+    "[2026-06-21T20:21:07.529Z] Voted out: bot-ea9f2b1f (7 votes, skip: 0)",
+    "[2026-06-21T20:21:37.543Z] WAF blocked worm propagation on bot-222399ea",
+    "[2026-06-21T20:21:37.543Z] Hardening patch on bot-222399ea blocks hacker consensus this night",
+    "[2026-06-21T20:22:37.554Z] Voted out: bot-222399ea (7 votes, skip: 0)",
+    "[2026-06-21T20:23:07.565Z] WAF blocked worm propagation on bot-9b16da38",
+    "[2026-06-21T20:23:07.566Z] Hardening patch on bot-9b16da38 blocks hacker consensus this night",
+    "[2026-06-21T20:24:07.575Z] Voted out: bot-9b16da38 (7 votes, skip: 0)",
+    "[2026-06-21T20:24:07.576Z] Game over: system wins"
+  ],
+  "winner": "system",
+  "soloWinner": null,
+  "lastNightKills": [],
+  "initialPlayerCount": 16,
+  "publicLogs": [
+    {
+      "id": "plog_1782072927859_31",
+      "timestamp": 1782072927859,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-01 — 4/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928010_32",
+      "timestamp": 1782072928010,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-02 — 5/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928184_33",
+      "timestamp": 1782072928184,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-03 — 6/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928360_34",
+      "timestamp": 1782072928360,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-04 — 7/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928528_35",
+      "timestamp": 1782072928528,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-05 — 8/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928674_36",
+      "timestamp": 1782072928674,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-06 — 9/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072928870_37",
+      "timestamp": 1782072928870,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-07 — 10/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929058_38",
+      "timestamp": 1782072929058,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-08 — 11/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929212_39",
+      "timestamp": 1782072929212,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-09 — 12/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929393_40",
+      "timestamp": 1782072929393,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-10 — 13/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929587_41",
+      "timestamp": 1782072929587,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-11 — 14/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929736_42",
+      "timestamp": 1782072929736,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-12 — 15/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072929928_43",
+      "timestamp": 1782072929928,
+      "message": "15:15 UTC — [BOT/QA] Nodo bot conectado: BOT-13 — 16/16",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072937428_44",
+      "timestamp": 1782072937428,
+      "dayNumber": 1,
+      "message": "15:15 UTC — FIREWALL PROTOCOL: sesión iniciada. Nodos en línea.",
+      "severity": "success"
+    },
+    {
+      "id": "plog_1782072937428_45",
+      "timestamp": 1782072937429,
+      "dayNumber": 1,
+      "message": "15:15 UTC — Credenciales repartidas. Modo debate activo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072937431_46",
+      "timestamp": 1782072937431,
+      "message": "15:15 UTC — [BOT/QA] Partida QA iniciada — 16 nodos. Timers: día 30s, noche 30s, voto 30s",
+      "severity": "success"
+    },
+    {
+      "id": "plog_1782072968646_47",
+      "timestamp": 1782072968646,
+      "message": "15:16 UTC — [BOT/QA] Votación: 13 bot(s) votarán durante la fase (2s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782072997454_48",
+      "timestamp": 1782072997454,
+      "dayNumber": 1,
+      "message": "15:16 UTC — Votación D1: nodo expulsado (8 votos).",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073003855_49",
+      "timestamp": 1782073003855,
+      "message": "15:16 UTC — [BOT/QA] BOT-03 (SysAdmin): sin acción disponible",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073027458_50",
+      "timestamp": 1782073027458,
+      "nightNumber": 1,
+      "message": "15:17 UTC — Ciclo nocturno N1 iniciado. Tráfico en modo sigilo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073027458_51",
+      "timestamp": 1782073027538,
+      "nightNumber": 1,
+      "message": "15:17 UTC — 2 nodo(s) offline tras incidente nocturno.",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073027458_52",
+      "timestamp": 1782073027558,
+      "nightNumber": 1,
+      "message": "15:17 UTC — Amanecer D2. Restaurando visibilidad.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073058674_53",
+      "timestamp": 1782073058674,
+      "message": "15:17 UTC — [BOT/QA] Votación: 11 bot(s) votarán durante la fase (2s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073087475_54",
+      "timestamp": 1782073087475,
+      "dayNumber": 2,
+      "message": "15:18 UTC — Votación D2: nodo expulsado (8 votos).",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073094827_55",
+      "timestamp": 1782073094827,
+      "message": "15:18 UTC — [BOT/QA] BOT-03 (SysAdmin): sin acción disponible",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073096880_56",
+      "timestamp": 1782073096880,
+      "message": "15:18 UTC — [BOT/QA] BOT-04 (Intel de Amenazas): intel_pulse falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073107092_57",
+      "timestamp": 1782073107092,
+      "message": "15:18 UTC — [BOT/QA] BOT-10 (Fuerza Bruta): brute_force falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073117480_58",
+      "timestamp": 1782073117479,
+      "nightNumber": 2,
+      "message": "15:18 UTC — Ciclo nocturno N2 iniciado. Tráfico en modo sigilo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073117480_59",
+      "timestamp": 1782073117559,
+      "nightNumber": 2,
+      "message": "15:18 UTC — 1 nodo(s) offline tras incidente nocturno.",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073117480_60",
+      "timestamp": 1782073117579,
+      "nightNumber": 2,
+      "message": "15:18 UTC — Amanecer D3. Restaurando visibilidad.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073148702_61",
+      "timestamp": 1782073148702,
+      "message": "15:19 UTC — [BOT/QA] Votación: 11 bot(s) votarán durante la fase (2s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073177496_62",
+      "timestamp": 1782073177496,
+      "dayNumber": 3,
+      "message": "15:19 UTC — Votación D3: nodo expulsado (7 votos).",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073185462_63",
+      "timestamp": 1782073185462,
+      "message": "15:19 UTC — [BOT/QA] BOT-03 (SysAdmin): sin acción disponible",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073187706_64",
+      "timestamp": 1782073187706,
+      "message": "15:19 UTC — [BOT/QA] BOT-04 (Intel de Amenazas): intel_pulse falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073194457_65",
+      "timestamp": 1782073194457,
+      "message": "15:19 UTC — [BOT/QA] BOT-09 (Pentester): pentester_kill falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073196717_66",
+      "timestamp": 1782073196717,
+      "message": "15:19 UTC — [BOT/QA] BOT-10 (Fuerza Bruta): brute_force falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073207511_67",
+      "timestamp": 1782073207511,
+      "nightNumber": 3,
+      "message": "15:20 UTC — Ciclo nocturno N3 iniciado. Tráfico en modo sigilo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073207511_68",
+      "timestamp": 1782073207601,
+      "nightNumber": 3,
+      "message": "15:20 UTC — Noche sin bajas confirmadas. Sistema en alerta amarilla.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073207511_69",
+      "timestamp": 1782073207611,
+      "nightNumber": 3,
+      "message": "15:20 UTC — Amanecer D4. Restaurando visibilidad.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073238738_70",
+      "timestamp": 1782073238738,
+      "message": "15:20 UTC — [BOT/QA] Votación: 10 bot(s) votarán durante la fase (2s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073267532_71",
+      "timestamp": 1782073267532,
+      "dayNumber": 4,
+      "message": "15:21 UTC — Votación D4: nodo expulsado (7 votos).",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073273747_72",
+      "timestamp": 1782073273747,
+      "message": "15:21 UTC — [BOT/QA] BOT-03 (SysAdmin): sin acción disponible",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073276241_73",
+      "timestamp": 1782073276241,
+      "message": "15:21 UTC — [BOT/QA] BOT-04 (Intel de Amenazas): intel_pulse falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073283747_74",
+      "timestamp": 1782073283747,
+      "message": "15:21 UTC — [BOT/QA] BOT-09 (Pentester): pentester_kill falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073286251_75",
+      "timestamp": 1782073286251,
+      "message": "15:21 UTC — [BOT/QA] BOT-10 (Fuerza Bruta): brute_force falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073297544_76",
+      "timestamp": 1782073297544,
+      "nightNumber": 4,
+      "message": "15:21 UTC — Ciclo nocturno N4 iniciado. Tráfico en modo sigilo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073297544_77",
+      "timestamp": 1782073297634,
+      "nightNumber": 4,
+      "message": "15:21 UTC — Noche sin bajas confirmadas. Sistema en alerta amarilla.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073297544_78",
+      "timestamp": 1782073297644,
+      "nightNumber": 4,
+      "message": "15:21 UTC — Amanecer D5. Restaurando visibilidad.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073328766_79",
+      "timestamp": 1782073328766,
+      "message": "15:22 UTC — [BOT/QA] Votación: 9 bot(s) votarán durante la fase (3s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073357556_80",
+      "timestamp": 1782073357556,
+      "dayNumber": 5,
+      "message": "15:22 UTC — Votación D5: nodo expulsado (7 votos).",
+      "severity": "critical"
+    },
+    {
+      "id": "plog_1782073364383_81",
+      "timestamp": 1782073364383,
+      "message": "15:22 UTC — [BOT/QA] BOT-03 (SysAdmin): sin acción disponible",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073367201_82",
+      "timestamp": 1782073367201,
+      "message": "15:22 UTC — [BOT/QA] BOT-04 (Intel de Amenazas): intel_pulse falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073375645_83",
+      "timestamp": 1782073375645,
+      "message": "15:22 UTC — [BOT/QA] BOT-09 (Pentester): pentester_kill falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073378448_84",
+      "timestamp": 1782073378448,
+      "message": "15:22 UTC — [BOT/QA] BOT-10 (Fuerza Bruta): brute_force falló — No te quedan usos de esta habilidad (no_uses_left)",
+      "severity": "warn"
+    },
+    {
+      "id": "plog_1782073387566_85",
+      "timestamp": 1782073387566,
+      "nightNumber": 5,
+      "message": "15:23 UTC — Ciclo nocturno N5 iniciado. Tráfico en modo sigilo.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073387566_86",
+      "timestamp": 1782073387656,
+      "nightNumber": 5,
+      "message": "15:23 UTC — Noche sin bajas confirmadas. Sistema en alerta amarilla.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073387566_87",
+      "timestamp": 1782073387666,
+      "nightNumber": 5,
+      "message": "15:23 UTC — Amanecer D6. Restaurando visibilidad.",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073418779_88",
+      "timestamp": 1782073418779,
+      "message": "15:23 UTC — [BOT/QA] Votación: 8 bot(s) votarán durante la fase (3s entre votos)",
+      "severity": "info"
+    },
+    {
+      "id": "plog_1782073447578_89",
+      "timestamp": 1782073447578,
+      "message": "15:24 UTC — SESIÓN TERMINADA: SYSTEM VICTORIOSO",
+      "severity": "success"
+    }
+  ],
+  "chatMessages": [],
+  "phaseConfig": {
+    "autoAdvance": true,
+    "nightDurationMs": 30000,
+    "dayDurationMs": 30000,
+    "voteDurationMs": 30000,
+    "botQaAutoRun": true
+  },
+  "gameStats": {
+    "scansPerformed": 0,
+    "killsPrevented": 0,
+    "infectionsApplied": 0,
+    "votesCast": 72,
+    "honeypotDrags": 0,
+    "playerActions": {
+      "bot-ea9f2b1f": 3,
+      "bot-9a054d0e": 5,
+      "bot-ed01cd45": 1,
+      "bot-a5cca62b": 5,
+      "bot-a69a7d7c": 5,
+      "bot-a8d7396b": 2,
+      "bot-9fc891f5": 1,
+      "bot-f097d4c5": 2,
+      "bot-9b16da38": 1,
+      "bot-3c5c0293": 5,
+      "bot-e0a53c7f": 1,
+      "bot-222399ea": 4,
+      "usr_opbrxqcaz": 2
+    },
+    "mvpPlayerId": "bot-222399ea",
+    "mvpReason": "Mayor actividad ofensiva nocturna"
+  },
+  "lastChatSentAt": {},
+  "lastVoteByPlayer": {
+    "bot-9a054d0e": "bot-9b16da38",
+    "bot-7a90bf9a": "bot-9b16da38",
+    "bot-ed01cd45": "bot-9b16da38",
+    "bot-a5cca62b": "bot-9b16da38",
+    "bot-a69a7d7c": "bot-9b16da38",
+    "bot-f097d4c5": "bot-9b16da38",
+    "bot-3c5c0293": "bot-9b16da38",
+    "bot-9b16da38": "bot-f097d4c5"
+  }
+}

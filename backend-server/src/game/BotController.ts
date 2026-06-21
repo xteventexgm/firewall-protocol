@@ -114,7 +114,7 @@ export function runBotQaMatch(room: Room): void {
     throw new Error('Solo se puede lanzar partida QA desde LOBBY');
   }
 
-  fillBotsToCapacity(room);
+  fillBotsToCapacity(room, { instant: true });
   room.setPhaseConfig({
     ...room.state.phaseConfig,
     autoAdvance: true,
@@ -147,29 +147,62 @@ export function createBotPlayer(index: number): Player {
   return p;
 }
 
-export function fillBotsToMinimum(room: Room): number {
+function slotsUntilFull(room: Room): number {
+  return Math.max(0, room.state.maxPlayers - room.state.players.length);
+}
+
+export function hasHumanPlayer(room: Room): boolean {
+  return room.state.players.some((p) => !p.isBot);
+}
+
+/** Añade un bot en LOBBY (solo si hay al menos un jugador real). */
+export function addOneBot(room: Room): number {
   if (!devBotsEnabled()) {
     throw new Error('Bots desactivados (DEV_BOTS=false)');
   }
   if (room.state.phase !== GamePhase.LOBBY) {
     throw new Error('Solo se pueden añadir bots en LOBBY');
   }
-  const needed = Math.max(0, MIN_PLAYERS - room.state.players.length);
-  return fillBots(room, needed);
+  if (!hasHumanPlayer(room)) {
+    throw new Error('Debe haber al menos un jugador real en la sala antes de añadir bots');
+  }
+  if (room.state.players.length >= room.state.maxPlayers) {
+    return 0;
+  }
+
+  const existingBots = room.state.players.filter((p) => p.isBot).length;
+  const bot = createBotPlayer(existingBots + 1);
+  room.addPlayer(bot);
+
+  const entry = buildBotQaLog(
+    `Nodo bot conectado: ${bot.name} — ${room.state.players.length}/${room.state.maxPlayers}`,
+    'info',
+  );
+  room.state.publicLogs.push(entry);
+  room.emit('publicLog', { roomId: room.id, entry });
+  logger.info('[BotController] addOneBot', {
+    roomId: room.id,
+    bot: bot.name,
+    total: room.state.players.length,
+  });
+  return 1;
 }
 
-export function fillBotsToCapacity(room: Room): number {
+export function fillBotsToCapacity(room: Room, opts?: { instant?: boolean }): number {
   if (!devBotsEnabled()) {
     throw new Error('Bots desactivados (DEV_BOTS=false)');
   }
   if (room.state.phase !== GamePhase.LOBBY) {
     throw new Error('Solo se pueden añadir bots en LOBBY');
   }
-  const needed = Math.max(0, room.state.maxPlayers - room.state.players.length);
-  return fillBots(room, needed);
+  if (!opts?.instant) {
+    throw new Error('Relleno masivo de bots solo disponible en partida QA automática');
+  }
+  return fillBotsInstant(room, slotsUntilFull(room));
 }
 
-export function fillBots(room: Room, count: number): number {
+/** Relleno inmediato (solo partida QA headless / automática). */
+function fillBotsInstant(room: Room, count: number): number {
   if (count <= 0) return 0;
   let added = 0;
   const existingBots = room.state.players.filter((p) => p.isBot).length;
@@ -186,7 +219,17 @@ export function fillBots(room: Room, count: number): number {
     );
     room.state.publicLogs.push(entry);
     room.emit('publicLog', { roomId: room.id, entry });
-    logger.info('[BotController] fillBots', { roomId: room.id, added, total: room.state.players.length });
+    logger.info('[BotController] fillBotsInstant', { roomId: room.id, added, total: room.state.players.length });
+  }
+  return added;
+}
+
+export function fillBots(room: Room, count: number): number {
+  if (count <= 0) return 0;
+  let added = 0;
+  for (let i = 0; i < count; i++) {
+    added += addOneBot(room);
+    if (room.state.players.length >= room.state.maxPlayers) break;
   }
   return added;
 }

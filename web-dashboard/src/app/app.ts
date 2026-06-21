@@ -8,6 +8,7 @@ import {
   IncidentDisplay,
   NightResolution,
   PublicGameState,
+  PublicPlayer,
   SavedRoom,
   VoteTrace,
 } from './core/models/game-state.model';
@@ -492,12 +493,17 @@ export class App implements OnInit, OnDestroy {
 
   onFillBots(): void {
     if (this.gameOverActive) return;
-    this.gameSocket.fillBots(0);
+    this.gameSocket.fillBots();
   }
 
   onClearBots(): void {
     if (this.gameOverActive) return;
     this.gameSocket.clearBots();
+  }
+
+  onKickPlayer(player: PublicPlayer): void {
+    if (this.gameOverActive || this.state?.phase !== 'LOBBY') return;
+    this.gameSocket.kickPlayer(player.id);
   }
 
   onRunBotQaMatch(): void {

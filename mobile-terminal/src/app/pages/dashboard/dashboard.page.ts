@@ -163,6 +163,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   gameStats: GameStatsEntry[] = [];
   showLobbyClosedOverlay = false;
   lobbyClosedRoomId = '';
+  lobbyClosedReason: 'host_abandoned' | 'player_kicked' = 'host_abandoned';
   nodeDeathAlert: NodeDeathAlertData | null = null;
   showNodeDeathAlert = false;
   nodeDeathAlertExiting = false;
@@ -659,7 +660,13 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.lobbyClosed$.subscribe(({ roomId }) => {
-        void this.handleLobbyClosed(roomId);
+        void this.handleLobbyClosed(roomId, 'host_abandoned');
+      }),
+    );
+
+    this.subs.add(
+      this.socketService.playerKicked$.subscribe(({ roomId }) => {
+        void this.handleLobbyClosed(roomId, 'player_kicked');
       }),
     );
 
@@ -782,11 +789,15 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
-  private async handleLobbyClosed(roomId: string): Promise<void> {
+  private async handleLobbyClosed(
+    roomId: string,
+    reason: 'host_abandoned' | 'player_kicked' = 'host_abandoned',
+  ): Promise<void> {
     if (this.lobbyClosedAlertOpen) return;
     this.lobbyClosedAlertOpen = true;
     clearInterval(this.roomStatusTimer);
     this.lobbyClosedRoomId = roomId.toUpperCase().trim();
+    this.lobbyClosedReason = reason;
     this.showLobbyClosedOverlay = true;
   }
 

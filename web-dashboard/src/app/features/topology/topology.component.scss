@@ -1330,3 +1330,81 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+.player-node.node-kickable {
+  cursor: pointer;
+
+  .node-hit {
+    fill: transparent;
+    stroke: none;
+    pointer-events: all;
+  }
+
+  &:hover .node-hex-outer {
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(255, 180, 0, 0.35));
+  }
+}
+
+.node-kick-popover {
+  position: absolute;
+  z-index: 40;
+  transform: translate(-50%, calc(-100% - 14px));
+  min-width: 168px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 180, 0, 0.45);
+  background: rgba(8, 14, 22, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  pointer-events: auto;
+}
+
+.node-kick-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffd000;
+}
+
+.node-kick-sub {
+  margin: 0 0 0.55rem;
+  font-size: 0.62rem;
+  color: #8aa4b4;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.node-kick-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ff4466;
+  border-radius: 4px;
+  background: #ff446618;
+  color: #ff8899;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+
+  &:hover {
+    background: #ff446628;
+  }
+}
+
+.node-kick-cancel {
+  display: block;
+  width: 100%;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: #6a8494;
+  font-size: 0.62rem;
+  cursor: pointer;
+
+  &:hover {
+    color: #a8c4d4;
+  }
+}
