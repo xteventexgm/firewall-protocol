@@ -43,15 +43,30 @@ Probar con capacidades **5, 7 y 12** jugadores. Crear sala y **no unir jugadores
 | 1.1g | Primer jugador | Tras boot, al unirse uno: cable → wireframe → parpadeo → nodo conectado |
 | 1.1h | Mis salas | Tarjeta muestra `Conectados · 0 / N nodos` y actualiza al unir jugadores |
 
+### 1.2 Bots de QA (sin móviles)
+
+Requiere backend con bots habilitados (por defecto; `DEV_BOTS=false` los desactiva).
+
+| # | Escenario | Pasos | Resultado esperado |
+|---|-----------|-------|-------------------|
+| 1.2a | Rellenar bots | Crear sala (p. ej. capacidad 12) → **Añadir bots hasta N** | Aparecen `BOT-01`…`BOT-N` según `maxPlayers`; badge **BOT** |
+| 1.2b | Iniciar solo | Con 5 bots → **Iniciar partida** | Reparto, fases y resolución nocturna sin terminales móviles |
+| 1.2c | Logs QA | Avanzar NOCHE / VOTACIÓN con auto-avance | Panel SIEM muestra líneas `[BOT/QA]` (acción enviada, voto, fallos) |
+| 1.2d | Quitar bots | En LOBBY → **Quitar bots** | Solo quedan jugadores humanos (si los había) |
+| 1.2e | Prod desactivado | Servidor con `DEV_BOTS=false` | Botón deshabilitado o error *Bots desactivados* |
+| 1.2f | Partida QA auto | **Partida QA automática** en lobby | Bots + inicio + avance hasta FIN; overlay game over; logs `[BOT/QA]` con ganador |
+| 1.2g | CLI headless | `cd backend-server && npm run qa:bot-match` | Termina con exit 0, imprime ganador en consola |
+
 ---
 
 ## 2. Flujo de partida (host)
 
 | # | Escenario | Pasos | Resultado esperado |
 |---|-----------|-------|-------------------|
-| 2.1 | Inicio | Con ≥ mínimo jugadores → Iniciar | Fase REPARTO → roles asignados |
-| 2.2 | Briefing móvil | Tras reparto | Overlay de rol ~14s en cada móvil |
-| 2.3 | Briefing TV | Primer DÍA | Overlay "RED COMPROMETIDA" ~20s |
+| 2.1 | Inicio | Con ≥ mínimo jugadores → Iniciar | Fase DÍA 1; TV muestra *Distribuyendo roles* |
+| 2.2 | Briefing móvil | Tras reparto | Overlay de rol ~20 s → vibración → alerta por equipo ~20 s |
+| 2.3 | Briefing TV | Tras reparto en TV | *Distribuyendo roles* ~20 s → *RED COMPROMETIDA* ~20 s |
+| 2.3b | Copy por equipo (móvil) | Un jugador system, uno black_hat, uno chaotic | System: red comprometida; Hacker: acceso exitoso; Caótico: vector activo |
 | 2.4 | Avanzar fases | Host pulsa Avanzar fase | Transiciones: NOCHE → DÍA → VOTACIÓN → … |
 | 2.5 | Auto-avance | Activa timers y Aplicar | Fases avanzan solas al expirar; panel lateral en modo compacto |
 | 2.6 | Panel compacto | Partida iniciada (sin timer) | QR y timers ocultos; solo código, fase, Avanzar y Volver al lobby |

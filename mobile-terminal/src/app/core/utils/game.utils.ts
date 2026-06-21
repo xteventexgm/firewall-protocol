@@ -26,6 +26,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     isConnected: p.isConnected !== false,
     silenced: isPlayerSilenced(p, dayNumber),
     infected: !!p.metadata?.infection,
+    frozen: p.frozen === true,
     infectionMaturesAfterNight: p.metadata?.infection?.maturesAfterNight,
     joinedAt: p.joinedAt ?? Date.now(),
     role: p.role,
@@ -37,6 +38,9 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     roomId: raw?.roomId ?? '',
     phase: (raw?.phase ?? 'LOBBY') as GamePhase,
     phaseStartedAt: raw?.phaseStartedAt ?? Date.now(),
+    gameStartedAt: raw?.gameStartedAt,
+    phaseEndsAt: raw?.phaseEndsAt ?? null,
+    phaseConfig: raw?.phaseConfig,
     players,
     dayNumber,
     nightNumber: raw?.nightNumber ?? 0,
@@ -58,6 +62,7 @@ export function isPlayerSilenced(player: any, dayNumber: number): boolean {
 
 export function infectionSourceLabel(source: string | undefined): string {
   if (source === 'worm') return 'Gusano';
+  if (source === 'dropper') return 'Dropper';
   return source ?? 'origen desconocido';
 }
 

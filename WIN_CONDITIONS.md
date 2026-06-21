@@ -10,12 +10,12 @@ Referencia para jugar, diseñar partidas y testear. Refleja la implementación e
 
 | Bando | Cómo gana | Cómo pierde |
 |-------|-----------|-------------|
-| **System** (azul) | 0 hackers vivos (con ≥1 system vivo) | Hackers superan numéricamente al System |
-| **Black Hat** (rojo) | Hackers vivos **>** System vivos | 0 hackers vivos |
+| **System** (azul) | 0 hackers **y** 0 caóticos vivos (con ≥1 system vivo) | Black Hat cumple su condición |
+| **Black Hat** (rojo) | 0 system vivos, ≥1 hacker, y si quedan caóticos entonces **hackers > caóticos** | 0 hackers vivos |
 | **Caótico — solitarios** | Condición propia del rol (ver abajo) | No alcanzan su win antes de que gane un bando u otro solitario |
 | **Caótico — Zero-Day** | Hereda victoria de bando al asumir rol; o desempate caótico tardío | Igual que el bando asumido, o eliminado antes |
 
-> **Los roles caóticos no cuentan** en el conteo hacker vs system para victoria de bando. Pueden seguir vivos cuando termina una partida por bando.
+> **Los caóticos cuentan como tercer bando.** System debe eliminar hackers **y** caóticos. Black Hat debe eliminar todo el System y dominar a los caóticos si aún quedan.
 
 ---
 
@@ -53,14 +53,15 @@ Evento socket al terminar: `gameOver(roomId, winner, soloWinner)`.
 ### Condición de victoria
 
 ```
-hackers_vivos === 0  AND  system_vivos >= 1
+hackers_vivos === 0  AND  caóticos_vivos === 0  AND  system_vivos >= 1
 ```
 
 ### Casos que cuentan como victoria System
 
 | # | Situación | Ejemplo (vivos) | Notas |
 |---|-----------|-----------------|-------|
-| S1 | Todos los hackers eliminados | 0H, 3S, 1C | Caóticos pueden seguir vivos; gana System |
+| S1 | Sin hackers ni caóticos | 0H, 3S, 0C | Victoria System |
+| S1b | Hackers eliminados pero quedan caóticos | 0H, 3S, 1C | **Continúa** — deben eliminar caóticos |
 | S2 | Zero-Day asumió rol System y no quedan hackers | 0H, 2S (uno es ex–Zero-Day) | Tras `zero_day_assume`, cuenta como System |
 | S3 | Desempate por días — sin hackers, con System | 0H, 2S, 1C al día 8+ | `dayNumber >= stalemateDayLimit` |
 | S4 | Desempate por días — empate o ventaja System | 1H, 2S al día límite | En empate numérico gana System (contención) |
@@ -85,16 +86,17 @@ SysAdmin, Analista SOC, Antivirus, Pentester, Honeypot, Deep Freeze, Enrutador B
 ### Condición de victoria
 
 ```
-hackers_vivos > system_vivos  AND  hackers_vivos >= 1
+system_vivos === 0  AND  hackers_vivos >= 1  AND  (caóticos_vivos === 0  OR  hackers_vivos > caóticos_vivos)
 ```
 
-Importante: debe ser **estrictamente mayor** (`>`). En empate numérico **no** gana Black Hat (la partida continúa o desempata a favor del System).
+Ya **no** basta con `hackers > system` (ej. 5H/4S/2C **continúa**).
 
 ### Casos que cuentan como victoria Black Hat
 
 | # | Situación | Ejemplo (vivos) | Notas |
 |---|-----------|-----------------|-------|
-| B1 | Mayoría numérica sobre System | 2H, 1S | Caóticos ignorados en el conteo |
+| B1 | System eliminado, dominio sobre caóticos | 3H, 0S, 1C | Válido (3 > 1) |
+| B1b | System eliminado pero caóticos dominan | 2H, 0S, 3C | **Continúa** |
 | B2 | Un solo hacker vs cero system | 1H, 0S, 2C | Válido si todos los azules murieron |
 | B3 | Zero-Day asumió rol hacker y hay mayoría | 2H (uno ex–Zero-Day), 1S | Cuenta en `hackers_vivos` |
 | B4 | Desempate por días — hackers por delante | 2H, 1S al día límite | Solo si `dayNumber >= límite` |

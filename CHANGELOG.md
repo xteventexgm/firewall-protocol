@@ -4,6 +4,43 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ---
 
+## [Unreleased] — 2026-06-21
+
+### Bots de QA (Fase 1) — partida solo contra bots
+
+- **Backend:** `BotController` con acciones nocturnas por rol, votos aleatorios (hackers consensúan objetivo) y entradas `[BOT/QA]` en logs públicos.
+- **Flag dev:** activo por defecto; desactivar con `DEV_BOTS=false` en producción.
+- **Socket dashboard:** `fillBots(roomId, count?)` y `clearBots(roomId)` — solo en fase LOBBY.
+- **Web:** botón *Añadir bots hasta 5*, quitar bots, badge **BOT** en lista de jugadores.
+
+### Bots de QA (Fase 2) — IA básica + partida hasta FIN
+
+- **`BotBrain.ts`:** sospecha por infección/votos; hackers atacan system; system vota infectados/sospechosos.
+- **Auto-avance QA:** `runBotQaMatch` rellena bots, timers rápidos y avanza hasta `FIN` con logs `[BOT/QA]`.
+- **Socket:** `runBotQaMatch(roomId)` · **CLI:** `npm run qa:bot-match` (headless, apto para CI).
+- **Web:** botón *Partida QA automática* e indicador *Modo QA* durante la partida.
+
+### Inicio de partida — reparto de roles y briefing de amenaza
+
+- **Web (TV):** overlay *Distribuyendo roles* (~20 s) al pasar de LOBBY → DÍA 1; luego *RED COMPROMETIDA* (briefing SIEM existente, ~20 s).
+- **Móvil:** briefing de credencial ampliado a **20 s**; al cerrar → **vibración** + overlay de amenaza con copy **por equipo**:
+  - **System:** anomalías / red comprometida (como la TV).
+  - **Black Hat:** *Acceso a la red exitoso* — infiltración sin alerta crítica.
+  - **Caótico:** *Vector caótico activo* — intruso independiente.
+- **Backend:** `sessionThreatBrief` incluido en `roomState` móvil (conteos agregados, sin roles ajenos).
+- Utilidades: `session-threat-copy.utils.ts` (web + móvil).
+
+### Archivos principales
+
+| Área | Archivos |
+|------|----------|
+| Web overlays | `role-distribution-overlay.component.ts`, `threat-briefing.component.ts`, `app.ts` |
+| Móvil | `dashboard.page.ts/html/scss` |
+| Copy | `*/core/utils/session-threat-copy.utils.ts` |
+| Backend | `GameState.toPlainForPlayer` |
+
+---
+
 ## [Unreleased] — 2026-06-20
 
 ### Web dashboard — topología 2D (lobby)

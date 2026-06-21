@@ -30,8 +30,8 @@ import { PublicLogEntry } from '../../core/models/game-state.model';
       position: absolute;
       right: 1rem;
       bottom: 1rem;
-      width: min(380px, 32vw);
-      max-height: 40vh;
+      width: min(260px, 22vw);
+      max-height: 22vh;
       background: rgba(5, 10, 18, 0.92);
       border: 1px solid rgba(0, 240, 255, 0.25);
       border-radius: 4px;
@@ -42,12 +42,15 @@ import { PublicLogEntry } from '../../core/models/game-state.model';
       transform: translateX(20px);
       transition: opacity 0.4s, transform 0.4s;
       font-family: 'JetBrains Mono', 'Consolas', monospace;
-      font-size: 0.72rem;
+      font-size: 0.62rem;
       pointer-events: none;
+      overflow: hidden;
+      min-height: 0;
     }
     .public-logs.visible {
       opacity: 1;
       transform: translateX(0);
+      pointer-events: auto;
     }
     .public-logs.has-critical {
       border-color: rgba(255, 68, 102, 0.55);
@@ -76,6 +79,7 @@ import { PublicLogEntry } from '../../core/models/game-state.model';
       padding: 0.5rem;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
     }
     .log-entry {
       padding: 0.35rem 0.5rem;
@@ -116,7 +120,7 @@ export class PublicNightLogsComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['logs']) {
-      this.visibleLogs = [...this.logs].slice(-12).reverse();
+      this.visibleLogs = [...this.logs].slice(-8).reverse();
       const critical = this.visibleLogs.filter((l) => l.severity === 'critical');
       this.hasCritical = critical.length > 0;
       this.newestCriticalId = critical[0]?.id ?? null;

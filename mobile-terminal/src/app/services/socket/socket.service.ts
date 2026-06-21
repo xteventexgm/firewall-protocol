@@ -378,6 +378,7 @@ export class SocketService {
             team: this.myTeam ?? me.team,
             isDead: !me.isAlive,
             silenced: !!me.silenced,
+            frozen: !!me.frozen,
             isConnected: me.isConnected,
           });
         }

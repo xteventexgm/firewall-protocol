@@ -151,7 +151,9 @@ src/
 ├── app.ts                   # Express (health, raíz)
 └── server.ts                # HTTP + Socket.io
 data/
-└── games/                   # JSON de partidas (generados en runtime)
+├── games/                   # JSON de partidas activas (runtime)
+├── finishgame/              # Partidas terminadas: {roomId}.json + {roomId}.log
+└── deletegame/              # Lobbies abandonados
 ```
 
 ---
@@ -386,7 +388,16 @@ La **primera** eliminación nocturna dirigida al Gusano falla (`isWormImmune` se
 
 ## Persistencia
 
-Cada partida se guarda en `data/games/<roomId>.json` (o en `DATA_DIRECTORY/games/`).
+- **Activa:** `data/games/<roomId>.json` — se actualiza durante la partida.
+- **Terminada:** al llegar a `FIN`, el JSON se mueve a `data/finishgame/<roomId>.json` y se genera **`data/finishgame/<roomId>.log`** (crónica legible: SIEM, logs técnicos, roles, stats, chat).
+- **Abandonada:** `data/deletegame/<roomId>.json`.
+
+API REST:
+
+| Ruta | Descripción |
+|------|-------------|
+| `GET /api/games/:roomId/replay` | JSON completo (activo o archivado) |
+| `GET /api/games/:roomId/session-log` | Descarga el `.log` de partida terminada |
 
 Campos relevantes del JSON:
 

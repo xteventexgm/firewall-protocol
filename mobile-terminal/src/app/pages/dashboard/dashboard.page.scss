@@ -549,6 +549,12 @@
   color: var(--color-cyber-warn, #ffb800);
 }
 
+.frozen-warn {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #93c5fd;
+}
+
 .role-status-lines {
   margin: 0.5rem 0 0;
   padding-left: 1rem;
@@ -1212,6 +1218,11 @@
     border-color: #ffb80033;
   }
 
+  &.frozen {
+    color: #93c5fd;
+    border-color: #93c5fd55;
+  }
+
   &.offline {
     color: #64748b;
     border-color: #64748b33;
@@ -1539,6 +1550,143 @@
   box-shadow: 0 0 40px rgba(255, 170, 0, 0.3);
 }
 
+.briefing-dismiss {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.fullscreen-overlay.threat-briefing {
+  background: rgba(4, 8, 14, 0.94);
+  z-index: 210;
+  animation: threat-brief-in 0.75s ease-out;
+}
+
+.threat-briefing-card {
+  text-align: left;
+  padding: 1.35rem 1.4rem;
+  border-radius: 8px;
+  animation: card-flip 0.85s ease;
+  max-width: min(420px, 92vw);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='system'] .threat-briefing-card {
+  border: 2px solid #ff446688;
+  box-shadow: 0 0 36px rgba(255, 68, 102, 0.28);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='black_hat'] .threat-briefing-card {
+  border: 2px solid #ff4466;
+  box-shadow: 0 0 40px rgba(255, 68, 102, 0.35);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='chaotic'] .threat-briefing-card {
+  border: 2px solid #ffaa00;
+  box-shadow: 0 0 40px rgba(255, 170, 0, 0.32);
+}
+
+.threat-brief-code {
+  margin: 0 0 0.65rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: #ff8899;
+  animation: threat-code-blink 1.2s step-end infinite;
+}
+
+.fullscreen-overlay.threat-briefing[data-team='black_hat'] .threat-brief-code {
+  color: #ff6688;
+}
+
+.fullscreen-overlay.threat-briefing[data-team='chaotic'] .threat-brief-code {
+  color: #ffcc66;
+}
+
+.threat-brief-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  color: #ffd0d8;
+  text-shadow: 0 0 16px rgba(255, 68, 102, 0.35);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='black_hat'] .threat-brief-title {
+  color: #ffb0c0;
+}
+
+.fullscreen-overlay.threat-briefing[data-team='chaotic'] .threat-brief-title {
+  color: #ffe0a0;
+  text-shadow: 0 0 16px rgba(255, 170, 0, 0.35);
+}
+
+.threat-brief-lead {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #b8c8d8;
+}
+
+.threat-brief-stats {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #1a3a4a;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.threat-brief-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  font-size: 0.75rem;
+  color: #8ab4c4;
+  border-bottom: 1px solid rgba(26, 58, 74, 0.45);
+}
+
+.threat-brief-stats li:last-child {
+  border-bottom: none;
+}
+
+.threat-brief-stats strong {
+  color: #00f0ff;
+}
+
+.threat-brief-footer {
+  margin: 0 0 0.85rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #7a9aaa;
+}
+
+.threat-progress-fill {
+  background: linear-gradient(90deg, #ff2d55, #ffd000);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='black_hat'] .threat-progress-fill {
+  background: linear-gradient(90deg, #ff4466, #aa2244);
+}
+
+.fullscreen-overlay.threat-briefing[data-team='chaotic'] .threat-progress-fill {
+  background: linear-gradient(90deg, #ffaa00, #ff6600);
+}
+
+@keyframes threat-brief-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes threat-code-blink {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .reveal-label {
   font-size: 0.7rem;
   letter-spacing: 0.2em;
@@ -1840,4 +1988,275 @@
   background: linear-gradient(135deg, #553300, #775500);
   color: #ffcc00;
   border: 1px solid #ffaa00;
+}
+
+.phase-countdown-pill {
+  align-self: center;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 208, 0, 0.45);
+  color: #ffd000;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.match-elapsed-pill {
+  align-self: center;
+  margin: 0 0 0.5rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.vote-urgent-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 45, 85, 0.14) 0%, transparent 68%);
+  animation: vote-urgent-pulse 1s ease-in-out infinite;
+}
+
+.vote-urgent-ring {
+  position: absolute;
+  width: min(240px, 62vw);
+  height: min(240px, 62vw);
+  border: 3px solid #ff2d55;
+  border-radius: 50%;
+  opacity: 0.35;
+  animation: vote-urgent-ring 1s ease-out infinite;
+}
+
+.vote-urgent-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #ff6a82;
+}
+
+.vote-urgent-count {
+  margin: 0;
+  font-size: clamp(3rem, 18vw, 4.5rem);
+  font-weight: 800;
+  color: #ffd000;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(255, 208, 0, 0.45);
+}
+
+@keyframes vote-urgent-pulse {
+  0%,
+  100% {
+    background: radial-gradient(ellipse at center, rgba(255, 45, 85, 0.08) 0%, transparent 68%);
+  }
+  50% {
+    background: radial-gradient(ellipse at center, rgba(255, 45, 85, 0.2) 0%, transparent 68%);
+  }
+}
+
+@keyframes vote-urgent-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 0.12;
+  }
+}
+
+.node-death-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 108;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  padding-top: calc(1.25rem + var(--app-safe-top, 0px));
+  padding-bottom: calc(1.25rem + var(--app-safe-bottom, 0px));
+  background: rgba(5, 8, 14, 0.78);
+  backdrop-filter: blur(5px);
+  pointer-events: none;
+  animation: node-death-backdrop-in 0.35s ease-out;
+
+  &--exit {
+    animation: node-death-backdrop-out 0.45s ease-in forwards;
+  }
+}
+
+.node-death-card {
+  position: relative;
+  width: min(100%, 22rem);
+  min-height: 11rem;
+  padding: 1.65rem 1.35rem 1.35rem;
+  text-align: center;
+  border: 2px solid var(--color-cyber-danger, #ff2d55);
+  border-radius: 10px;
+  background: linear-gradient(165deg, rgba(40, 8, 16, 0.96) 0%, rgba(12, 6, 10, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px #ff2d5544 inset,
+    0 0 48px #ff2d5528,
+    0 18px 36px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  animation: node-death-card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &--exit {
+    animation: node-death-card-out 0.4s ease-in forwards;
+  }
+}
+
+.node-death-scanline {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 45, 85, 0.03) 3px,
+    rgba(255, 45, 85, 0.03) 4px
+  );
+  pointer-events: none;
+  animation: node-death-flicker 2.8s linear infinite;
+}
+
+.node-death-kicker {
+  margin: 0 0 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: #ff6b84;
+  text-transform: uppercase;
+}
+
+.node-death-headline {
+  margin: 0 0 0.85rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ffe8ec;
+  text-shadow: 0 0 20px #ff2d5566;
+  animation: node-death-glitch 2.4s steps(2, end) infinite;
+}
+
+.node-death-names {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.node-death-name {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  border: 1px solid #ff2d5566;
+  background: #ff2d5514;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.node-death-sub {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: #c9a0a8;
+  text-transform: uppercase;
+}
+
+.node-death-bar {
+  margin-top: 1rem;
+  height: 3px;
+  border-radius: 2px;
+  background: #ff2d5522;
+  overflow: hidden;
+}
+
+.node-death-bar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff2d55, #ff6b84);
+  transform-origin: left center;
+  animation: node-death-progress 4.2s linear forwards;
+}
+
+@keyframes node-death-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes node-death-backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes node-death-card-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  60% {
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes node-death-card-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94) translateY(-8px);
+  }
+}
+
+@keyframes node-death-glitch {
+  0%,
+  92%,
+  100% {
+    transform: translate(0);
+  }
+  93% {
+    transform: translate(-2px, 1px);
+  }
+  95% {
+    transform: translate(2px, -1px);
+  }
+}
+
+@keyframes node-death-flicker {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes node-death-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }

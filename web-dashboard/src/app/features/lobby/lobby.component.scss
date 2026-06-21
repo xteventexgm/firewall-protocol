@@ -630,3 +630,37 @@
   color: #00f0ff;
   font-size: 10px;
 }
+
+.bot-badge {
+  margin-left: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #050a12;
+  background: #ffb020;
+  vertical-align: middle;
+}
+
+.btn-qa-match {
+  border-color: #ffb020;
+  color: #ffb020;
+}
+
+.qa-running-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: qa-pulse 2s ease-in-out infinite;
+}
+
+@keyframes qa-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
