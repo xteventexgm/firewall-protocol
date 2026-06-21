@@ -1,0 +1,146 @@
+.night-resolution-panel {
+  position: absolute;
+  top: 72px;
+  left: 24px;
+  width: min(360px, calc(100% - 48px));
+  max-height: calc(100% - 120px);
+  overflow-y: auto;
+  background: linear-gradient(160deg, #0a1420f0 0%, #060c14f5 100%);
+  border: 1px solid #00f0ff55;
+  border-radius: 8px;
+  padding: 16px;
+  z-index: 35;
+  box-shadow:
+    0 0 40px #00f0ff18,
+    inset 0 1px 0 #ffffff08;
+  scrollbar-width: thin;
+  scrollbar-color: #1a3a4a transparent;
+}
+
+.panel-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1a3a4a;
+}
+
+.panel-icon {
+  font-size: 1.4rem;
+  color: #00f0ff;
+  text-shadow: 0 0 12px #00f0ff88;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: #00f0ff;
+  text-transform: uppercase;
+}
+
+.panel-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #6a8a9a;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resolution-section {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #4a6a7a;
+  background: #0a101888;
+
+  &[data-tone='danger'] {
+    border-left-color: #ff2d55;
+    background: #1a0810aa;
+  }
+
+  &[data-tone='warn'] {
+    border-left-color: #ffd000;
+    background: #1a1608aa;
+  }
+
+  &[data-tone='success'] {
+    border-left-color: #00ff88;
+    background: #081a10aa;
+  }
+
+  &[data-tone='info'] {
+    border-left-color: #00f0ff;
+    background: #081418aa;
+  }
+}
+
+.section-label {
+  margin: 0 0 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #8ab4c4;
+}
+
+.section-list {
+  margin: 0;
+  padding: 0 0 0 14px;
+  font-size: 12px;
+  color: #d0e8f0;
+  line-height: 1.5;
+}
+
+.logs-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #1a3a4a;
+}
+
+.logs-toggle {
+  background: none;
+  border: none;
+  color: #6a9aaa;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  letter-spacing: 0.06em;
+
+  &:hover {
+    color: #00f0ff;
+  }
+}
+
+.logs-list {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  list-style: none;
+  background: #050a10;
+  border: 1px solid #1a3a4a;
+  border-radius: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 10px;
+  color: #7a9aaa;
+  line-height: 1.45;
+}
+
+.animate-slide-in {
+  animation: slide-in-left 0.45s ease-out;
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

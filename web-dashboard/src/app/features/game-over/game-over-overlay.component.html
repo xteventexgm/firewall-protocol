@@ -1,7 +1,18 @@
-<div class="gameover-overlay">
+<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
   <div class="gameover-content">
+    <div class="gameover-badge">
+      @switch (summary.outcome) {
+        @case ('win') { ✓ VICTORIA }
+        @case ('loss') { ✕ DERROTA }
+        @default { ◈ FIN }
+      }
+    </div>
     <h2 class="gameover-title">PARTIDA TERMINADA</h2>
     <p class="gameover-headline">{{ summary.headline }}</p>
+
+    @if (summary.message) {
+      <p class="gameover-message">{{ summary.message }}</p>
+    }
 
     @if (summary.winners.length) {
       <ul class="winner-list">
@@ -14,8 +25,53 @@
       </ul>
     }
 
+    @if (summary.reveals?.length) {
+      <div class="reveal-sections">
+        @for (reveal of summary.reveals; track reveal.title) {
+          <section class="reveal-block">
+            <h3 class="reveal-title">{{ reveal.title }}</h3>
+            <ul class="reveal-list">
+              @for (item of reveal.items; track item) {
+                <li class="reveal-item">{{ item }}</li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+    }
+
+    @if (summary.stats?.length) {
+      <section class="stats-section">
+        <h3 class="reveal-title">Estadísticas</h3>
+        <ul class="stats-list">
+          @for (stat of summary.stats; track stat.label) {
+            <li class="stat-item" [class.stat-mvp]="stat.label === 'MVP'">
+              <span class="stat-label">{{ stat.label }}</span>
+              <span class="stat-value">{{ stat.value }}</span>
+              @if (stat.detail) {
+                <span class="stat-detail">{{ stat.detail }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     <button type="button" class="btn-exit-room" (click)="onExitRoom()">
       Volver al lobby
     </button>
+    <button type="button" class="btn-new-game" (click)="onStartNewGame()">
+      Iniciar nueva partida
+    </button>
+    @if (roomId) {
+      <button
+        type="button"
+        class="btn-export-replay"
+        (click)="onExportReplay()"
+        [disabled]="exportingReplay"
+      >
+        {{ exportingReplay ? 'Exportando…' : 'Descargar replay JSON' }}
+      </button>
+    }
   </div>
 </div>

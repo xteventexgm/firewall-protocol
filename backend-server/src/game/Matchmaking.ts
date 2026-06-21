@@ -1,12 +1,22 @@
+/**
+ * Reparto aleatorio de roles al iniciar partida.
+ *
+ * Divide jugadores en pools hacker / caótico / system según proporciones,
+ * luego asigna roles sin repetir dentro de cada pool hasta agotar catálogo.
+ *
+ * Proporciones:
+ * - Hackers: `playersPerBlackHat` (`balance.ts`)
+ * - Caóticos: `PLAYERS_PER_CHAOTIC_ROLE` (`constants.ts`)
+ */
 import { Player } from '../models/PlayerProfile';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { RoleId } from '../types';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
-  PLAYERS_PER_BLACK_HAT,
   PLAYERS_PER_CHAOTIC_ROLE,
 } from '../utils/constants';
+import { playersPerBlackHat } from './balance';
 
 type RNG = () => number;
 
@@ -56,15 +66,15 @@ function assignPool(
   }
 }
 
-export interface TeamBalance {
+interface TeamBalance {
   hackerCount: number;
   chaoticCount: number;
   systemCount: number;
 }
 
 /** Calcula reparto de equipos según proporciones configurables en constants.ts */
-export function computeTeamBalance(playerCount: number): TeamBalance {
-  const hackerCount = slotsByRatio(playerCount, PLAYERS_PER_BLACK_HAT, playerCount, 1);
+function computeTeamBalance(playerCount: number): TeamBalance {
+  const hackerCount = slotsByRatio(playerCount, playersPerBlackHat(playerCount), playerCount, 1);
   const chaoticCount = slotsByRatio(
     playerCount,
     PLAYERS_PER_CHAOTIC_ROLE,
@@ -82,7 +92,7 @@ export function computeTeamBalance(playerCount: number): TeamBalance {
 /**
  * Assign roles to players.
  * - Enforce player count between MIN_PLAYERS and MAX_PLAYERS.
- * - Black Hat: 1 cada PLAYERS_PER_BLACK_HAT (por defecto 1:3).
+ * - Black Hat: 1 cada N jugadores (4 en mesas ≤8, 3 en 9+).
  * - Caóticos: 1 cada PLAYERS_PER_CHAOTIC_ROLE (por defecto 1:5); el resto es System.
  * - Dentro de cada pool se priorizan roles sin repetir hasta agotar el catálogo.
  * - Returns mapping of playerId -> RoleId and mutates `player.role` and `player.team`.
@@ -95,7 +105,6 @@ export function assignRoles(players: Player[], rngFn?: RNG) {
   }
 
   const { hackerCount, chaoticCount, systemCount } = computeTeamBalance(n);
-
   const blackHatRoles = rolesByTeam(Team.BLACK_HAT);
   const systemRoles = rolesByTeam(Team.SYSTEM);
   const chaoticRoles = rolesByTeam(Team.CHAOTIC);

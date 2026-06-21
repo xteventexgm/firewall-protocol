@@ -156,8 +156,9 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   background: #0d2030cc;
   border: 1px solid #00ff88;
   padding: 8px 20px;
@@ -166,6 +167,88 @@
   letter-spacing: 0.12em;
   color: #00ff88;
   z-index: 15;
+  max-width: 90%;
+  text-align: center;
+}
+
+.vote-tied-inline {
+  font-size: 10px;
+  color: #ffd000;
+  letter-spacing: 0.06em;
+  border-top: 1px solid #00ff8833;
+  padding-top: 6px;
+  margin-top: 2px;
+  width: 100%;
+}
+
+.phase-banner {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 18;
+  max-width: min(520px, 90%);
+  backdrop-filter: blur(8px);
+}
+
+.reparto-banner {
+  background: #101828dd;
+  border: 1px solid #00f0ff66;
+  box-shadow: 0 0 24px #00f0ff22;
+}
+
+.verificacion-banner {
+  background: #181008dd;
+  border: 1px solid #ffd00066;
+  box-shadow: 0 0 24px #ffd00022;
+}
+
+.vote-tie-banner {
+  background: #181008dd;
+  border: 1px solid #ffb80066;
+  box-shadow: 0 0 24px #ffb80022;
+}
+
+.vote-tie-banner .banner-icon {
+  color: #ffb800;
+}
+
+.vote-tie-banner .banner-title {
+  color: #ffb800;
+}
+
+.banner-icon {
+  font-size: 1.5rem;
+  color: #00f0ff;
+}
+
+.verificacion-banner .banner-icon {
+  color: #ffd000;
+}
+
+.banner-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #00f0ff;
+  text-transform: uppercase;
+}
+
+.verificacion-banner .banner-title {
+  color: #ffd000;
+}
+
+.banner-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #7a9aaa;
+  line-height: 1.35;
 }
 
 .vote-pulse {
@@ -174,4 +257,62 @@
   background: #00ff88;
   border-radius: 50%;
   animation: pulse-glow 1s ease-in-out infinite;
+}
+
+.boot-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: #020408f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.boot-terminal {
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: #00f0ff;
+  max-width: min(640px, 90%);
+  padding: 24px 32px;
+  border: 1px solid #00f0ff44;
+  box-shadow: 0 0 40px #00f0ff22;
+  background: #0a1018ee;
+}
+
+.boot-title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  color: #00ff88;
+}
+
+.boot-line {
+  margin: 6px 0;
+  font-size: 12px;
+  opacity: 0;
+  animation: boot-line-in 0.35s ease forwards;
+}
+
+.boot-cursor {
+  display: inline-block;
+  margin-top: 8px;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes boot-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }

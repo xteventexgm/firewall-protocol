@@ -3,11 +3,14 @@ import {
   GameOverSummary,
   GamePhase,
   IncidentDisplay,
+  NightResolution,
   PublicGameState,
   PublicPlayer,
+  SocketIncidentReport,
   Team,
   VoteEdge,
 } from '../models/game-state.model';
+import { buildHostGameOverFromState, buildHostGameOverSummary } from './game-over.utils';
 
 export function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -25,14 +28,14 @@ export function sanitizeGameState(raw: any): PublicGameState {
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,
-    joinedAt: p.joinedAt ?? Date.now(),
     role: p.role ?? undefined,
   }));
 
   return {
-    roomId: raw?.roomId ?? '',
+    roomId: (raw?.roomId ?? '').toUpperCase(),
     phase: (raw?.phase ?? 'LOBBY') as GamePhase,
     phaseStartedAt: raw?.phaseStartedAt ?? Date.now(),
+    phaseEndsAt: raw?.phaseEndsAt ?? null,
     players,
     dayNumber: raw?.dayNumber ?? 0,
     nightNumber: raw?.nightNumber ?? 0,
@@ -41,46 +44,25 @@ export function sanitizeGameState(raw: any): PublicGameState {
     votes: raw?.votes ?? {},
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
+    publicLogs: raw?.publicLogs ?? [],
+    chatMessages: raw?.chatMessages ?? [],
+    nightProgress: raw?.nightProgress,
+    phaseConfig: raw?.phaseConfig,
+    gameStats: raw?.gameStats,
   };
 }
 
-export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
-  const lastVote = new Map<string, string>();
-  for (const [target, voters] of Object.entries(votes)) {
-    const resolvedTarget = target === 'null' ? '' : target;
-    if (!resolvedTarget) continue;
-    for (const voter of voters) {
-      lastVote.set(voter, resolvedTarget);
-    }
-  }
-  return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
-}
-
-export function detectIncidents(
-  previous: PublicGameState | null,
-  current: PublicGameState,
-): IncidentDisplay[] {
-  if (!previous) return [];
-
-  const prevById = new Map(previous.players.map((p) => [p.id, p]));
-  const incidents: IncidentDisplay[] = [];
-
-  for (const player of current.players) {
-    const prev = prevById.get(player.id);
-    if (prev?.isAlive && !player.isAlive) {
-      incidents.push({ playerId: player.id, playerName: player.name });
-    }
-  }
-
-  return incidents;
+export function getEliminatedIdsFromIncident(report: SocketIncidentReport): string[] {
+  return report.eliminatedPlayerIds ?? report.disconnected ?? [];
 }
 
 export function incidentsFromServerReport(
-  disconnected: string[],
+  report: SocketIncidentReport,
   state: PublicGameState | null,
 ): IncidentDisplay[] {
+  const ids = getEliminatedIdsFromIncident(report);
   const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
-  return disconnected.map((id) => {
+  return ids.map((id) => {
     const player = byId.get(id);
     return {
       playerId: id,
@@ -90,21 +72,82 @@ export function incidentsFromServerReport(
   });
 }
 
+export function toVoteEdges(votes: Record<string, string[]>): VoteEdge[] {
+  const lastVote = new Map<string, string>();
+  for (const [target, voters] of Object.entries(votes)) {
+    if (target === 'null' || target === 'skip') continue;
+    for (const voter of voters) {
+      lastVote.set(voter, target);
+    }
+  }
+  return [...lastVote.entries()].map(([from, to]) => ({ from, to }));
+}
+
+export function countSkipVotes(votes: Record<string, string[]>): number {
+  return (votes['skip'] ?? votes['null'] ?? []).length;
+}
+
+export function skipVoterIds(votes: Record<string, string[]>): string[] {
+  return votes['skip'] ?? votes['null'] ?? [];
+}
+
+export function playerNameById(state: PublicGameState | null, id: string): string {
+  return state?.players.find((p) => p.id === id)?.name ?? id;
+}
+
 export function phaseLabel(phase: GamePhase): string {
   const labels: Record<GamePhase, string> = {
-    LOBBY: 'LOBBY — Esperando conexiones',
-    REPARTO: 'REPARTO — Asignando roles',
-    NOCHE: 'NOCHE — Operaciones encubiertas',
-    DIA: 'DÍA — Auditoría de seguridad',
-    VOTACION: 'VOTACIÓN — Debate activo',
-    VERIFICACION: 'VERIFICACIÓN — Conteo de votos',
-    FIN: 'FIN — Partida terminada',
+    LOBBY: 'EN ESPERA',
+    REPARTO: 'REPARTO DE ROLES',
+    NOCHE: 'OPERACIÓN NOCTURNA',
+    DIA: 'AUDITORÍA DIURNA',
+    VOTACION: 'VOTACIÓN PÚBLICA',
+    VERIFICACION: 'VERIFICACIÓN',
+    FIN: 'PARTIDA TERMINADA',
   };
   return labels[phase] ?? phase;
 }
 
-export function isNodeCritical(player: PublicPlayer): boolean {
-  return !player.isAlive || !player.isConnected;
+export function translateEliminationReason(reason: string): string {
+  const labels: Record<string, string> = {
+    vote: 'votación',
+    honeypot_drag: 'arrastre honeypot',
+    infection: 'infección madura',
+    night_kill: 'ataque nocturno',
+  };
+  return labels[reason] ?? reason;
+}
+
+export function formatVoteTiedMessage(payload: {
+  reason: 'tie' | 'no_votes';
+  candidates: string[];
+  skipVotes: number;
+}): string {
+  if (payload.reason === 'no_votes') {
+    const skip =
+      payload.skipVotes > 0 ? ` (${payload.skipVotes} abstención(es))` : '';
+    return `Sin votos de eliminación${skip} — la red pasa a operación nocturna.`;
+  }
+  const names = payload.candidates.length
+    ? payload.candidates.join(', ')
+    : 'varios nodos';
+  const skip = payload.skipVotes ? ` (${payload.skipVotes} abstención(es))` : '';
+  return `La votación terminó en empate entre ${names}${skip}. Nadie fue linchado — pasa a NOCHE.`;
+}
+
+export function formatNightResolutionToast(resolution: NightResolution): string | null {
+  const parts: string[] = [];
+  if (resolution.kills?.length) parts.push(`${resolution.kills.length} caída(s) nocturna(s)`);
+  if (resolution.silenced?.length) parts.push(`${resolution.silenced.length} silenciado(s)`);
+  if (resolution.infections?.length) parts.push(`${resolution.infections.length} infectado(s)`);
+  if (resolution.cures?.length) parts.push(`${resolution.cures.length} curado(s)`);
+  if (resolution.infectionKills?.length) {
+    parts.push(`${resolution.infectionKills.length} baja(s) por infección`);
+  }
+  if (resolution.honeypotDrags?.length) {
+    parts.push(`${resolution.honeypotDrags.length} arrastre(s) honeypot`);
+  }
+  return parts.length ? `Noche resuelta: ${parts.join(', ')}` : null;
 }
 
 export function winnerLabel(winner: Team | null | undefined): string {
@@ -129,58 +172,28 @@ export function buildGameOverSummaryFromPayload(
   payload: GameOverPayload,
   state: PublicGameState | null,
 ): GameOverSummary {
-  const players = state?.players ?? [];
-
-  if (payload.soloWinner) {
-    const player = players.find((p) => p.id === payload.soloWinner!.playerId);
-    const playerName = player?.name ?? payload.soloWinner.playerId;
-    return {
-      headline: `Victoria solitaria — ${playerName}`,
-      winners: [{ playerName, role: payload.soloWinner.role }],
-    };
-  }
-
-  if (payload.winner) {
-    return {
-      headline: winnerLabel(payload.winner),
-      winners: [{ playerName: winnerTeamName(payload.winner), role: 'Equipo ganador' }],
-    };
-  }
-
-  return { headline: 'Partida terminada', winners: [] };
+  return buildHostGameOverSummary(payload, state);
 }
 
 export function buildGameOverSummary(state: PublicGameState | null): GameOverSummary | null {
-  if (!state || state.phase !== 'FIN') return null;
-
-  return buildGameOverSummaryFromPayload(
-    { roomId: state.roomId, winner: state.winner, soloWinner: state.soloWinner },
-    state,
-  );
+  return buildHostGameOverFromState(state);
 }
 
-export function detectPlayerStatusChanges(
-  previous: PublicGameState | null,
-  current: PublicGameState,
-): string[] {
-  if (!previous) return [];
-
-  const messages: string[] = [];
-  const prevById = new Map(previous.players.map((p) => [p.id, p]));
-
-  for (const player of current.players) {
-    const prev = prevById.get(player.id);
-    if (!prev) continue;
-
-    if (prev.isConnected && !player.isConnected) {
-      messages.push(`Nodo desconectado: ${player.name}`);
-    } else if (!prev.isConnected && player.isConnected) {
-      messages.push(`Nodo reconectado: ${player.name}`);
-    } else if (prev.isAlive && !player.isAlive) {
-      const roleLabel = player.role ? ` — ${player.role}` : '';
-      messages.push(`Nodo eliminado: ${player.name}${roleLabel}`);
-    }
-  }
-
-  return messages;
+export function roleTeamHint(role?: string): Team | null {
+  if (!role) return null;
+  const blackHat = ['DDoS Operator', 'Rootkit', 'Ransomware', 'Spyware', 'Phisher'];
+  const chaotic = ['Troll', 'Gusano', 'Minero de Cripto', 'Zero-Day'];
+  const system = [
+    'SysAdmin',
+    'Analista SOC',
+    'Antivirus',
+    'Pentester',
+    'Honeypot',
+    'Deep Freeze',
+    'Enrutador BGP',
+  ];
+  if (blackHat.includes(role)) return 'black_hat';
+  if (chaotic.includes(role)) return 'chaotic';
+  if (system.includes(role)) return 'system';
+  return null;
 }

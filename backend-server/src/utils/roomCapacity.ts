@@ -1,5 +1,13 @@
+/**
+ * Validación del cupo `maxPlayers` al crear sala desde dashboard.
+ * Obligatorio entre MIN_PLAYERS y MAX_PLAYERS (`utils/constants.ts`).
+ */
 import { MAX_PLAYERS, MIN_PLAYERS } from './constants';
 
+/**
+ * Normaliza y valida maxPlayers del host.
+ * @throws Error si falta, no es entero o está fuera de rango 5–16.
+ */
 export function normalizeRoomMaxPlayers(value: unknown): number {
   if (value === undefined || value === null || value === '') {
     throw new Error(`maxPlayers is required (${MIN_PLAYERS}-${MAX_PLAYERS})`);

@@ -1,8 +1,15 @@
+/**
+ * Máquina de estados de fases de partida.
+ *
+ * Flujo principal: LOBBY → REPARTO → DIA ↔ NOCHE ↔ VOTACION → VERIFICACION → FIN
+ * Emite `phaseChanged` al transicionar; Room escucha y persiste + socket bridge.
+ *
+ * `restorePhase` rehidrata desde JSON sin validar transiciones ni emitir eventos.
+ */
 import { EventEmitter } from 'events';
 import { GamePhase } from '../types';
 
-type PhaseCallback = (from: GamePhase, to: GamePhase) => void;
-
+/** Grafo de transiciones permitidas entre fases. */
 const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.LOBBY]: [GamePhase.REPARTO],
   [GamePhase.REPARTO]: [GamePhase.DIA],
@@ -13,6 +20,7 @@ const ALLOWED_TRANSITIONS: Record<GamePhase, GamePhase[]> = {
   [GamePhase.FIN]: [],
 };
 
+/** Fase actual y timestamps; integrada en cada instancia de `Room`. */
 export class StateMachine extends EventEmitter {
   private phase: GamePhase;
   private phaseStartedAt: number;
@@ -25,10 +33,6 @@ export class StateMachine extends EventEmitter {
 
   getPhase() {
     return this.phase;
-  }
-
-  getPhaseStartedAt() {
-    return this.phaseStartedAt;
   }
 
   /** Restaura fase desde persistencia sin emitir eventos ni validar transiciones. */
@@ -56,11 +60,7 @@ export class StateMachine extends EventEmitter {
     return true;
   }
 
-  onPhaseChanged(cb: PhaseCallback) {
-    this.on('phaseChanged', ({ from, to }: any) => cb(from, to));
-  }
-
-  // helper for forcing a next logical phase (used by Room manager)
+  /** Avanza a la primera fase siguiente permitida (elección determinista para el host). */
   next() {
     const nextPhases = ALLOWED_TRANSITIONS[this.phase] || [];
     if (nextPhases.length === 0) return null;

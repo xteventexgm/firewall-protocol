@@ -1,0 +1,39 @@
+@if (visible && resolution && sections.length) {
+  <aside class="night-resolution-panel animate-slide-in">
+    <header class="panel-header">
+      <span class="panel-icon">◈</span>
+      <div>
+        <h2 class="panel-title">Resolución nocturna</h2>
+        <p class="panel-sub">Resultado de operaciones encubiertas</p>
+      </div>
+    </header>
+
+    <div class="sections">
+      @for (section of sections; track section.key) {
+        <section class="resolution-section" [attr.data-tone]="section.tone">
+          <h3 class="section-label">{{ section.label }}</h3>
+          <ul class="section-list">
+            @for (item of section.items; track item) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+
+    @if (hasLogs) {
+      <div class="logs-block">
+        <button type="button" class="logs-toggle" (click)="toggleLogs()">
+          {{ logsExpanded ? '▾' : '▸' }} Logs del servidor ({{ resolution.logs.length }})
+        </button>
+        @if (logsExpanded) {
+          <ul class="logs-list">
+            @for (log of resolution.logs; track log) {
+              <li>{{ log }}</li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </aside>
+}
