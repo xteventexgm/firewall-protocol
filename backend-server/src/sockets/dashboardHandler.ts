@@ -8,6 +8,8 @@ import { Socket, Namespace } from 'socket.io';
 import RoomManager, { RoomClosedError } from '../game/RoomManager';
 import { logClient } from '../utils/socketLog';
 import { logger } from '../utils/logger';
+import { MIN_PLAYERS } from '../utils/constants';
+import { devBotsEnabled } from '../config/env';
 import {
   formatSocketError,
   isValidRoomCode,
@@ -178,6 +180,79 @@ export default function registerDashboardHandlers(socket: Socket, dashboardNs: N
       room.setPhaseConfig(config as any);
       socket.emit('phaseConfigChanged', code, room.state.phaseConfig);
     } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('fillBots', (roomId: string, count?: number) => {
+    try {
+      if (!devBotsEnabled()) {
+        socket.emit('error', formatSocketError('Bots desactivados en servidor (DEV_BOTS=false).', 'bots_disabled'));
+        return;
+      }
+      const code = normalizeRoomCode(roomId);
+      const room = RoomManager.getRoom(code);
+      if (!room) {
+        socket.emit('error', formatSocketError('Sala no encontrada.', 'room_not_found'));
+        return;
+      }
+      let added: number;
+      if (count == null || count === 0) {
+        added = room.fillBotsToCapacity();
+      } else if (count === -1) {
+        added = room.fillBotsToMinimum();
+      } else {
+        added = room.addBotPlayers(Math.max(0, Math.floor(count)));
+      }
+      socket.emit('publicState', room.state.toPublicState());
+      logClient('dashboard', 'fillBots OK', socket.id, { roomId: code, added, total: room.state.players.length });
+    } catch (err: any) {
+      logger.warn('[dashboard] fillBots FAIL', err.message || err);
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('clearBots', (roomId: string) => {
+    try {
+      if (!devBotsEnabled()) {
+        socket.emit('error', formatSocketError('Bots desactivados.', 'bots_disabled'));
+        return;
+      }
+      const code = normalizeRoomCode(roomId);
+      const room = RoomManager.getRoom(code);
+      if (!room) {
+        socket.emit('error', formatSocketError('Sala no encontrada.', 'room_not_found'));
+        return;
+      }
+      const removed = room.removeAllBots();
+      socket.emit('publicState', room.state.toPublicState());
+      logClient('dashboard', 'clearBots OK', socket.id, { roomId: code, removed });
+    } catch (err: any) {
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
+  socket.on('runBotQaMatch', (roomId: string) => {
+    try {
+      if (!devBotsEnabled()) {
+        socket.emit('error', formatSocketError('Bots desactivados en servidor (DEV_BOTS=false).', 'bots_disabled'));
+        return;
+      }
+      const code = normalizeRoomCode(roomId);
+      const room = RoomManager.getRoom(code);
+      if (!room) {
+        socket.emit('error', formatSocketError('Sala no encontrada.', 'room_not_found'));
+        return;
+      }
+      room.runBotQaMatch();
+      socket.emit('publicState', room.state.toPublicState());
+      logClient('dashboard', 'runBotQaMatch OK', socket.id, {
+        roomId: code,
+        phase: room.state.phase,
+        players: room.state.players.length,
+      });
+    } catch (err: any) {
+      logger.warn('[dashboard] runBotQaMatch FAIL', err.message || err);
       socket.emit('error', err.message || String(err));
     }
   });

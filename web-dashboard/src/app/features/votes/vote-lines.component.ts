@@ -11,7 +11,7 @@ import {
 import { GamePhase, PublicGameState, VoteTrace } from '../../core/models/game-state.model';
 import { countSkipVotes, skipVoterIds, toVoteEdges } from '../../core/utils/game.utils';
 import {
-  computeCircularLayout,
+  computeSpiderLayout,
   edgePointToward,
   hubPoint,
   NodePosition,
@@ -80,7 +80,8 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
 
     this.width = el.clientWidth || 800;
     this.height = el.clientHeight || 600;
-    this.visible = this.phase === 'DIA' || this.phase === 'VOTACION';
+    this.visible =
+      this.phase === 'DIA' || this.phase === 'VOTACION';
 
     if (!this.visible || !this.state) {
       this.lines = [];
@@ -91,15 +92,18 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
 
     const players = this.state.players;
     const maxSlots = Math.max(this.state.maxPlayers ?? players.length, players.length);
-    const positions: NodePosition[] = computeCircularLayout(
+    const positions: NodePosition[] = computeSpiderLayout(
       players,
       this.width,
       this.height,
       maxSlots,
     );
     const posMap = new Map(positions.map((p) => [p.id, p]));
+    const aliveIds = new Set(players.filter((p) => p.isAlive).map((p) => p.id));
     const hub = hubPoint(this.width, this.height);
-    const edges = toVoteEdges(this.state.votes);
+    const edges = toVoteEdges(this.state.votes).filter(
+      (e) => aliveIds.has(e.from) && aliveIds.has(e.to),
+    );
     this.skipCount = countSkipVotes(this.state.votes);
 
     const targetCounts = new Map<string, number>();

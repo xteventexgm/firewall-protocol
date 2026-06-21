@@ -56,6 +56,8 @@ export class GameSoundService {
   private ambienceOsc: OscillatorNode | null = null;
   private ambienceGain: GainNode | null = null;
 
+  private lastSfxAt = new Map<SoundEvent, number>();
+
   setMuted(m: boolean): void {
     this.muted = m;
     if (m) this.stopAmbient();
@@ -162,6 +164,16 @@ export class GameSoundService {
 
   playUi(kind: 'click' | 'confirm'): void {
     this.play(kind === 'click' ? 'ui_click' : 'ui_confirm');
+  }
+
+  /** Evita spam de SFX (p. ej. 16 votos de bots en segundos). */
+  playThrottled(event: SoundEvent, minIntervalMs = 2_500): void {
+    if (this.muted) return;
+    const now = Date.now();
+    const last = this.lastSfxAt.get(event) ?? 0;
+    if (now - last < minIntervalMs) return;
+    this.lastSfxAt.set(event, now);
+    this.play(event);
   }
 
   private resolvePath(event: SoundEvent, index = 0): string {

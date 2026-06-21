@@ -5,12 +5,15 @@
  * `Room` ni `RoomManager`. Métodos `delete` y `list` preparados para admin futuro.
  */
 import dbSync, { GameArchiveCategory } from '../services/dbSyncService';
+import { readSessionLogFile } from '../services/GameSessionLogService';
 import { logger } from '../utils/logger';
 
 /** Contrato de persistencia; implementación actual: JSON vía dbSyncService. */
 export interface DBAdapter {
 	save(roomId: string, state: any): boolean;
 	load(roomId: string): any | null;
+	loadOrArchive(roomId: string): any | null;
+	readSessionLog(roomId: string): string | null;
 	delete(roomId: string): boolean;
 	archive(roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>): boolean;
 	list(): string[];
@@ -38,6 +41,14 @@ const adapter: DBAdapter = {
 		}
 		return data;
 	},
+	loadOrArchive: (roomId: string) => {
+		const data = dbSync.loadGameStateOrArchive(roomId);
+		if (data) {
+			logger.info('[db] loadOrArchive OK', { roomId, phase: data.phase });
+		}
+		return data;
+	},
+	readSessionLog: (roomId: string) => readSessionLogFile(roomId),
 	delete: (roomId: string) => {
 		const ok = dbSync.deleteGameState(roomId);
 		logger.info('[db] delete', ok ? 'OK' : 'FAIL', { roomId });

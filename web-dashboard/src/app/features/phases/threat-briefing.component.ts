@@ -1,30 +1,23 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { SessionThreatBrief } from '../../core/models/game-state.model';
+import { buildThreatBriefingView } from '../../core/utils/session-threat-copy.utils';
 
 @Component({
   selector: 'app-threat-briefing',
   standalone: true,
   template: `
-    @if (visible && brief) {
-      <div class="threat-overlay">
+    @if (visible && brief && view) {
+      <div class="threat-overlay" [attr.data-accent]="view.accent">
         <div class="threat-panel">
-          <p class="threat-code">ALERTA SIEM — NIVEL CRÍTICO</p>
-          <h1 class="threat-title">RED COMPROMETIDA</h1>
-          <p class="threat-lead">
-            Se han detectado <strong>{{ brief.hackerCount }}</strong>
-            {{ brief.hackerCount === 1 ? 'agente hostil' : 'agentes hostiles' }}
-            (Black Hat) y <strong>{{ brief.intruderCount }}</strong>
-            {{ brief.intruderCount === 1 ? 'intruso' : 'intrusos' }}
-            de origen desconocido en la red.
-          </p>
+          <p class="threat-code">{{ view.code }}</p>
+          <h1 class="threat-title">{{ view.title }}</h1>
+          <p class="threat-lead" [innerHTML]="view.lead"></p>
           <ul class="threat-stats">
-            <li><span>Nodos en línea</span><strong>{{ brief.nodeCount }}</strong></li>
-            <li><span>Defensores estimados</span><strong>{{ brief.systemCount }}</strong></li>
-            <li><span>Amenazas activas</span><strong>{{ brief.hackerCount + brief.intruderCount }}</strong></li>
+            @for (stat of view.stats; track stat.label) {
+              <li><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong></li>
+            }
           </ul>
-          <p class="threat-footer">
-            Credenciales repartidas. Inicia el debate diurno — identifica y expulsa amenazas.
-          </p>
+          <p class="threat-footer">{{ view.footer }}</p>
           <div class="threat-progress">
             <div class="threat-progress-fill" [style.width.%]="progressPct"></div>
           </div>
@@ -43,7 +36,13 @@ import { SessionThreatBrief } from '../../core/models/game-state.model';
       justify-content: center;
       background: radial-gradient(ellipse at center, #1a0508cc 0%, #050810f5 70%);
       backdrop-filter: blur(4px);
-      animation: threat-in 0.6s ease-out;
+      animation: threat-in 0.8s ease-out;
+    }
+    .threat-overlay[data-accent='black_hat'] {
+      background: radial-gradient(ellipse at center, #1a0810cc 0%, #050810f5 70%);
+    }
+    .threat-overlay[data-accent='chaotic'] {
+      background: radial-gradient(ellipse at center, #1a1208cc 0%, #050810f5 70%);
     }
     .threat-panel {
       width: min(560px, 92%);
@@ -143,12 +142,16 @@ export class ThreatBriefingComponent implements OnChanges {
 
   @Output() dismissed = new EventEmitter<void>();
 
+  view: ReturnType<typeof buildThreatBriefingView> | null = null;
   progressPct = 100;
   private timer?: ReturnType<typeof setInterval>;
   private hideTimer?: ReturnType<typeof setTimeout>;
   private readonly durationMs = 20000;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['brief'] && this.brief) {
+      this.view = buildThreatBriefingView('system', this.brief);
+    }
     if (changes['visible'] && this.visible && this.brief) {
       this.startTimer();
     }

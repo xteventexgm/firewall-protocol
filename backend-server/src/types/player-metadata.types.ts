@@ -25,6 +25,7 @@ export interface PlayerMetadata {
   lastProtectedTarget?: PlayerId | null;
   lastCuredTarget?: PlayerId | null;
   pentesterUsesLeft?: number;
+  bruteForceUsesLeft?: number;
   shieldCharges?: number;
   ransomwareCooldown?: number;
   silencedUntilDay?: number;
@@ -41,6 +42,37 @@ export interface PlayerMetadata {
   trollProvokeUsedTonight?: boolean;
   /** Minero: último nodo minado (cooldown una noche). */
   lastMinedTarget?: PlayerId | null;
+  /** Parcheador: noche hasta la que el nodo ignora consenso hacker. */
+  consensusBlockedUntilNight?: number;
+  /** Kit de Exploits: noche en que el protect EDR no aplica sobre el nodo. */
+  exploitStrippedUntilNight?: number;
+  /** Sombra: noche hasta la que el nodo aparece SEGURO en scan SOC. */
+  scanMaskedUntilNight?: number;
+  /** Bomba lógica: detona si el nodo actúa mientras está armada. */
+  logicBombArmed?: boolean;
+  /** IDS: objetivo vigilado esta noche (runtime). */
+  idsWatchTarget?: PlayerId | null;
+  /** Nodo de Respaldo: absorbe un kill esta noche. */
+  backupSaveTonight?: boolean;
+  /** Nodo de Respaldo: usos restantes (actor). */
+  backupMarkUsesLeft?: number;
+  /** Intel de Amenazas: pulso usado. */
+  intelPulseUsed?: boolean;
+  /** Implante Backdoor: +1 voto consenso contra este nodo esta noche. */
+  backdoorBonusTonight?: boolean;
+  /** Cortafuegos WAF: bloquea worm esta noche. */
+  wormBlockedUntilNight?: number;
+  /** Saboteador: no puede votar hasta este día inclusive. */
+  voteBlockedUntilDay?: number;
+  /** Envenenador DNS: voto del objetivo se desvía al azar este día. */
+  dnsVoteSpoofUntilDay?: number;
+  /** Dropper: ignora protecciones esta noche. */
+  riggedPayloadUntilNight?: number;
+  /** Dropper: escudo caótico (bloquea kills directos). */
+  chaosShieldCharges?: number;
+  /** Saboteador: escudo de linchamiento hasta este día inclusive. */
+  lynchSurvivorUntilDay?: number;
+  lynchSurvivorConsumed?: boolean;
 }
 
 /** Tipos de acción nocturna permitidos por rol (validados en ActionValidator). */
@@ -60,4 +92,32 @@ export const ROLE_NIGHT_ACTIONS: Partial<Record<RoleName, string[]>> = {
   [RoleName.HONEYPOT]: ['honeypot_drag'],
   [RoleName.TROLL]: ['troll_provoke'],
   [RoleName.CRYPTO_MINER]: ['mine_crypto', 'crypto_bribe'],
+  [RoleName.IDS]: ['ids_watch'],
+  [RoleName.PATCH_MANAGER]: ['patch_harden'],
+  [RoleName.FORENSIC_ANALYST]: ['forensic_trace'],
+  [RoleName.BRUTE_FORCE]: ['brute_force'],
+  [RoleName.SNIFFER]: ['team_probe'],
+  [RoleName.EXPLOIT_KIT]: ['exploit_strip'],
+  [RoleName.DATA_LEAKER]: ['data_leak'],
+  [RoleName.SHADOW]: ['shadow_mask'],
+  [RoleName.LOGIC_BOMB]: ['logic_bomb'],
+  [RoleName.BACKUP_NODE]: ['backup_mark'],
+  [RoleName.THREAT_HUNTER]: ['threat_hunt'],
+  [RoleName.INCIDENT_RESPONDER]: ['incident_clear'],
+  [RoleName.WAF]: ['waf_block'],
+  [RoleName.THREAT_INTEL]: ['intel_pulse'],
+  [RoleName.INTEGRITY_MONITOR]: ['ally_verify'],
+  [RoleName.BACKDOOR_IMPLANT]: ['backdoor_plant'],
+  [RoleName.LATERAL_MOVE]: ['lateral_probe'],
+  [RoleName.KEYLOGGER]: ['vote_trace'],
+  [RoleName.VULN_SCANNER]: ['vuln_scan'],
+  [RoleName.CREDENTIAL_STEALER]: ['cred_probe'],
+  [RoleName.MITM_PROXY]: ['mitm_hijack'],
+  [RoleName.DNS_POISONER]: ['dns_spoof'],
+  [RoleName.RANSOM_NOTE]: ['ransom_note'],
+  [RoleName.DROPPER]: ['rigged_payload'],
+  [RoleName.SABOTEUR]: ['jam_hacker'],
+  [RoleName.WHITE_NOISE]: ['noise_burst'],
+  [RoleName.MIRAGE]: ['mirage_cloak'],
+  [RoleName.CHAOS_ROUTER]: ['chaos_route'],
 };
