@@ -1,30 +1,129 @@
+/**
+ * Registro global de salas en memoria + restauración desde JSON.
+ *
+ * - `createRoom`: solo dashboard (sala nueva)
+ * - `getOrRestoreRoom`: móvil/dashboard se unen o rehidratan tras reinicio servidor
+ * - Singleton exportado como default
+ */
 import Room from './Room';
 import { Player } from '../models/PlayerProfile';
+import { attachRoomBridge } from '../sockets/roomBridge';
+import { Namespace } from 'socket.io';
+import database from '../config/database';
+import { logRoom } from '../utils/socketLog';
+import { GamePhase } from '../types';
+import { normalizeRoomMaxPlayers } from '../utils/roomCapacity';
 
+/** Sala en fase FIN — no admite nuevos joins. */
+export class RoomClosedError extends Error {
+  constructor(message = 'Room has ended') {
+    super(message);
+    this.name = 'RoomClosedError';
+  }
+}
+
+/** Mapa roomId → Room activa en este proceso Node. */
 export class RoomManager {
   private rooms: Map<string, Room> = new Map();
 
-  createRoom(id: string, options?: any) {
-    if (this.rooms.has(id)) throw new Error('Room already exists');
-    const r = new Room(id, options);
-    this.rooms.set(id, r);
+  private normalizeId(id: string) {
+    return id.trim().toUpperCase();
+  }
+
+  private assertJoinablePhase(phase: GamePhase, roomId: string) {
+    if (phase === GamePhase.FIN) {
+      throw new RoomClosedError(`Room ${roomId} has ended`);
+    }
+  }
+
+  /** Solo dashboard: sala nueva, sin JSON previo ni sala en memoria. */
+  createRoom(id: string, options?: { maxPlayers?: number; [key: string]: unknown }, gameNs?: Namespace, dashboardNs?: Namespace) {
+    const roomId = this.normalizeId(id);
+    if (this.rooms.has(roomId)) throw new Error('Room already exists');
+
+    const persisted = database.load(roomId);
+    if (persisted) {
+      if (persisted.phase === GamePhase.FIN) {
+        throw new Error('Room code already used (game finished). Create a new lobby.');
+      }
+      throw new Error('Room code already in use. Create a new lobby.');
+    }
+
+    const maxPlayers = normalizeRoomMaxPlayers(options?.maxPlayers);
+    const r = new Room(roomId, { ...options, maxPlayers, restore: false });
+    if (gameNs) attachRoomBridge(r, gameNs, dashboardNs);
+    this.rooms.set(roomId, r);
+
+    const saved = database.save(roomId, r.state.toPlain());
+    logRoom('created', roomId, {
+      phase: r.state.phase,
+      players: r.state.players.length,
+      maxPlayers: r.state.maxPlayers,
+      persisted: saved,
+    });
+
     return r;
   }
 
+  /**
+   * Une a sala activa en memoria o restaura desde JSON (reinicio del servidor).
+   * No crea salas nuevas.
+   */
+  getOrRestoreRoom(id: string, gameNs?: Namespace, dashboardNs?: Namespace): Room | null {
+    const roomId = this.normalizeId(id);
+    const inMemory = this.rooms.get(roomId);
+    if (inMemory) {
+      this.assertJoinablePhase(inMemory.state.phase, roomId);
+      if (gameNs) this.ensureBridge(inMemory, gameNs, dashboardNs);
+      return inMemory;
+    }
+
+    const persisted = database.load(roomId);
+    if (!persisted) return null;
+
+    this.assertJoinablePhase(persisted.phase as GamePhase, roomId);
+
+    const r = new Room(roomId, { restore: true });
+    if (gameNs) attachRoomBridge(r, gameNs, dashboardNs);
+    this.rooms.set(roomId, r);
+    logRoom('restored from disk', roomId, {
+      phase: r.state.phase,
+      players: r.state.players.length,
+    });
+    return r;
+  }
+
+  ensureBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
+    attachRoomBridge(room, gameNs, dashboardNs);
+    logRoom('bridge attached', room.id);
+  }
+
   getRoom(id: string) {
-    return this.rooms.get(id) || null;
+    return this.rooms.get(this.normalizeId(id)) || null;
+  }
+
+  /** Archiva lobby abandonado y elimina de memoria. */
+  abandonLobby(roomId: string) {
+    const code = this.normalizeId(roomId);
+    const room = this.rooms.get(code);
+    if (room && room.state.phase === GamePhase.LOBBY) {
+      database.archive(code, 'deletegame', { reason: 'lobby_abandoned' });
+    } else if (room) {
+      database.archive(code, 'deletegame', { reason: 'host_left', phase: room.state.phase });
+    } else {
+      database.archive(code, 'deletegame', { reason: 'room_not_in_memory' });
+    }
+    this.deleteRoom(code);
   }
 
   deleteRoom(id: string) {
-    const r = this.rooms.get(id);
+    const roomId = this.normalizeId(id);
+    const r = this.rooms.get(roomId);
     if (!r) return false;
     r.destroy();
-    this.rooms.delete(id);
+    this.rooms.delete(roomId);
+    logRoom('deleted from memory', roomId);
     return true;
-  }
-
-  listRooms() {
-    return Array.from(this.rooms.keys());
   }
 
   findPlayerBySocketId(socketId: string): { room: Room; player: Player } | null {

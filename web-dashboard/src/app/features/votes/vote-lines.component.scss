@@ -22,3 +22,43 @@
   stroke-dasharray: 8 4;
   animation: fade-in-line 0.4s ease-out forwards;
 }
+
+.vote-line-skip {
+  stroke: #ffd000;
+  stroke-opacity: 0.55;
+  stroke-dasharray: 4 6;
+}
+
+.vote-lines-svg.vote-tie-active .vote-line {
+  stroke: #ffb800;
+  stroke-opacity: 0.9;
+  animation: vote-tie-chaos 0.8s ease-in-out infinite;
+}
+
+@keyframes vote-tie-chaos {
+  0%, 100% { stroke-dashoffset: 0; stroke-opacity: 0.7; }
+  50% { stroke-dashoffset: 12; stroke-opacity: 1; }
+}
+
+.vote-line-pulse {
+  stroke: #00ffcc;
+  stroke-opacity: 1;
+  stroke-width: 4;
+  animation: vote-line-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vote-line-pulse {
+  0%, 100% {
+    stroke-opacity: 0.6;
+    filter: drop-shadow(0 0 2px #00ff88);
+  }
+  50% {
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 8px #00ffcc);
+  }
+}
+
+@keyframes fade-in-line {
+  from { stroke-opacity: 0; }
+  to { stroke-opacity: 0.75; }
+}

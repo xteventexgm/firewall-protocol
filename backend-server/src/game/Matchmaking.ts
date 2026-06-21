@@ -1,6 +1,22 @@
+/**
+ * Reparto aleatorio de roles al iniciar partida.
+ *
+ * Divide jugadores en pools hacker / caótico / system según proporciones,
+ * luego asigna roles sin repetir dentro de cada pool hasta agotar catálogo.
+ *
+ * Proporciones:
+ * - Hackers: `playersPerBlackHat` (`balance.ts`)
+ * - Caóticos: `PLAYERS_PER_CHAOTIC_ROLE` (`constants.ts`)
+ */
 import { Player } from '../models/PlayerProfile';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { RoleId } from '../types';
+import {
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  PLAYERS_PER_CHAOTIC_ROLE,
+} from '../utils/constants';
+import { playersPerBlackHat } from './balance';
 
 type RNG = () => number;
 
@@ -21,59 +37,93 @@ function rolesByTeam(team: Team): RoleId[] {
   return Object.values(RoleName).filter(r => ROLE_CATALOG[r].team === team) as RoleId[];
 }
 
+/** Cuenta cuántos slots corresponden por proporción (floor), acotado al máximo disponible. */
+function slotsByRatio(totalPlayers: number, playersPerSlot: number, maxSlots: number, minSlots = 0) {
+  const raw = Math.floor(totalPlayers / playersPerSlot);
+  return Math.max(minSlots, Math.min(raw, maxSlots));
+}
+
+function pickRole(pool: RoleId[], used: Set<RoleId>, rng: RNG): RoleId {
+  const available = pool.filter(r => !used.has(r));
+  const source = available.length > 0 ? available : pool;
+  const role = source[Math.floor(rng() * source.length)];
+  if (available.length > 0) used.add(role);
+  return role;
+}
+
+function assignPool(
+  players: Player[],
+  pool: RoleId[],
+  assignments: Record<string, RoleId>,
+  rng: RNG,
+) {
+  const used = new Set<RoleId>();
+  for (const p of players) {
+    const role = pickRole(pool, used, rng);
+    p.role = role;
+    p.team = ROLE_CATALOG[role].team;
+    assignments[p.id] = role;
+  }
+}
+
+interface TeamBalance {
+  hackerCount: number;
+  chaoticCount: number;
+  systemCount: number;
+}
+
+/** Calcula reparto de equipos según proporciones configurables en constants.ts */
+function computeTeamBalance(playerCount: number): TeamBalance {
+  const hackerCount = slotsByRatio(playerCount, playersPerBlackHat(playerCount), playerCount, 1);
+  const chaoticCount = slotsByRatio(
+    playerCount,
+    PLAYERS_PER_CHAOTIC_ROLE,
+    playerCount - hackerCount,
+  );
+  const systemCount = playerCount - hackerCount - chaoticCount;
+
+  if (systemCount < 0) {
+    throw new Error('Invalid team balance: not enough slots for system roles');
+  }
+
+  return { hackerCount, chaoticCount, systemCount };
+}
+
 /**
  * Assign roles to players.
- * - Enforce player count between 5 and 15.
- * - Aim for 25% hackers; when exact proportion isn't an integer, rounds to nearest and logs.
+ * - Enforce player count between MIN_PLAYERS and MAX_PLAYERS.
+ * - Black Hat: 1 cada N jugadores (4 en mesas ≤8, 3 en 9+).
+ * - Caóticos: 1 cada PLAYERS_PER_CHAOTIC_ROLE (por defecto 1:5); el resto es System.
+ * - Dentro de cada pool se priorizan roles sin repetir hasta agotar el catálogo.
  * - Returns mapping of playerId -> RoleId and mutates `player.role` and `player.team`.
  */
 export function assignRoles(players: Player[], rngFn?: RNG) {
   const rng = rngFn || defaultRng;
   const n = players.length;
-  if (n < 5 || n > 15) throw new Error('Matchmaking supports 5 to 15 players');
-
-  const idealHackers = n * 0.25;
-  let hackerCount = Math.max(1, Math.round(idealHackers));
-  if (Math.abs(hackerCount - idealHackers) > 0.0001 && Number.isFinite(idealHackers)) {
-    // best-effort: round to nearest to keep close to 25%
-    // caller may enforce strict multiples of 4 if 'exact' integer proportion is required
-    // (we choose rounding to maintain playability for 5-15 players)
-    // no-op (we already rounded)
+  if (n < MIN_PLAYERS || n > MAX_PLAYERS) {
+    throw new Error(`Matchmaking supports ${MIN_PLAYERS} to ${MAX_PLAYERS} players`);
   }
 
-  // prepare role pools
+  const { hackerCount, chaoticCount, systemCount } = computeTeamBalance(n);
   const blackHatRoles = rolesByTeam(Team.BLACK_HAT);
   const systemRoles = rolesByTeam(Team.SYSTEM);
   const chaoticRoles = rolesByTeam(Team.CHAOTIC);
 
-  // shuffle players deterministically
   const shuffled = shuffle(players, rng);
-
   const assignments: Record<string, RoleId> = {};
 
-  // assign hackers
-  for (let i = 0; i < hackerCount; i++) {
-    const p = shuffled[i];
-    // pick a random black hat role (allow repeats if players > roles)
-    const role = blackHatRoles[Math.floor(rng() * blackHatRoles.length)];
-    p.role = role;
-    p.team = Team.BLACK_HAT;
-    assignments[p.id] = role;
-  }
+  const hackers = shuffled.slice(0, hackerCount);
+  const chaotics = shuffled.slice(hackerCount, hackerCount + chaoticCount);
+  const systems = shuffled.slice(hackerCount + chaoticCount);
 
-  // assign remaining players roles from system + chaotic
-  const remaining = shuffled.slice(hackerCount);
-  // combine pools with a bias towards system roles (2:1)
-  const weightedPool = [...systemRoles, ...systemRoles, ...chaoticRoles];
-  for (const p of remaining) {
-    const role = weightedPool[Math.floor(rng() * weightedPool.length)];
-    p.role = role;
-    p.team = ROLE_CATALOG[role].team;
-    assignments[p.id] = role;
-  }
+  assignPool(hackers, blackHatRoles, assignments, rng);
+  assignPool(chaotics, chaoticRoles, assignments, rng);
+  assignPool(systems, systemRoles, assignments, rng);
 
   return {
     hackerCount,
+    chaoticCount,
+    systemCount,
     assignments,
   };
 }

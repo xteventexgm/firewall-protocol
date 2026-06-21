@@ -12,6 +12,18 @@
 /* Core CSS required for Ionic components to work properly */
 
 @use "tailwindcss";
+
+@theme {
+  --color-cyber-bg: #050a12;
+  --color-cyber-panel: #0d1520;
+  --color-cyber-border: #1a3a4a;
+  --color-cyber-accent: #00f0ff;
+  --color-cyber-danger: #ff2d55;
+  --color-cyber-warn: #ffb800;
+  --color-cyber-muted: #4a6a7a;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
 @import "@ionic/angular/css/core.css";
 
 /* Basic CSS for apps built with Ionic */
@@ -37,4 +49,91 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import '@ionic/angular/css/palettes/dark.system.css';
+
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html.immersive-native {
+  --app-safe-top: 0px;
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html.plt-android,
+html.plt-capacitor:not(.immersive-native) {
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--ion-safe-area-top, 24px));
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--ion-safe-area-bottom, 0px));
+}
+
+/* Scroll fiable en Capacitor/Android */
+ion-content.scroll-page {
+  --overflow: hidden;
+  height: 100%;
+}
+
+ion-content.scroll-page::part(scroll) {
+  overflow: hidden !important;
+  height: 100%;
+  max-height: 100%;
+  touch-action: pan-y;
+}
+
+.page-scroll {
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  transform: translateZ(0);
+  will-change: scroll-position;
+  padding-top: var(--app-safe-top);
+  padding-right: var(--app-safe-right);
+  padding-bottom: var(--app-safe-bottom);
+  padding-left: var(--app-safe-left);
+}
+
+html.plt-android .page-scroll,
+html.plt-capacitor .page-scroll {
+  overflow-y: scroll;
+}
+
+html.plt-android ion-content.scroll-page::part(scroll),
+html.plt-capacitor ion-content.scroll-page::part(scroll) {
+  overscroll-behavior: none;
+}
+
+html,
+body,
+ion-app {
+  height: 100%;
+  width: 100%;
+}
+
+ion-router-outlet {
+  display: block;
+  height: 100%;
+}
+
+html,
+body {
+  font-family: var(--font-mono);
+  background: var(--color-cyber-bg);
+  overflow: hidden;
+}
+
+ion-content:not(.scroll-page) {
+  --overflow: auto;
+}
+
+ion-content:not(.scroll-page)::part(scroll) {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
 

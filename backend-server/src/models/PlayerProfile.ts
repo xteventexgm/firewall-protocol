@@ -1,5 +1,12 @@
-import { PlayerAction, PlayerId, RoleId } from '../types';
+/**
+ * Modelo de jugador en memoria y en JSON persistido.
+ *
+ * Un jugador pertenece a `GameStateModel.players`. La cola de acciones nocturnas
+ * vive a nivel de sala (`actionQueue`), no en el perfil del jugador.
+ */
+import { PlayerId, RoleId } from '../types';
 
+/** Forma serializable del jugador (persistencia / tipos compartidos). */
 export interface PlayerProfile {
   id: PlayerId;
   name: string;
@@ -8,11 +15,12 @@ export interface PlayerProfile {
   team?: string;
   isAlive: boolean;
   isConnected: boolean;
-  joinedAt: number; // epoch ms
+  joinedAt: number;
+  /** Flags por rol: cooldowns, infección, escudos, etc. Ver `player-metadata.types.ts`. */
   metadata?: Record<string, any>;
-  pendingActions?: PlayerAction[];
 }
 
+/** Instancia mutable de jugador en runtime. */
 export class Player implements PlayerProfile {
   id: PlayerId;
   name: string;
@@ -23,21 +31,13 @@ export class Player implements PlayerProfile {
   isConnected = true;
   joinedAt: number;
   metadata?: Record<string, any>;
-  pendingActions: PlayerAction[] = [];
+  /** 'transport' = caída de socket; 'voluntary' = salió con leaveRoom. */
+  lastDisconnectReason?: 'voluntary' | 'transport';
 
   constructor(id: PlayerId, name: string, socketId?: string) {
     this.id = id;
     this.name = name;
     this.socketId = socketId;
     this.joinedAt = Date.now();
-  }
-
-  addAction(action: PlayerAction) {
-    this.pendingActions = this.pendingActions || [];
-    this.pendingActions.push(action);
-  }
-
-  clearActions() {
-    this.pendingActions = [];
   }
 }

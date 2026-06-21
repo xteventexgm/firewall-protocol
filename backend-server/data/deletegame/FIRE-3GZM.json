@@ -1,0 +1,49 @@
+{
+  "archivedAt": "2026-06-20T14:51:17.006Z",
+  "archiveCategory": "deletegame",
+  "reason": "lobby_abandoned",
+  "roomId": "FIRE-3GZM",
+  "phase": "LOBBY",
+  "phaseStartedAt": 1781966982068,
+  "phaseEndsAt": null,
+  "maxPlayers": 5,
+  "players": [
+    {
+      "id": "usr_uwqn7wuwm",
+      "name": "Steven",
+      "socketId": "B2Wi27y7jQCRTjUTAAAD",
+      "isAlive": true,
+      "isConnected": true,
+      "joinedAt": 1781966993157,
+      "metadata": {}
+    }
+  ],
+  "dayNumber": 0,
+  "nightNumber": 0,
+  "actionQueue": [],
+  "votes": {},
+  "logs": [],
+  "winner": null,
+  "soloWinner": null,
+  "lastNightKills": [],
+  "initialPlayerCount": 0,
+  "publicLogs": [],
+  "chatMessages": [],
+  "phaseConfig": {
+    "autoAdvance": false,
+    "nightDurationMs": 60000,
+    "dayDurationMs": 60000,
+    "voteDurationMs": 90000
+  },
+  "gameStats": {
+    "scansPerformed": 0,
+    "killsPrevented": 0,
+    "infectionsApplied": 0,
+    "votesCast": 0,
+    "honeypotDrags": 0,
+    "playerActions": {},
+    "mvpPlayerId": null,
+    "mvpReason": null
+  },
+  "lastChatSentAt": {}
+}
