@@ -1,9 +1,21 @@
 import {
   GamePhase,
-  IncidentReport,
+  PlayerRoleMeta,
   PlayerRoomState,
   RoomPlayer,
+  SocketIncidentReport,
 } from '../models/game-state.model';
+
+function extractRoleMeta(metadata: any): PlayerRoleMeta | undefined {
+  if (!metadata) return undefined;
+  const meta: PlayerRoleMeta = {};
+  if (metadata.pentesterUsesLeft != null) meta.pentesterUsesLeft = metadata.pentesterUsesLeft;
+  if (metadata.shieldCharges != null) meta.shieldCharges = metadata.shieldCharges;
+  if (metadata.ransomwareCooldown != null) meta.ransomwareCooldown = metadata.ransomwareCooldown;
+  if (metadata.isWormImmune) meta.isWormImmune = true;
+  if (metadata.assumedFromPlayerId) meta.assumedFromPlayerId = metadata.assumedFromPlayerId;
+  return Object.keys(meta).length ? meta : undefined;
+}
 
 export function sanitizeRoomState(raw: any): PlayerRoomState {
   const dayNumber = raw?.dayNumber ?? 0;
@@ -13,9 +25,12 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: isPlayerSilenced(p, dayNumber),
+    infected: !!p.metadata?.infection,
+    infectionMaturesAfterNight: p.metadata?.infection?.maturesAfterNight,
     joinedAt: p.joinedAt ?? Date.now(),
     role: p.role,
     team: p.team,
+    meta: extractRoleMeta(p.metadata),
   }));
 
   return {
@@ -25,7 +40,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     players,
     dayNumber,
     nightNumber: raw?.nightNumber ?? 0,
-    maxPlayers: raw?.maxPlayers ?? 15,
+    maxPlayers: raw?.maxPlayers ?? 16,
     playerCount: raw?.playerCount ?? players.length,
     votes: raw?.votes ?? {},
     logs: raw?.logs ?? [],
@@ -41,12 +56,21 @@ export function isPlayerSilenced(player: any, dayNumber: number): boolean {
   return untilDay >= dayNumber;
 }
 
+export function infectionSourceLabel(source: string | undefined): string {
+  if (source === 'worm') return 'Gusano';
+  return source ?? 'origen desconocido';
+}
+
+export function getEliminatedIdsFromIncident(report: SocketIncidentReport): string[] {
+  return report.eliminatedPlayerIds ?? report.disconnected ?? [];
+}
+
 export function incidentsFromServerReport(
-  disconnected: string[],
+  report: SocketIncidentReport,
   state: PlayerRoomState | null,
-): IncidentReport[] {
+): { playerId: string; playerName: string }[] {
   const byId = new Map((state?.players ?? []).map((p) => [p.id, p]));
-  return disconnected.map((id) => ({
+  return getEliminatedIdsFromIncident(report).map((id) => ({
     playerId: id,
     playerName: byId.get(id)?.name ?? id,
   }));
@@ -72,10 +96,32 @@ export function isNodeCritical(player: RoomPlayer): boolean {
 
 export function translateEliminationReason(reason: string): string {
   const labels: Record<string, string> = {
-    vote: 'votación',
-    honeypot_drag: 'arrastre honeypot',
+    vote: 'votación pública',
+    honeypot_drag: 'arrastre de honeypot',
   };
   return labels[reason] ?? reason;
+}
+
+export function formatVoteTiedMessage(payload: {
+  reason: 'tie' | 'no_votes';
+  candidates: string[];
+  skipVotes: number;
+}): string {
+  if (payload.reason === 'no_votes') {
+    const skip =
+      payload.skipVotes > 0 ? ` (${payload.skipVotes} abstención(es))` : '';
+    return `Sin votos de eliminación${skip} — la red pasa a operación nocturna.`;
+  }
+  const names = payload.candidates.length
+    ? payload.candidates.join(', ')
+    : 'varios nodos';
+  const skip = payload.skipVotes ? ` (${payload.skipVotes} abstención(es))` : '';
+  return `La votación terminó en empate entre ${names}${skip}. Nadie fue linchado — pasa a NOCHE.`;
+}
+
+export function deadPlayerRoleLabel(player: RoomPlayer, phase: GamePhase | 'ELIMINATED'): string | null {
+  if (phase !== 'FIN' || player.isAlive || !player.role) return null;
+  return player.role;
 }
 
 export function winnerLabel(winner: string | null | undefined): string {

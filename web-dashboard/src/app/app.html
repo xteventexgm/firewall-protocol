@@ -1,50 +1,131 @@
-<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg">
-  <app-lobby
-    class="shrink-0"
-    [roomCode]="roomCode"
-    [state]="state"
-    [connected]="connected"
-    (createLobby)="onCreateLobby($event)"
-    (startGame)="onStartGame()"
-    (advancePhase)="onAdvancePhase()"
-  />
+<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg" [class.lobby-only]="!inRoom">
+  @if (!inRoom) {
+    <app-home-atmosphere />
+  }
 
-  <main class="main-stage flex-1 relative overflow-hidden">
-    <div class="grid-bg absolute inset-0 pointer-events-none"></div>
-
-    <app-topology
-      class="absolute inset-0"
+  <div class="lobby-wrapper" [class.lobby-wrapper--home]="!inRoom">
+    <app-lobby
+      class="shrink-0"
+      [class.home-mode]="!inRoom"
+      [inRoom]="inRoom"
+      [roomCode]="roomCode"
       [state]="state"
-      [phase]="state?.phase ?? 'LOBBY'"
-      [glitchPlayerIds]="glitchPlayerIds"
+      [connected]="connected"
+      [savedRooms]="savedRooms"
+      [savedRoomConnected]="savedRoomConnected"
+      [gameOverActive]="gameOverActive"
+      (createLobby)="onCreateLobby($event)"
+      (rejoinRoom)="onRejoinRoom($event)"
+      (removeSavedRoom)="onRemoveSavedRoom($event)"
+      (backToLobby)="onBackToLobby()"
+      (startGame)="onStartGame()"
+      (advancePhase)="onAdvancePhase()"
+      (setPhaseConfig)="onSetPhaseConfig($event)"
+      (toggleSound)="toggleSound()"
+      [soundMuted]="soundMuted"
     />
+  </div>
 
-    <app-vote-lines
-      [state]="state"
-      [phase]="state?.phase ?? 'LOBBY'"
-    />
+  @if (inRoom) {
+    <main class="main-stage flex-1 relative overflow-hidden">
+      <div class="grid-bg absolute inset-0 pointer-events-none"></div>
 
-    <app-phase-overlay
-      [phase]="state?.phase ?? 'LOBBY'"
-      [phaseFlash]="phaseFlash"
-      [incidents]="incidents"
-      [showIncidentReport]="showIncidentReport"
-      [incidentNightNumber]="incidentNightNumber"
-    />
+      @if (state) {
+        <header class="stage-hud">
+          <div class="hud-phase">
+            <span class="hud-dot" [attr.data-phase]="state.phase"></span>
+            <span class="hud-label">{{ state.phase }}</span>
+            @if (phaseElapsed) {
+              <span class="hud-timer">{{ phaseElapsed }}</span>
+            }
+            @if (phaseCountdown) {
+              <span class="hud-countdown">{{ phaseCountdown }}</span>
+            }
+          </div>
+          <div class="hud-meta">
+            Día {{ state.dayNumber }} · Noche {{ state.nightNumber }}
+            · {{ state.playerCount }}/{{ state.maxPlayers }} nodos
+          </div>
+          @if (phaseBulletinText) {
+            <p class="hud-bulletin">{{ phaseBulletinText }}</p>
+          }
+        </header>
+      }
 
-    @if (showGameOver && gameOverSummary) {
-      <app-game-over-overlay
-        [summary]="gameOverSummary"
-        (exitRoom)="onExitRoom()"
-      ></app-game-over-overlay>
-    }
+      <app-threat-briefing
+        [brief]="state?.sessionThreatBrief ?? null"
+        [visible]="showThreatBriefing"
+        (dismissed)="onThreatBriefingDismissed()"
+      />
 
-    @if (errorMessage) {
-      <div class="error-toast">{{ errorMessage }}</div>
-    }
+      <app-topology
+        class="absolute inset-0"
+        [state]="state"
+        [phase]="state?.phase ?? 'LOBBY'"
+        [glitchPlayerIds]="glitchPlayerIds"
+        [skipVotes]="lastVoteTiedSkipVotes"
+      />
 
-    @if (voteTiedMessage) {
-      <div class="vote-tied-toast">{{ voteTiedMessage }}</div>
-    }
-  </main>
+      <app-vote-lines
+        [state]="state"
+        [phase]="state?.phase ?? 'LOBBY'"
+        [highlightTrace]="highlightTrace"
+        [voteTied]="!!voteTiedMessage"
+      />
+
+      <app-night-progress
+        [progress]="state?.nightProgress ?? null"
+      />
+
+      <app-public-night-logs
+        [logs]="state?.publicLogs ?? []"
+      />
+
+      <app-chat-feed
+        [messages]="state?.chatMessages ?? []"
+      />
+
+      <app-night-resolution-panel
+        [resolution]="nightResolution"
+        [state]="state"
+        [visible]="showNightResolution"
+      />
+
+      <app-phase-overlay
+        [phase]="state?.phase ?? 'LOBBY'"
+        [phaseFlash]="phaseFlash"
+        [dayNumber]="state?.dayNumber ?? 0"
+        [incidents]="incidents"
+        [players]="state?.players ?? []"
+        [showIncidentReport]="showIncidentReport"
+        [incidentNightNumber]="incidentNightNumber"
+        [voteTiedMessage]="voteTiedMessage"
+      />
+
+      @if (showGameOver && gameOverSummary) {
+        <app-game-over-overlay
+          [summary]="gameOverSummary"
+          [roomId]="roomCode"
+          [exportingReplay]="exportingReplay"
+          (exitRoom)="onBackToLobby()"
+          (exportReplay)="onExportReplay()"
+          (startNewGame)="onStartNewGame()"
+        />
+      }
+
+      @if (errorMessage) {
+        <div class="toast error-toast">
+          <span class="toast-prefix">!</span>
+          {{ errorMessage }}
+        </div>
+      }
+
+      @if (statusMessage) {
+        <div class="toast status-toast" [attr.data-type]="statusMessageType">
+          <span class="toast-prefix">&gt;</span>
+          {{ statusMessage }}
+        </div>
+      }
+    </main>
+  }
 </div>

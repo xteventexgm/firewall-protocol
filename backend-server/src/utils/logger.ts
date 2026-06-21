@@ -1,3 +1,7 @@
+/**
+ * Logger ligero a consola con filtro por `LOG_LEVEL` (`config/env.ts`).
+ * Usado en sockets, persistencia, salas y handlers.
+ */
 import { LOG_LEVEL } from '../config/env';
 
 const LEVELS = ['debug', 'info', 'warn', 'error'] as const;
@@ -28,11 +32,10 @@ function log(level: Level, ...args: any[]) {
   else console.log(out, ...args);
 }
 
+/** API de logging: `logger.info`, `logger.warn`, `logger.error`, `logger.debug`. */
 export const logger = {
   debug: (...args: any[]) => log('debug', ...args),
   info: (...args: any[]) => log('info', ...args),
   warn: (...args: any[]) => log('warn', ...args),
   error: (...args: any[]) => log('error', ...args),
 };
-
-export default logger;

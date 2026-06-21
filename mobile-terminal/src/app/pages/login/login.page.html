@@ -1,60 +1,157 @@
-<ion-content class="login-content scroll-page" [scrollY]="false" [fullscreen]="true">
-  <div class="page-scroll">
-  <div class="login-shell">
+<ion-content class="login-content scroll-page" [scrollY]="false">
+  <app-home-atmosphere />
 
-    <header class="login-header">
-      <div class="logo-glow">FW_PROTO</div>
-      <p class="login-subtitle">Terminal de acceso cliente</p>
-      <div class="conn-status">
-        <span class="conn-dot" [class.online]="connected" [class.offline]="!connected"></span>
-        <span>{{ connected ? 'Servidor en línea' : 'Sin conexión' }}</span>
+  <div class="page-scroll login-page">
+    <div class="login-shell">
+      <header class="login-hero">
+        <div class="login-hero-top">
+          <div class="conn-status" [class.online]="connected">
+            <span class="conn-dot" [class.online]="connected" [class.offline]="!connected"></span>
+            <span>{{ connected ? 'Servidor en línea' : 'Conectando…' }}</span>
+          </div>
+        </div>
+
+        <div class="login-brand">
+          <img src="assets/icon.png" alt="Firewall Protocol" class="login-app-icon" width="80" height="80" />
+          <p class="login-eyebrow">Terminal de jugador</p>
+          <h1 class="login-title">
+            <span class="login-title-line">Firewall</span>
+            <span class="login-title-line login-title-accent">Protocol</span>
+          </h1>
+        </div>
+      </header>
+
+      <nav class="login-tabs" aria-label="Pasos de acceso">
+        <button
+          type="button"
+          class="login-tab"
+          [class.active]="step === 'room'"
+          [class.done]="step === 'alias'"
+          (click)="backToRoomStep()"
+        >
+          1 · Sala
+        </button>
+        <button type="button" class="login-tab" [class.active]="step === 'alias'" disabled>
+          2 · Alias
+        </button>
+      </nav>
+
+      <div class="login-panel-wrap">
+        <!-- Paso 1: sala -->
+        <section *ngIf="step === 'room'" class="login-panel">
+          <div class="panel-head">
+            <span class="panel-tag">◈ UNIRSE</span>
+            <h2 class="panel-heading">Conectar a sala</h2>
+            <p class="panel-hint">Escanea el QR del host o ingresa el código <strong>FIRE-XXXX</strong>.</p>
+          </div>
+
+          <div *ngIf="pendingReconnect" class="reconnect-banner">
+            <p class="reconnect-title">Partida en curso</p>
+            <p class="reconnect-meta">
+              Sala <strong>{{ pendingReconnect.roomId }}</strong> — {{ pendingReconnect.phaseLabel }}
+            </p>
+            <button
+              type="button"
+              class="login-btn primary reconnect-btn"
+              (click)="reconnectToActiveGame()"
+              [disabled]="connecting || scanning"
+            >
+              Reconectar
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="scan-btn"
+            (click)="scanQr()"
+            [disabled]="scanning || connecting"
+          >
+            <span class="scan-icon">▣</span>
+            <span>{{ scanning ? 'Abriendo cámara…' : 'Escanear QR de la sala' }}</span>
+          </button>
+
+          <div class="divider"><span>o código manual</span></div>
+
+          <div class="field">
+            <label class="field-label">Código de sala</label>
+            <input
+              type="text"
+              [(ngModel)]="roomCode"
+              (keyup.enter)="goToAliasStep()"
+              class="terminal-input code-input"
+              placeholder="FIRE-XXXX"
+              [disabled]="connecting || scanning"
+              autocomplete="off"
+              autocapitalize="characters"
+            />
+          </div>
+
+          <button
+            type="button"
+            class="login-cta"
+            (click)="goToAliasStep()"
+            [disabled]="!canProceedToAlias || connecting || scanning || validatingRoom"
+          >
+            <span class="login-cta-text">
+              {{ validatingRoom ? 'Verificando…' : 'Continuar' }}
+            </span>
+          </button>
+        </section>
+
+        <!-- Paso 2: alias -->
+        <section *ngIf="step === 'alias'" class="login-panel">
+          <div class="panel-head">
+            <span class="panel-tag">◈ IDENTIDAD</span>
+            <h2 class="panel-heading">Tu alias en la red</h2>
+            <p class="panel-hint">Este nombre verán los demás jugadores y el host.</p>
+          </div>
+
+          <button type="button" class="back-link" (click)="backToRoomStep()">← Cambiar sala</button>
+
+          <div class="room-chip">
+            <span class="chip-label">Sala</span>
+            <span class="chip-value">{{ roomCode | uppercase }}</span>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Alias / nickname</label>
+            <input
+              type="text"
+              [(ngModel)]="playerName"
+              (keyup.enter)="joinNetwork()"
+              class="terminal-input"
+              placeholder="Ej. node_alpha"
+              [disabled]="connecting"
+              autocomplete="off"
+              maxlength="24"
+            />
+          </div>
+
+          <button
+            type="button"
+            class="login-cta"
+            (click)="joinNetwork()"
+            [disabled]="connecting || !playerName.trim()"
+          >
+            <span class="login-cta-text">
+              {{ connecting ? 'Conectando…' : 'Entrar a la partida' }}
+            </span>
+          </button>
+        </section>
+
+        <div *ngIf="errorMessage" class="error-banner">
+          <span>⚠</span> {{ errorMessage }}
+        </div>
       </div>
-    </header>
 
-    <section class="login-panel">
-      <div class="field">
-        <label class="field-label">> Cód. de red [SALA]</label>
-        <input
-          type="text"
-          [(ngModel)]="roomCode"
-          (keyup.enter)="joinNetwork()"
-          class="terminal-input"
-          placeholder="Ej. FIRE-XXXX"
-          [disabled]="connecting"
-          autocomplete="off"
-          autocapitalize="characters">
-      </div>
-
-      <div class="field">
-        <label class="field-label">> Hostname [Jugador]</label>
-        <input
-          type="text"
-          [(ngModel)]="playerName"
-          (keyup.enter)="joinNetwork()"
-          class="terminal-input"
-          placeholder="Tu alias / nickname"
-          [disabled]="connecting"
-          autocomplete="off">
-      </div>
-
-      <div *ngIf="errorMessage" class="error-banner">
-        <span>></span> {{ errorMessage }}
-      </div>
-
-      <button
-        (click)="joinNetwork()"
-        [disabled]="connecting || !roomCode.trim() || !playerName.trim()"
-        class="login-btn">
-        <span *ngIf="!connecting">Ejecutar conexión</span>
-        <span *ngIf="connecting" class="connecting-text">Estableciendo enlace...</span>
-      </button>
-    </section>
-
-    <footer class="login-footer">
-      <p>A la espera de un apretón de manos TCP...</p>
-      <p>Sistema operativo: seguro</p>
-    </footer>
-
+      <footer class="login-footer">
+        <p>Escanea el QR en el dashboard del host para unirte rápido.</p>
+      </footer>
+    </div>
   </div>
-  </div>
+
+  <app-lobby-closed-overlay
+    *ngIf="showLobbyClosedOverlay"
+    (dismissed)="onLobbyClosedDismiss()"
+  />
 </ion-content>

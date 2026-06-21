@@ -1,3 +1,15 @@
+@if (showBootSequence) {
+  <div class="boot-overlay">
+    <div class="boot-terminal">
+      <p class="boot-title">FIREWALL PROTOCOL</p>
+      @for (line of bootLines; track line; let i = $index) {
+        <p class="boot-line" [style.animation-delay.ms]="i * 420">{{ line }}</p>
+      }
+      <span class="boot-cursor">_</span>
+    </div>
+  </div>
+}
+
 @if (showNightOverlay) {
   <div class="night-overlay animate-blackout">
     <div class="scanlines"></div>
@@ -13,11 +25,31 @@
   <div class="dawn-flash"></div>
 }
 
+@if (phase === 'REPARTO') {
+  <div class="phase-banner reparto-banner">
+    <span class="banner-icon">⬡</span>
+    <div>
+      <p class="banner-title">Reparto de roles</p>
+      <p class="banner-sub">Asignación automática — avanza cuando todos estén listos</p>
+    </div>
+  </div>
+}
+
+@if (phase === 'VERIFICACION') {
+  <div class="phase-banner verificacion-banner">
+    <span class="banner-icon">◉</span>
+    <div>
+      <p class="banner-title">Verificación de integridad</p>
+      <p class="banner-sub">Comprobando condiciones de victoria antes de continuar</p>
+    </div>
+  </div>
+}
+
 @if (showIncidentReport && incidents.length) {
   <div class="incident-panel">
-    <h2 class="incident-title glitch-text">REPORTE DE INCIDENTES</h2>
+    <h2 class="incident-title glitch-text">BAJAS NOCTURNAS</h2>
     @if (incidentNightNumber > 0) {
-      <p class="incident-sub">Noche {{ incidentNightNumber }} — Nodos eliminados:</p>
+      <p class="incident-sub">Noche {{ incidentNightNumber }} — nodos caídos al amanecer:</p>
     } @else {
       <p class="incident-sub">Nodos eliminados durante la noche:</p>
     }
@@ -25,8 +57,13 @@
       @for (incident of incidents; track incident.playerId) {
         <li class="incident-item animate-glitch">
           <span class="incident-icon">⚠</span>
-          <span>{{ incident.playerName }}</span>
-          <span class="incident-tag">IP BANEADA</span>
+          <span class="incident-name">
+            {{ incident.playerName }}
+            @if (roleFor(incident.playerId); as role) {
+              <span class="incident-role"> — {{ role }}</span>
+            }
+          </span>
+          <span class="incident-tag">CAÍDA</span>
         </li>
       }
     </ul>
@@ -37,5 +74,18 @@
   <div class="vote-banner">
     <span class="vote-pulse"></span>
     VOTACIÓN EN CURSO — Trazando conexiones de voto
+    @if (voteTiedMessage) {
+      <span class="vote-tied-inline">{{ voteTiedMessage }}</span>
+    }
+  </div>
+}
+
+@if (phase === 'NOCHE' && voteTiedMessage) {
+  <div class="phase-banner vote-tie-banner">
+    <span class="banner-icon">⚖</span>
+    <div>
+      <p class="banner-title">Empate en votación</p>
+      <p class="banner-sub">{{ voteTiedMessage }}</p>
+    </div>
   </div>
 }
