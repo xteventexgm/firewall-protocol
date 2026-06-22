@@ -29,7 +29,7 @@ import {
   formatActionValidationError,
 } from './ActionValidator';
 import { checkAnyWin, tickRansomwareCooldowns } from './VictoryChecker';
-import { initRoleMetadata, getMeta, isSilenced, resetNightFlags } from './playerMetadata';
+import { initRoleMetadata, getMeta, isSilenced, isVoteBlocked, resetNightFlags } from './playerMetadata';
 import { buildRoleAssignedPayload } from './roleInfo';
 import { defaultRoomOptions } from '../config/env';
 import { frozenActorsForValidation } from './nightFreeze';
@@ -58,7 +58,9 @@ import {
   buildStatsEntries,
 } from './GameStatsTracker';
 import { TROLL_PROVOKE_MESSAGES } from './trollProvoke';
+import { WHITE_NOISE_MESSAGES } from './whiteNoise';
 import { PhaseConfig } from '../types';
+import { clearBots, runBotQaMatch as startBotQaMatch, verificationPhaseDurationMs, addOneBot } from './BotController';
 
 /** Intento de unirse a partida ya iniciada (solo LOBBY acepta nuevos jugadores). */
 export class RoomJoinDeniedError extends Error {
@@ -126,13 +128,18 @@ export class Room extends EventEmitter {
       if (to === GamePhase.NOCHE) {
         resetNightFlags(this.state.players);
         tickRansomwareCooldowns(this.state);
+        this.state.votes = {};
       }
+      if (to === GamePhase.VOTACION) {
+        this.state.votes = {};
+      }
+      this.state.phaseStartedAt = at ?? Date.now();
+      this.updatePhaseEndsAt(to);
+      if (this.state.phaseConfig.autoAdvance) this.schedulePhaseTimeout(to);
       this.emit('phaseChanged', { roomId: this.id, from, to, at });
       this.emit('phaseTransition', { roomId: this.id, from, to, at });
-      this.updatePhaseEndsAt(to);
 
       try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on phaseChanged', e); }
-      if (this.state.phaseConfig.autoAdvance) this.schedulePhaseTimeout(to);
     });
   }
 
@@ -142,6 +149,7 @@ export class Room extends EventEmitter {
     if (phase === GamePhase.NOCHE) ms = cfg.nightDurationMs;
     if (phase === GamePhase.DIA) ms = cfg.dayDurationMs;
     if (phase === GamePhase.VOTACION) ms = cfg.voteDurationMs;
+    if (phase === GamePhase.VERIFICACION) ms = verificationPhaseDurationMs();
     this.state.phaseEndsAt = ms > 0 && cfg.autoAdvance ? Date.now() + ms : null;
   }
 
@@ -339,6 +347,50 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on removePlayer', e); }
   }
 
+  /**
+   * Expulsa un nodo de la sala (solo LOBBY). Bots y jugadores reales.
+   * Devuelve datos del socket antes de eliminar al jugador.
+   */
+  kickPlayer(playerId: string): { playerId: string; playerName: string; socketId?: string; isBot: boolean } {
+    if (this.sm.getPhase() !== GamePhase.LOBBY) {
+      throw new Error('Solo se puede expulsar jugadores en LOBBY');
+    }
+    const player = this.state.getPlayer(playerId);
+    if (!player) {
+      throw new Error('Jugador no encontrado');
+    }
+
+    const meta = {
+      playerId: player.id,
+      playerName: player.name,
+      socketId: player.socketId,
+      isBot: player.isBot === true,
+    };
+
+    this.removePlayer(playerId);
+    this.emit('playerKicked', { roomId: this.id, ...meta });
+
+    const tag = meta.isBot ? 'bot' : 'nodo';
+    this.state.log(`Host kicked ${tag} ${meta.playerName} (${meta.playerId})`);
+
+    return meta;
+  }
+
+  /** Añade un bot (solo LOBBY, requiere jugador real en sala). */
+  addOneBotPlayer(): number {
+    return addOneBot(this);
+  }
+
+  /** QA: elimina todos los bots (solo LOBBY). */
+  removeAllBots(): number {
+    return clearBots(this);
+  }
+
+  /** QA: rellena bots, timers rápidos e inicia partida hasta FIN. */
+  runBotQaMatch(): void {
+    startBotQaMatch(this);
+  }
+
   /** LOBBY → REPARTO → DIA: asigna roles, metadata inicial y equipo hacker. */
   startGame() {
     if (this.sm.getPhase() !== GamePhase.LOBBY) {
@@ -353,6 +405,7 @@ export class Room extends EventEmitter {
     const players = this.state.players as Player[];
     const playerCount = players.length;
     this.state.initialPlayerCount = playerCount;
+    this.state.gameStartedAt = Date.now();
     const { assignments, hackerCount, chaoticCount, systemCount } = assignRoles(players);
     this.state.log(`Assigned roles: hackers=${hackerCount}, intruders=${chaoticCount}`);
     this.state.sessionThreatBrief = {
@@ -432,6 +485,20 @@ export class Room extends EventEmitter {
       return { ok: true };
     }
 
+    if (type === 'noise_burst') {
+      const idx = Number(action.meta?.messageIndex ?? 0);
+      const message = WHITE_NOISE_MESSAGES[idx] ?? WHITE_NOISE_MESSAGES[0];
+      const entry = buildTrollProvokeLog(`[RUIDO] ${message}`, this.state.nightNumber);
+      this.state.publicLogs.push(entry);
+      this.emit('publicLog', { roomId: this.id, entry });
+      markActionSubmitted(actor, type, undefined, this.state.players.length);
+      this.emit('actionAccepted', { roomId: this.id, actionId: action.id });
+      recordPlayerAction(this.state.gameStats, action.actor);
+      this.emitNightProgress();
+      try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving noise_burst', e); }
+      return { ok: true };
+    }
+
     const minigameResult = resolveForNightAction(
       action.actor,
       action.meta?.challengeToken,
@@ -470,6 +537,9 @@ export class Room extends EventEmitter {
     if (isSilenced(voterPlayer, this.state.dayNumber)) {
       return { ok: false, reason: 'Estás silenciado y no puedes votar (actor_silenced)' };
     }
+    if (isVoteBlocked(voterPlayer, this.state.dayNumber)) {
+      return { ok: false, reason: 'Tu voto está bloqueado por sabotaje (vote_blocked)' };
+    }
 
     for (const p of this.state.players) {
       const meta = getMeta(p);
@@ -478,7 +548,8 @@ export class Room extends EventEmitter {
       }
     }
 
-    const resolvedTarget = this.state.resolvePhisherRedirect(voter, target);
+    let resolvedTarget = this.state.resolvePhisherRedirect(voter, target);
+    resolvedTarget = this.state.applyDnsVoteSpoof(voter, resolvedTarget);
 
     for (const key of Object.keys(this.state.votes)) {
       this.state.votes[key] = this.state.votes[key].filter(v => v !== voter);
@@ -505,6 +576,14 @@ export class Room extends EventEmitter {
 
   private resolveVotes(): import('./voteResolution').VoteResolution {
     const aliveIds = new Set(this.state.getAlivePlayers().map(p => p.id));
+    const lastVotes: Record<string, string | null> = {};
+    for (const [targetId, voters] of Object.entries(this.state.votes)) {
+      for (const voterId of voters) {
+        lastVotes[voterId] = targetId === 'skip' ? null : targetId;
+      }
+    }
+    this.state.lastVoteByPlayer = lastVotes;
+
     const { resolution, events } = computeVoteResolution(this.id, this.state.votes, aliveIds);
 
     if (events.voteTied) {
@@ -524,27 +603,41 @@ export class Room extends EventEmitter {
       const bestTarget = events.eliminatedPlayerId;
       const player = this.state.getPlayer(bestTarget);
       if (player?.isAlive) {
-        player.isAlive = false;
-        eliminated = bestTarget;
-        this.state.log(
-          `Voted out: ${bestTarget} (${resolution.voteCount} votes, skip: ${resolution.skipVotes})`,
-        );
-        this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
-        this.applyHoneypotBanDrag(bestTarget);
-        this.maybeEndGame({ justVotedOut: bestTarget });
+        const sabMeta = getMeta(player);
+        const saboteurSurvives =
+          player.role === RoleName.SABOTEUR &&
+          (sabMeta.lynchSurvivorUntilDay ?? 0) >= this.state.dayNumber &&
+          !sabMeta.lynchSurvivorConsumed;
+        if (saboteurSurvives) {
+          sabMeta.lynchSurvivorConsumed = true;
+          this.state.log(
+            `Saboteur ${bestTarget} survived vote (${resolution.voteCount} votes) — chaos shield consumed`,
+          );
+        } else {
+          player.isAlive = false;
+          eliminated = bestTarget;
+          this.state.log(
+            `Voted out: ${bestTarget} (${resolution.voteCount} votes, skip: ${resolution.skipVotes})`,
+          );
+          this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
+          this.applyHoneypotBanDrag(bestTarget);
+          this.maybeEndGame({ justVotedOut: bestTarget });
+        }
       }
     }
 
-    this.state.votes = {};
-    this.clearPhisherRedirects();
+    this.clearVoteChaosEffects();
 
     return { ...resolution, eliminated };
   }
 
-  private clearPhisherRedirects() {
+  private clearVoteChaosEffects() {
     for (const p of this.state.players) {
       const meta = getMeta(p);
       if (meta.phisherRedirects) meta.phisherRedirects = {};
+      if ((meta.dnsVoteSpoofUntilDay ?? 0) <= this.state.dayNumber) {
+        meta.dnsVoteSpoofUntilDay = undefined;
+      }
     }
   }
 
@@ -683,8 +776,9 @@ export class Room extends EventEmitter {
 
       if (this.maybeEndGame()) return GamePhase.FIN;
 
-      this.sm.transitionTo(GamePhase.VERIFICACION);
-      return GamePhase.VERIFICACION;
+      // Victoria ya comprobada arriba — sin fase VERIFICACION visible que bloquee animaciones.
+      this.sm.transitionTo(GamePhase.NOCHE);
+      return GamePhase.NOCHE;
     }
 
     const nextPhase = this.sm.next();
@@ -704,6 +798,7 @@ export class Room extends EventEmitter {
     if (phase === GamePhase.NOCHE) ms = cfg.nightDurationMs;
     if (phase === GamePhase.DIA) ms = cfg.dayDurationMs;
     if (phase === GamePhase.VOTACION) ms = cfg.voteDurationMs;
+    if (phase === GamePhase.VERIFICACION) ms = verificationPhaseDurationMs();
     if (ms > 0) {
       this.state.phaseEndsAt = Date.now() + ms;
       this.timer = setTimeout(() => { void this.advancePhase(); }, ms);

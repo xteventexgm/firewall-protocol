@@ -7,12 +7,17 @@ import {
   SoloWinner,
   Team,
 } from '../models/game-state.model';
-import { winnerLabel, winnerTeamName } from './game.utils';
+import { winnerLabel, winnerTeamName, roleTeamHint } from './game.utils';
+
+function resolvePlayerTeam(player: PublicPlayer): Team | null {
+  return player.team ?? roleTeamHint(player.role);
+}
 
 const SOLO_REASON_MESSAGES: Record<string, string> = {
   troll_banned: 'Expulsado por votación — victoria del Troll.',
   worm_last_standing: 'Último nodo en pie — victoria del Gusano.',
   miner_survived: 'Supervivencia confirmada — victoria del Minero de Cripto.',
+  chaotic_stalemate_break: 'Desempate tardío — victoria caótica.',
 };
 
 export function buildHostGameOverSummary(
@@ -39,7 +44,7 @@ export function buildHostGameOverSummary(
   if (winner) {
     return {
       headline: winnerLabel(winner),
-      message: teamWinMessage(winner),
+      message: teamWinMessage(winner, players),
       winners: [{ playerName: winnerTeamName(winner), role: 'Equipo ganador' }],
       reveals: buildHostReveals(winner, null, players),
       outcome: winner === 'system' ? 'win' : 'loss',
@@ -63,13 +68,23 @@ export function buildHostGameOverFromState(state: PublicGameState | null): GameO
   );
 }
 
-function teamWinMessage(winner: Team): string {
+function teamWinMessage(winner: Team, players: PublicPlayer[]): string {
   const messages: Record<Team, string> = {
     system: 'El equipo SISTEMA ha restaurado la red.',
     black_hat: 'El equipo BLACK HAT ha comprometido la infraestructura.',
     chaotic: 'El caos ha prevalecido en la red.',
   };
-  return messages[winner] ?? winnerLabel(winner);
+  const base = messages[winner] ?? winnerLabel(winner);
+  if (winner !== 'system' && winner !== 'black_hat') return base;
+
+  const aliveWithTeam = players.filter((p) => p.isAlive && resolvePlayerTeam(p));
+  const hackersAlive = aliveWithTeam.filter((p) => resolvePlayerTeam(p) === 'black_hat').length;
+  const systemAlive = aliveWithTeam.filter((p) => resolvePlayerTeam(p) === 'system').length;
+  const chaoticsAlive = aliveWithTeam.filter((p) => resolvePlayerTeam(p) === 'chaotic').length;
+  return (
+    `${base} Al cierre: ${hackersAlive} hacker(s), ${systemAlive} system, ${chaoticsAlive} caótico(s) vivos. ` +
+    'System gana con 0 hackers y 0 caóticos; Black Hat con 0 system y mayoría sobre caóticos si quedan.'
+  );
 }
 
 function buildHostReveals(
@@ -78,9 +93,9 @@ function buildHostReveals(
   players: PublicPlayer[],
 ): GameOverReveal[] {
   const reveals: GameOverReveal[] = [];
-  const hackers = players.filter((p) => isBlackHatRole(p.role));
-  const solos = players.filter((p) => isChaoticRole(p.role));
-  const systemPlayers = players.filter((p) => isSystemRole(p.role));
+  const hackers = players.filter((p) => resolvePlayerTeam(p) === 'black_hat');
+  const solos = players.filter((p) => resolvePlayerTeam(p) === 'chaotic');
+  const systemPlayers = players.filter((p) => resolvePlayerTeam(p) === 'system');
   const withRoles = players.filter((p) => p.role);
 
   if (winner === 'system') {
@@ -130,21 +145,4 @@ function formatPlayerReveal(player: PublicPlayer): string {
   const role = player.role ?? 'Rol desconocido';
   const status = player.isAlive ? 'VIVO' : 'ELIMINADO';
   return `${player.name} — ${role} [${status}]`;
-}
-
-function isBlackHatRole(role?: string): boolean {
-  return !!role && ['DDoS Operator', 'Rootkit', 'Ransomware', 'Spyware', 'Phisher'].includes(role);
-}
-
-function isChaoticRole(role?: string): boolean {
-  return !!role && ['Troll', 'Gusano', 'Minero de Cripto', 'Zero-Day'].includes(role);
-}
-
-function isSystemRole(role?: string): boolean {
-  return (
-    !!role &&
-    ['SysAdmin', 'Analista SOC', 'Antivirus', 'Pentester', 'Honeypot', 'Deep Freeze', 'Enrutador BGP'].includes(
-      role,
-    )
-  );
 }

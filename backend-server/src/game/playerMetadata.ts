@@ -15,6 +15,12 @@ export function initRoleMetadata(role: RoleName, playerCount = 15): PlayerMetada
   switch (role) {
     case RoleName.PENTESTER:
       return { ...base, pentesterUsesLeft: pentesterUsesForTable(playerCount) };
+    case RoleName.BRUTE_FORCE:
+      return { ...base, bruteForceUsesLeft: 1 };
+    case RoleName.BACKUP_NODE:
+      return { ...base, backupMarkUsesLeft: 1 };
+    case RoleName.THREAT_INTEL:
+      return { ...base, intelPulseUsed: false };
     case RoleName.CRYPTO_MINER:
       return { ...base, shieldCharges: minerShieldsForTable(playerCount) };
     case RoleName.RANSOMWARE:
@@ -27,6 +33,8 @@ export function initRoleMetadata(role: RoleName, playerCount = 15): PlayerMetada
       return { ...base, assumedFromPlayerId: null };
     case RoleName.SYSADMIN:
       return { ...base, emergencyPatchUsed: false, patchedVoterId: null };
+    case RoleName.DROPPER:
+      return { ...base, chaosShieldCharges: 1 };
     case RoleName.TROLL:
       return { ...base, trollProvokeUsedTonight: false };
     default:
@@ -46,11 +54,19 @@ export function isSilenced(player: Player, currentDay: number): boolean {
   return (meta.silencedUntilDay ?? 0) >= currentDay;
 }
 
+/** Saboteador: bloquea solo votación diurna, no acciones nocturnas. */
+export function isVoteBlocked(player: Player, currentDay: number): boolean {
+  const meta = getMeta(player);
+  return (meta.voteBlockedUntilDay ?? 0) >= currentDay;
+}
+
 /** Al entrar en NOCHE: permite una nueva acción por jugador (`actedThisNight = false`). */
 export function resetNightFlags(players: Player[]) {
   for (const p of players) {
     const meta = getMeta(p);
     meta.actedThisNight = false;
     meta.trollProvokeUsedTonight = false;
+    meta.backdoorBonusTonight = false;
+    if (meta.backupSaveTonight) meta.backupSaveTonight = false;
   }
 }

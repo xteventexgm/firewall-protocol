@@ -51,14 +51,14 @@ app.get('/api/games', (_req: express.Request, res: express.Response) => {
 	res.json({ games });
 });
 
-/** Exporta snapshot JSON de una partida (replay / análisis post-partida). */
+/** Exporta snapshot JSON de una partida (activa o archivada en finishgame/). */
 app.get('/api/games/:roomId/replay', (req: express.Request, res: express.Response) => {
 	const code = normalizeRoomCode(req.params.roomId);
 	if (!isValidRoomCode(code)) {
 		res.status(400).json({ error: 'Código inválido (invalid_room_code)' });
 		return;
 	}
-	const data = database.load(code);
+	const data = database.loadOrArchive(code);
 	if (!data) {
 		res.status(404).json({ error: 'Sala no encontrada (room_not_found)' });
 		return;
@@ -70,6 +70,23 @@ app.get('/api/games/:roomId/replay', (req: express.Request, res: express.Respons
 		roomId: code,
 		...data,
 	});
+});
+
+/** Descarga registro legible (.log) de partida terminada. */
+app.get('/api/games/:roomId/session-log', (req: express.Request, res: express.Response) => {
+	const code = normalizeRoomCode(req.params.roomId);
+	if (!isValidRoomCode(code)) {
+		res.status(400).json({ error: 'Código inválido (invalid_room_code)' });
+		return;
+	}
+	const logText = database.readSessionLog(code);
+	if (!logText) {
+		res.status(404).json({ error: 'Registro no encontrado — la partida debe estar en finishgame/ (session_log_not_found)' });
+		return;
+	}
+	res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+	res.setHeader('Content-Disposition', `attachment; filename="${code}.log"`);
+	res.send(logText);
 });
 
 /** Estado de sala activa para login/reconnect (no incluye finishgame/deletegame). */

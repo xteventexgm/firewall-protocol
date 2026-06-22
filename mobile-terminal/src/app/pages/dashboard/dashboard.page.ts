@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
   GamePhase,
+  PlayerRoomState,
   RoomPlayer,
   TargetOption,
 } from '../../core/models/game-state.model';
@@ -19,6 +20,11 @@ import {
   needsSecondaryTarget,
   getSecondaryTargetLabel,
   isTrollProvoke,
+  isNoiseBurst,
+  isMirageCloak,
+  isJamSignal,
+  isIntelPulse,
+  WHITE_NOISE_MESSAGES,
   isMinerRole,
   canUseEmergencyPatch,
   canCryptoBribe,
@@ -50,6 +56,11 @@ import { playersPerBlackHatForTable } from '../../core/utils/room-code.utils';
 import { phaseBulletin } from '../../core/utils/phase-bulletin.utils';
 import { buildGameOverView, GameOverView } from '../../core/utils/game-over.utils';
 import {
+  buildThreatBriefingView,
+  SessionThreatBrief,
+  ThreatBriefingView,
+} from '../../core/utils/session-threat-copy.utils';
+import {
   buildPendingReport,
   buildPrivateResultReport,
   buildResolvedReport,
@@ -57,6 +68,10 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
+import {
+  buildNodeDeathAlert,
+  NodeDeathAlertData,
+} from '../../core/utils/node-death-alert.utils';
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -97,6 +112,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   reconnecting = false;
   chatCooldownSec = 0;
   isSilenced = false;
+  isFrozen = false;
 
   aliveTargets: TargetOption[] = [];
   deadTargets: TargetOption[] = [];
@@ -121,10 +137,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   myTeam: string | undefined;
   hackerTeamMemberIds: string[] = [];
   showRoleBriefing = false;
+  showThreatBriefing = false;
   roleRevealTeam = '';
   roleVictoryHint = '';
   roleBriefingProgress = 100;
+  threatBriefingProgress = 100;
+  threatBriefingView: ThreatBriefingView | null = null;
+  sessionThreatBrief: SessionThreatBrief | null = null;
   phaseBulletin = '';
+  voteUrgentSeconds = 0;
+  phaseCountdown = '';
+  matchElapsed = '';
   nightProgress: NightProgress | null = null;
   minigameChallenge: MinigameChallenge | null = null;
   minigamePending = false;
@@ -140,6 +163,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   gameStats: GameStatsEntry[] = [];
   showLobbyClosedOverlay = false;
   lobbyClosedRoomId = '';
+  lobbyClosedReason: 'host_abandoned' | 'player_kicked' = 'host_abandoned';
+  nodeDeathAlert: NodeDeathAlertData | null = null;
+  showNodeDeathAlert = false;
+  nodeDeathAlertExiting = false;
   readonly trollMessages = TROLL_PROVOKE_MESSAGES;
   readonly canCryptoBribe = canCryptoBribe;
 
@@ -151,13 +178,25 @@ export class DashboardPage implements OnInit, OnDestroy {
   private statusTimer?: ReturnType<typeof setTimeout>;
   private roleBriefingTimer?: ReturnType<typeof setInterval>;
   private roleBriefingHideTimer?: ReturnType<typeof setTimeout>;
+  private threatBriefingTimer?: ReturnType<typeof setInterval>;
+  private threatBriefingHideTimer?: ReturnType<typeof setTimeout>;
   private chatCooldownTimer?: ReturnType<typeof setInterval>;
   private roomStatusTimer?: ReturnType<typeof setInterval>;
   private lobbyClosedAlertOpen = false;
   private deathHapticTriggered = false;
   private pendingMinigameAnswer: string | number | null = null;
   private interferenceTimer?: ReturnType<typeof setTimeout>;
-  private readonly roleBriefingDurationMs = 14000;
+  private phaseTimerInterval?: ReturnType<typeof setInterval>;
+  private phaseEndsAt: number | null = null;
+  private deathAlertQueue: NodeDeathAlertData[] = [];
+  private deathAlertTimer?: ReturnType<typeof setTimeout>;
+  private deathAlertExitTimer?: ReturnType<typeof setTimeout>;
+  private static readonly DEATH_ALERT_MS = 4_200;
+  private phaseStartedAt = 0;
+  private gameStartedAt = 0;
+  private phaseConfig: PlayerRoomState['phaseConfig'];
+  private readonly roleBriefingDurationMs = 20000;
+  private readonly threatBriefingDurationMs = 20000;
 
   constructor(
     private socketService: SocketService,
@@ -194,10 +233,15 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.dayNumber = state.dayNumber ?? 0;
         this.nightNumber = state.nightNumber ?? 0;
         this.maxPlayers = state.maxPlayers ?? MAX_PLAYERS;
+        this.phaseStartedAt = state.phaseStartedAt ?? Date.now();
+        this.gameStartedAt = state.gameStartedAt ?? 0;
+        this.phaseEndsAt = state.phaseEndsAt ?? null;
+        this.phaseConfig = state.phaseConfig;
 
         this.players = state.players ?? [];
         const me = this.players.find((p) => p.id === this.myPlayerId);
         if (me?.team) this.myTeam = me.team;
+        if (me) this.isFrozen = !!me.frozen;
 
         const gameEnded = state.phase === 'FIN' || !!state.winner || !!state.soloWinner;
 
@@ -235,6 +279,20 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (state.nightProgress) this.nightProgress = state.nightProgress;
         if (state.chatMessages) this.chatMessages = state.chatMessages;
         if (state.gameStats) this.gameStats = state.gameStats;
+        if (state.sessionThreatBrief) this.sessionThreatBrief = state.sessionThreatBrief;
+
+        if (
+          state.sessionThreatBrief &&
+          state.dayNumber === 1 &&
+          state.phase === 'DIA' &&
+          this.roomCode &&
+          this.roleBriefingSeenForRoom(this.roomCode) &&
+          !this.threatBriefingSeenForRoom(this.roomCode) &&
+          !this.showRoleBriefing &&
+          !this.showThreatBriefing
+        ) {
+          this.openThreatBriefing();
+        }
 
         if (state.lastNightKills?.length) {
           this.lastNightKillNames = state.lastNightKills.map(
@@ -268,6 +326,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           void this.runDeathHaptic();
         }
         this.isSilenced = !!player.silenced;
+        this.isFrozen = !!player.frozen;
       }),
     );
 
@@ -356,6 +415,10 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.triggerPhaseFlash(t.to);
         void this.runPhaseHaptic(t.to);
         this.phaseBulletin = phaseBulletin(t.to);
+        if (t.at) {
+          this.phaseStartedAt = t.at;
+          this.phaseEndsAt = null;
+        }
         this.syncNightSoundPolicy(t.to);
         if (t.to === 'DIA') this.gameSound.playDay();
         if (t.to === 'NOCHE') {
@@ -390,6 +453,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (t.to === 'VERIFICACION') {
           this.setStatus('Verificando integridad del sistema…', 'info');
         }
+        this.voteUrgentSeconds = 0;
       }),
     );
 
@@ -401,6 +465,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.incidentNames = ids
           .map((id) => this.players.find((p) => p.id === id)?.name ?? id)
           .filter(Boolean);
+        this.queueNodeDeathAlerts(ids, 'night_kill');
         this.showIncidentReport = true;
         clearTimeout(this.incidentTimer);
         this.incidentTimer = setTimeout(() => {
@@ -459,7 +524,6 @@ export class DashboardPage implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
-        this.setStatus(this.voteTiedMessage, 'warn');
       }),
     );
 
@@ -482,8 +546,9 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (playerId === this.myPlayerId && !this.showGameOver) {
           this.gamePhase = 'ELIMINATED';
           this.setStatus(`Eliminado por ${reasonLabel}`, 'error');
+          void this.runDeathHaptic();
         } else {
-          this.setStatus(`${name} eliminado (${reasonLabel})`, 'error');
+          this.queueNodeDeathAlerts([playerId], reason);
         }
       }),
     );
@@ -595,11 +660,83 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.lobbyClosed$.subscribe(({ roomId }) => {
-        void this.handleLobbyClosed(roomId);
+        void this.handleLobbyClosed(roomId, 'host_abandoned');
+      }),
+    );
+
+    this.subs.add(
+      this.socketService.playerKicked$.subscribe(({ roomId }) => {
+        void this.handleLobbyClosed(roomId, 'player_kicked');
       }),
     );
 
     this.startRoomStatusWatch();
+    this.startPhaseTimer();
+  }
+
+  private startPhaseTimer(): void {
+    clearInterval(this.phaseTimerInterval);
+    this.phaseTimerInterval = setInterval(() => {
+      const matchStart = this.resolveMatchStartedAt();
+      if (matchStart && this.gamePhase !== 'LOBBY' && this.gamePhase !== 'FIN' && this.gamePhase !== 'ELIMINATED') {
+        const secs = Math.floor((Date.now() - matchStart) / 1000);
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        this.matchElapsed = `${m}:${s.toString().padStart(2, '0')}`;
+      } else {
+        this.matchElapsed = '';
+      }
+
+      if (!this.phaseStartedAt) {
+        this.phaseCountdown = '';
+        this.voteUrgentSeconds = 0;
+        return;
+      }
+      const endsAt = this.resolvePhaseEndsAt();
+      if (!endsAt || !this.phaseConfig?.autoAdvance) {
+        this.phaseCountdown = '';
+        this.voteUrgentSeconds = 0;
+        return;
+      }
+      const remaining = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
+      const rm = Math.floor(remaining / 60);
+      const rs = remaining % 60;
+      this.phaseCountdown = `${rm}:${rs.toString().padStart(2, '0')}`;
+      if (this.gamePhase === 'VOTACION' && remaining > 0 && remaining <= 10) {
+        this.voteUrgentSeconds = remaining;
+      } else {
+        this.voteUrgentSeconds = 0;
+      }
+    }, 1000);
+  }
+
+  private resolveMatchStartedAt(): number | null {
+    if (this.gameStartedAt) return this.gameStartedAt;
+    if (this.phaseStartedAt && this.gamePhase !== 'LOBBY') return this.phaseStartedAt;
+    return null;
+  }
+
+  private resolvePhaseEndsAt(): number | null {
+    if (this.phaseEndsAt) return this.phaseEndsAt;
+    if (!this.phaseConfig?.autoAdvance || !this.phaseStartedAt) return null;
+    let ms = 0;
+    switch (this.gamePhase) {
+      case 'NOCHE':
+        ms = this.phaseConfig.nightDurationMs;
+        break;
+      case 'DIA':
+        ms = this.phaseConfig.dayDurationMs;
+        break;
+      case 'VOTACION':
+        ms = this.phaseConfig.voteDurationMs;
+        break;
+      case 'VERIFICACION':
+        ms = 1_500;
+        break;
+      default:
+        return null;
+    }
+    return ms > 0 ? this.phaseStartedAt + ms : null;
   }
 
   ngOnDestroy(): void {
@@ -609,17 +746,24 @@ export class DashboardPage implements OnInit, OnDestroy {
     clearTimeout(this.statusTimer);
     clearInterval(this.roleBriefingTimer);
     clearTimeout(this.roleBriefingHideTimer);
+    clearInterval(this.threatBriefingTimer);
+    clearTimeout(this.threatBriefingHideTimer);
     clearInterval(this.chatCooldownTimer);
     clearInterval(this.roomStatusTimer);
+    clearInterval(this.phaseTimerInterval);
+    this.clearNodeDeathAlerts();
     this.socketService.cancelGameOverRedirect();
   }
 
   dismissRoleBriefing(): void {
+    this.finishRoleBriefing();
+  }
+
+  dismissThreatBriefing(): void {
     if (this.roomCode) {
-      sessionStorage.setItem(`fp_role_brief_${this.roomCode}`, '1');
+      sessionStorage.setItem(`fp_threat_${this.roomCode}`, '1');
     }
-    void this.gameSound.unlockAudio();
-    this.closeRoleBriefing();
+    this.closeThreatBriefing();
   }
 
   /** En NOCHE el móvil no reproduce SFX de gameplay (evita meta por audio en mesa). */
@@ -645,11 +789,15 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
-  private async handleLobbyClosed(roomId: string): Promise<void> {
+  private async handleLobbyClosed(
+    roomId: string,
+    reason: 'host_abandoned' | 'player_kicked' = 'host_abandoned',
+  ): Promise<void> {
     if (this.lobbyClosedAlertOpen) return;
     this.lobbyClosedAlertOpen = true;
     clearInterval(this.roomStatusTimer);
     this.lobbyClosedRoomId = roomId.toUpperCase().trim();
+    this.lobbyClosedReason = reason;
     this.showLobbyClosedOverlay = true;
   }
 
@@ -670,7 +818,60 @@ export class DashboardPage implements OnInit, OnDestroy {
       const elapsed = Date.now() - started;
       this.roleBriefingProgress = Math.max(0, 100 - (elapsed / this.roleBriefingDurationMs) * 100);
     }, 120);
-    this.roleBriefingHideTimer = setTimeout(() => this.dismissRoleBriefing(), this.roleBriefingDurationMs);
+    this.roleBriefingHideTimer = setTimeout(() => this.finishRoleBriefing(), this.roleBriefingDurationMs);
+  }
+
+  private finishRoleBriefing(): void {
+    if (!this.showRoleBriefing) return;
+    if (this.roomCode) {
+      sessionStorage.setItem(`fp_role_brief_${this.roomCode}`, '1');
+    }
+    void this.gameSound.unlockAudio();
+    this.closeRoleBriefing();
+    void this.runThreatBriefingHaptic();
+    if (this.sessionThreatBrief && !this.threatBriefingSeenForRoom(this.roomCode)) {
+      this.openThreatBriefing();
+    }
+  }
+
+  private openThreatBriefing(): void {
+    if (!this.sessionThreatBrief) return;
+    this.closeThreatBriefing();
+    const team = this.teamTheme || 'system';
+    this.threatBriefingView = buildThreatBriefingView(team, this.sessionThreatBrief);
+    this.showThreatBriefing = true;
+    this.gameSound.play('incident');
+    this.threatBriefingProgress = 100;
+    const started = Date.now();
+    this.threatBriefingTimer = setInterval(() => {
+      const elapsed = Date.now() - started;
+      this.threatBriefingProgress = Math.max(0, 100 - (elapsed / this.threatBriefingDurationMs) * 100);
+    }, 120);
+    this.threatBriefingHideTimer = setTimeout(
+      () => this.dismissThreatBriefing(),
+      this.threatBriefingDurationMs,
+    );
+  }
+
+  private closeThreatBriefing(): void {
+    clearInterval(this.threatBriefingTimer);
+    clearTimeout(this.threatBriefingHideTimer);
+    this.showThreatBriefing = false;
+    this.threatBriefingProgress = 0;
+    this.threatBriefingView = null;
+  }
+
+  private threatBriefingSeenForRoom(roomId: string): boolean {
+    return sessionStorage.getItem(`fp_threat_${roomId}`) === '1';
+  }
+
+  private async runThreatBriefingHaptic(): Promise<void> {
+    try {
+      await Haptics.vibrate({ duration: 420 });
+      await Haptics.impact({ style: ImpactStyle.Heavy });
+    } catch {
+      /* Web / emulador sin motor háptico */
+    }
   }
 
   private closeRoleBriefing(): void {
@@ -753,7 +954,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get isNightPhase(): boolean {
-    return this.gamePhase === 'NOCHE' && this.canActAtNight && !this.isSilenced;
+    return this.gamePhase === 'NOCHE' && this.canActAtNight && !this.isSilenced && !this.isFrozen;
   }
 
   get isVotePhase(): boolean {
@@ -830,16 +1031,65 @@ export class DashboardPage implements OnInit, OnDestroy {
     const actionType = getNightActionType(roleKey, this.selectedNightActionType || undefined);
     if (!actionType) return;
 
-    if (isTrollProvoke(roleKey, actionType)) {
+    if (isTrollProvoke(roleKey, actionType) || isNoiseBurst(roleKey, actionType)) {
+      const pool = isNoiseBurst(roleKey, actionType) ? WHITE_NOISE_MESSAGES : this.trollMessages;
       this.nightActionReport = buildPendingReport({
         actionType,
         role: roleKey,
         targetId: 'provoke',
-        targetName: this.trollMessages[this.selectedProvokeIndex],
+        targetName: pool[this.selectedProvokeIndex],
         nightNumber: this.nightNumber,
       });
       this.socketService.submitNightAction('provoke', {
         messageIndex: this.selectedProvokeIndex,
+        challengeToken: this.minigameChallenge?.token,
+        challengeAnswer: this.challengeAnswer ?? undefined,
+      }, actionType);
+      this.gameSound.playAction();
+      return;
+    }
+
+    if (isMirageCloak(roleKey, actionType)) {
+      this.nightActionReport = buildPendingReport({
+        actionType,
+        role: roleKey,
+        targetId: this.myPlayerId,
+        targetName: 'Tu nodo',
+        nightNumber: this.nightNumber,
+      });
+      this.socketService.submitNightAction(this.myPlayerId, {
+        challengeToken: this.minigameChallenge?.token,
+        challengeAnswer: this.challengeAnswer ?? undefined,
+      }, actionType);
+      this.gameSound.playAction();
+      return;
+    }
+
+    if (isJamSignal(roleKey, actionType)) {
+      this.nightActionReport = buildPendingReport({
+        actionType,
+        role: roleKey,
+        targetId: this.myPlayerId,
+        targetName: 'Tu nodo',
+        nightNumber: this.nightNumber,
+      });
+      this.socketService.submitNightAction(this.myPlayerId, {
+        challengeToken: this.minigameChallenge?.token,
+        challengeAnswer: this.challengeAnswer ?? undefined,
+      }, actionType);
+      this.gameSound.playAction();
+      return;
+    }
+
+    if (isIntelPulse(roleKey, actionType)) {
+      this.nightActionReport = buildPendingReport({
+        actionType,
+        role: roleKey,
+        targetId: 'intel',
+        targetName: 'Panorama de red',
+        nightNumber: this.nightNumber,
+      });
+      this.socketService.submitNightAction('intel', {
         challengeToken: this.minigameChallenge?.token,
         challengeAnswer: this.challengeAnswer ?? undefined,
       }, actionType);
@@ -889,7 +1139,11 @@ export class DashboardPage implements OnInit, OnDestroy {
       const meta =
         roleKey === 'Enrutador BGP'
           ? { swapWith: this.selectedSecondary, ...challengeMeta }
-          : { redirectTo: this.selectedSecondary, ...challengeMeta };
+          : roleKey === 'Router del Caos'
+            ? { routeTo: this.selectedSecondary, ...challengeMeta }
+            : roleKey === 'Proxy MitM'
+              ? { hijackTo: this.selectedSecondary, ...challengeMeta }
+              : { redirectTo: this.selectedSecondary, ...challengeMeta };
       this.socketService.submitNightAction(this.selectedTarget, meta, actionType);
       this.gameSound.playAction();
       return;
@@ -1017,12 +1271,14 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get nightActionDisabled(): boolean {
+    const roleKey = this.socketService.getMyRole() ?? this.playerRole;
+    const actionType = getNightActionType(roleKey, this.selectedNightActionType || undefined) ?? undefined;
+    if (isTrollProvoke(roleKey, actionType) || isNoiseBurst(roleKey, actionType)) return false;
+    if (isMirageCloak(roleKey, actionType) || isJamSignal(roleKey, actionType) || isIntelPulse(roleKey, actionType)) {
+      return false;
+    }
     if (!this.selectedTarget) return true;
     if (this.needsSecondary && !this.selectedSecondary) return true;
-    const actionType = getNightActionType(
-      this.socketService.getMyRole() ?? this.playerRole,
-      this.selectedNightActionType || undefined,
-    );
     if (actionType === 'crypto_bribe' && !canCryptoBribe(this.myRoleMeta)) return true;
     return false;
   }
@@ -1173,6 +1429,63 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
+    const others = playerIds.filter((id) => id !== this.myPlayerId);
+    const names = others.map((id) => this.players.find((p) => p.id === id)?.name ?? id);
+    const alert = buildNodeDeathAlert(names, reason);
+    if (!alert) return;
+    this.deathAlertQueue.push(alert);
+    this.pumpNodeDeathAlertQueue();
+  }
+
+  private pumpNodeDeathAlertQueue(): void {
+    if (this.showNodeDeathAlert || !this.deathAlertQueue.length) return;
+
+    if (this.deathAlertTimer) clearTimeout(this.deathAlertTimer);
+    if (this.deathAlertExitTimer) clearTimeout(this.deathAlertExitTimer);
+
+    this.nodeDeathAlert = this.deathAlertQueue.shift() ?? null;
+    if (!this.nodeDeathAlert) return;
+
+    this.nodeDeathAlertExiting = false;
+    this.showNodeDeathAlert = true;
+    this.gameSound.playDeath();
+    void this.runNodeDisconnectHaptic();
+
+    this.deathAlertTimer = setTimeout(() => {
+      this.nodeDeathAlertExiting = true;
+      this.deathAlertExitTimer = setTimeout(() => {
+        this.showNodeDeathAlert = false;
+        this.nodeDeathAlert = null;
+        this.nodeDeathAlertExiting = false;
+        this.deathAlertTimer = undefined;
+        this.deathAlertExitTimer = undefined;
+        this.pumpNodeDeathAlertQueue();
+      }, 420);
+    }, DashboardPage.DEATH_ALERT_MS);
+  }
+
+  private clearNodeDeathAlerts(): void {
+    this.deathAlertQueue = [];
+    if (this.deathAlertTimer) clearTimeout(this.deathAlertTimer);
+    if (this.deathAlertExitTimer) clearTimeout(this.deathAlertExitTimer);
+    this.deathAlertTimer = undefined;
+    this.deathAlertExitTimer = undefined;
+    this.showNodeDeathAlert = false;
+    this.nodeDeathAlertExiting = false;
+    this.nodeDeathAlert = null;
+  }
+
+  private async runNodeDisconnectHaptic(): Promise<void> {
+    try {
+      await Haptics.vibrate({ duration: 520 });
+      await Haptics.impact({ style: ImpactStyle.Heavy });
+      await Haptics.impact({ style: ImpactStyle.Medium });
+    } catch {
+      /* Web / emulador sin motor háptico */
+    }
+  }
+
   private showGameOverScreen(
     winner: string | null | undefined,
     soloWinner?: { playerId: string; role: string; reason: string } | null,
@@ -1202,7 +1515,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   get isTrollNight(): boolean {
     const roleKey = this.socketService.getMyRole() ?? this.playerRole;
-    return isTrollProvoke(roleKey, this.selectedNightActionType);
+    return isTrollProvoke(roleKey, this.selectedNightActionType) || isNoiseBurst(roleKey, this.selectedNightActionType);
   }
 
   get canEmergencyPatch(): boolean {

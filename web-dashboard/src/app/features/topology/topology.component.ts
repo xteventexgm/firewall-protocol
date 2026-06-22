@@ -3,14 +3,16 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
   Input,
   NgZone,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
   AfterViewInit,
-  HostListener,
   inject,
 } from '@angular/core';
 import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
@@ -85,6 +87,11 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() phase: GamePhase = 'LOBBY';
   @Input() glitchPlayerIds: string[] = [];
   @Input() skipVotes = 0;
+  @Input() kickEnabled = false;
+
+  @Output() kickPlayer = new EventEmitter<PublicPlayer>();
+
+  kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
 
   @ViewChild('svgContainer', { static: true }) svgContainer!: ElementRef<HTMLElement>;
   @ViewChild('particlesCanvas') particlesCanvas?: ElementRef<HTMLCanvasElement>;
@@ -132,6 +139,8 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   private packetFrame?: number;
   private particles: Particle[] = [];
   private prevPlayerIds = new Set<string>();
+  private prevAliveIds = new Set<string>();
+  private banAnimationIds = new Set<string>();
   private spawnTimers: ReturnType<typeof setTimeout>[] = [];
   private layoutReady = false;
   private playerSlotIndex = new Map<string, number>();
@@ -172,10 +181,19 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['glitchPlayerIds'] && this.glitchPlayerIds.length) {
+      for (const id of this.glitchPlayerIds) {
+        if (!this.banAnimationIds.has(id)) {
+          this.scheduleNodeBan(id);
+        }
+      }
+    }
+
     if (this.viewReady && (changes['state'] || changes['phase'])) {
       if (changes['state']) {
         this.updateLayout(false);
         this.detectPlayerChanges();
+        this.detectAliveChanges();
         this.refreshHubLinks();
         this.tryStartNetworkBootForCurrentRoom();
       } else {
@@ -184,8 +202,18 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       }
       if (changes['phase'] && !changes['phase'].firstChange && changes['phase'].previousValue !== this.phase) {
         this.triggerPhaseTransition(changes['phase'].previousValue as GamePhase);
+        this.pruneAnimationState();
       }
       this.cdr.markForCheck();
+    }
+  }
+
+  private pruneAnimationState(): void {
+    if (this.spawnTimers.length > 80) {
+      this.spawnTimers.splice(0, this.spawnTimers.length - 40).forEach(clearTimeout);
+    }
+    if (this.particles.length > 120) {
+      this.particles.splice(0, this.particles.length - 90);
     }
   }
 
@@ -502,6 +530,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (!this.layoutReady) {
       this.prevPlayerIds = currentIds;
+      this.prevAliveIds = new Set(players.filter((p) => p.isAlive).map((p) => p.id));
       this.layoutReady = true;
       return;
     }
@@ -519,6 +548,52 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     }
 
     this.prevPlayerIds = currentIds;
+  }
+
+  private detectAliveChanges(): void {
+    const players = this.state?.players ?? [];
+    const aliveNow = new Set(players.filter((p) => p.isAlive).map((p) => p.id));
+
+    if (!this.layoutReady) {
+      this.prevAliveIds = aliveNow;
+      return;
+    }
+
+    for (const id of this.prevAliveIds) {
+      if (!aliveNow.has(id) && !this.banAnimationIds.has(id)) {
+        this.scheduleNodeBan(id);
+      }
+    }
+
+    this.prevAliveIds = aliveNow;
+  }
+
+  private scheduleNodeBan(id: string): void {
+    const node = this.nodes.find((n) => n.id === id);
+    if (!node) return;
+
+    this.banAnimationIds.add(id);
+    this.flowPhaseByLink.delete(id);
+    this.linkPulseIds.add(id);
+    this.pulseStartedAt.set(id, performance.now());
+    this.linkHandshakeMsById.set(id, TopologyComponent.LEAVE_MS);
+    this.triggerInterferenceBurst(node.x, node.y);
+    this.refreshHubLinks();
+    this.cdr.markForCheck();
+
+    const tDone = setTimeout(() => {
+      this.banAnimationIds.delete(id);
+      this.linkPulseIds.delete(id);
+      this.linkHandshakeMsById.delete(id);
+      this.pulseStartedAt.delete(id);
+      this.refreshHubLinks();
+      this.cdr.markForCheck();
+    }, TopologyComponent.LEAVE_MS);
+    this.spawnTimers.push(tDone);
+  }
+
+  isBanAnimating(id: string): boolean {
+    return this.banAnimationIds.has(id);
   }
 
   private scheduleNodeDeparture(id: string): void {
@@ -836,6 +911,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   nodeClass(player: PublicPlayer): string {
     if (!player.isAlive) return 'node-dead';
     if (!player.isConnected) return 'node-offline';
+    if (player.frozen) return 'node-frozen';
     if (player.infected) return 'node-infected';
     if (player.silenced) return 'node-silenced';
     if (this.phase === 'VOTACION' || this.phase === 'DIA') return 'node-active';
@@ -858,6 +934,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   nodeStatusLabel(player: PublicPlayer): string | null {
     if (!player.isAlive) return player.role ? `BANEADO · ${player.role}` : 'BANEADO';
     if (!player.isConnected) return 'DESCONECTADO';
+    if (player.frozen) return 'CONGELADO';
     if (player.infected) return 'INFECTADO';
     if (player.silenced) return 'SILENCIADO';
     return null;
@@ -865,6 +942,44 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   isNodeHealthy(player: PublicPlayer): boolean {
     return player.isAlive && player.isConnected && !player.silenced;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeKickMenu();
+  }
+
+  onNodeClick(node: NodePosition, event: MouseEvent): void {
+    if (!this.kickEnabled) return;
+    event.stopPropagation();
+    if (this.kickMenu?.player.id === node.id) {
+      this.closeKickMenu();
+      return;
+    }
+    this.kickMenu = { player: node.player, x: node.x, y: node.y };
+    this.cdr.markForCheck();
+  }
+
+  confirmKick(): void {
+    if (!this.kickMenu) return;
+    this.kickPlayer.emit(this.kickMenu.player);
+    this.closeKickMenu();
+  }
+
+  closeKickMenu(): void {
+    if (!this.kickMenu) return;
+    this.kickMenu = null;
+    this.cdr.markForCheck();
+  }
+
+  kickMenuLeftPct(): number {
+    if (!this.kickMenu || !this.width) return 50;
+    return (this.kickMenu.x / this.width) * 100;
+  }
+
+  kickMenuTopPct(): number {
+    if (!this.kickMenu || !this.height) return 50;
+    return (this.kickMenu.y / this.height) * 100;
   }
 
   get nodeMetrics() {
@@ -1086,11 +1201,13 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     const connected = node.player.isConnected;
     const pending = this.isPendingConnection(node.id);
     const leaving = this.leavingNodes.some((n) => n.id === node.id);
+    const banning = this.banAnimationIds.has(node.id);
+    const healthy = node.player.isAlive && !this.banAnimationIds.has(node.id) && !banning;
     return {
       id: node.id,
       ...endpoints,
-      visible: connected || pending || leaving,
-      active: connected && node.player.isAlive && !pending && !leaving,
+      visible: connected || pending || leaving || banning,
+      active: connected && healthy && !pending && !leaving,
       pulsing: this.linkPulseIds.has(node.id),
       isBranch: origin.isBranch,
       handshakeSec: this.linkHandshakeSec(node.id, node),

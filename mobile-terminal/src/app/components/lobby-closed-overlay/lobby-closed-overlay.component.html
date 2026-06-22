@@ -7,7 +7,7 @@
     <header class="overlay-header">
       <span class="overlay-icon" aria-hidden="true">✕</span>
       <p class="overlay-tag">Alerta de red</p>
-      <h2 id="lobby-closed-title" class="overlay-title">Sala eliminada</h2>
+      <h2 id="lobby-closed-title" class="overlay-title">{{ title }}</h2>
     </header>
 
     <div class="overlay-divider" aria-hidden="true"></div>
@@ -20,7 +20,7 @@
     }
 
     <p class="overlay-message">
-      El host cerró esta sala desde el dashboard. La sesión ya no está disponible.
+      {{ message }}
     </p>
 
     <p class="overlay-hint">

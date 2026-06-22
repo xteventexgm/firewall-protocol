@@ -8,6 +8,7 @@ import {
   IncidentDisplay,
   NightResolution,
   PublicGameState,
+  PublicPlayer,
   SavedRoom,
   VoteTrace,
 } from './core/models/game-state.model';
@@ -17,7 +18,6 @@ import {
   formatNightResolutionToast,
   formatVoteTiedMessage,
   playerNameById,
-  translateEliminationReason,
 } from './core/utils/game.utils';
 import { hasNightResolutionContent } from './core/utils/night-resolution.utils';
 import { loadSavedRooms, removeRoom, saveRoom } from './core/utils/room-storage.utils';
@@ -29,13 +29,18 @@ import { GameOverOverlayComponent } from './features/game-over/game-over-overlay
 import { NightResolutionPanelComponent } from './features/night-resolution/night-resolution-panel.component';
 import { PublicNightLogsComponent } from './features/public-logs/public-night-logs.component';
 import { ChatFeedComponent } from './features/chat/chat-feed.component';
-import { NightProgressComponent } from './features/phases/night-progress.component';
 import { ThreatBriefingComponent } from './features/phases/threat-briefing.component';
+import { RoleDistributionOverlayComponent } from './features/phases/role-distribution-overlay.component';
 import { HomeAtmosphereComponent } from './features/home-atmosphere/home-atmosphere.component';
 import { phaseBulletin } from './core/utils/phase-bulletin.utils';
 import { formatServerErrorForToast } from './core/utils/error.utils';
-import { downloadGameReplay } from './core/utils/replay.utils';
+import { downloadGameReplay, downloadSessionLog } from './core/utils/replay.utils';
 import { fetchRoomStatus, isRoomStatusUnavailable } from './core/utils/room-status.utils';
+import { NodeDeathAlertComponent } from './features/alerts/node-death-alert.component';
+import {
+  buildNodeDeathAlert,
+  NodeDeathAlertData,
+} from './core/utils/node-death-alert.utils';
 
 @Component({
   selector: 'app-root',
@@ -49,9 +54,10 @@ import { fetchRoomStatus, isRoomStatusUnavailable } from './core/utils/room-stat
     NightResolutionPanelComponent,
     PublicNightLogsComponent,
     ChatFeedComponent,
-    NightProgressComponent,
     ThreatBriefingComponent,
+    RoleDistributionOverlayComponent,
     HomeAtmosphereComponent,
+    NodeDeathAlertComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -77,6 +83,7 @@ export class App implements OnInit, OnDestroy {
   voteTiedMessage = '';
   statusMessage = '';
   statusMessageType: 'info' | 'warn' | 'success' | 'error' = 'warn';
+  statusToastBottom = false;
   showGameOver = false;
   gameOverSummary: GameOverSummary | null = null;
   phaseFlash: GamePhase | '' = '';
@@ -86,19 +93,36 @@ export class App implements OnInit, OnDestroy {
   lastVoteTiedSkipVotes = 0;
   phaseElapsed = '';
   phaseCountdown = '';
+  voteUrgentSeconds = 0;
   soundMuted = false;
   showThreatBriefing = false;
+  showRoleDistribution = false;
   phaseBulletinText = '';
   exportingReplay = false;
+  exportingSessionLog = false;
+  nodeDeathAlert: NodeDeathAlertData | null = null;
+  nodeDeathAlertVisible = false;
+  nodeDeathAlertExiting = false;
 
   private phaseTimerInterval: ReturnType<typeof setInterval> | null = null;
   private lastPhase: GamePhase | '' = '';
-  private timerWarningFired = false;
+  private deathAlertQueue: NodeDeathAlertData[] = [];
+  private deathAlertTimer: ReturnType<typeof setTimeout> | null = null;
+  private deathAlertExitTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly connectedNoticeAt = new Map<string, number>();
   private savedRoomStatsInterval: ReturnType<typeof setInterval> | null = null;
+  private eliminationAnimUntil = 0;
+  private static readonly ELIMINATION_ANIM_MS = 2_200;
+  private static readonly DEATH_ALERT_MS = 4_200;
 
   get gameOverActive(): boolean {
     return this.showGameOver || this.state?.phase === 'FIN' || this.gameSocket.isGameEnded;
+  }
+
+  /** Partida en curso: ocultar sidebar y dar pantalla completa al tablero. */
+  get gameFullscreenMode(): boolean {
+    if (!this.inRoom || !this.state || this.gameOverActive) return false;
+    return this.state.phase !== 'LOBBY' && this.state.phase !== 'REPARTO';
   }
 
   ngOnInit(): void {
@@ -119,14 +143,31 @@ export class App implements OnInit, OnDestroy {
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;
         if (s?.phase && s.phase !== this.lastPhase) {
           this.applyPhaseAmbient(s.phase);
-          this.timerWarningFired = false;
           this.phaseBulletinText = phaseBulletin(s.phase);
+          const prev = this.lastPhase;
           this.lastPhase = s.phase;
           if (s.phase === 'DIA' && s.dayNumber === 1) {
             this.gameSound.play('game_start');
           }
+          if (
+            s.phase === 'DIA' &&
+            s.dayNumber === 1 &&
+            prev === 'LOBBY' &&
+            s.roomId &&
+            !this.roleDistributionSeenForRoom(s.roomId)
+          ) {
+            this.showRoleDistribution = true;
+            this.showThreatBriefing = false;
+          }
         }
-        if (s?.sessionThreatBrief && s.dayNumber === 1 && s.phase === 'DIA' && !this.threatBriefingSeenForRoom(s.roomId)) {
+        if (
+          s?.sessionThreatBrief &&
+          s.dayNumber === 1 &&
+          s.phase === 'DIA' &&
+          !this.threatBriefingSeenForRoom(s.roomId) &&
+          !this.showRoleDistribution &&
+          this.roleDistributionSeenForRoom(s.roomId)
+        ) {
           this.showThreatBriefing = true;
         }
         if (s?.phase === 'VOTACION') {
@@ -141,13 +182,16 @@ export class App implements OnInit, OnDestroy {
         this.gameSound.play('incident');
         this.incidents = incidents;
         this.incidentNightNumber = nightNumber;
-        this.glitchPlayerIds = incidents.map((i) => i.playerId);
+        const ids = incidents.map((i) => i.playerId);
+        this.patchPlayersAlive(ids, false);
+        this.beginEliminationAnimation(ids);
+        this.queueNodeDeathAlerts(ids, 'night_kill');
         this.showIncidentReport = incidents.length > 0;
         setTimeout(() => {
           this.showIncidentReport = false;
           this.glitchPlayerIds = [];
           this.incidentNightNumber = 0;
-        }, 8000);
+        }, 8_000);
       }),
       this.gameSocket.gameOver$.subscribe((payload) => {
         if (!this.inRoom) return;
@@ -174,6 +218,12 @@ export class App implements OnInit, OnDestroy {
         if (!this.inRoom || this.gameOverActive) return;
         this.phaseFlash = transition.to;
         this.phaseBulletinText = phaseBulletin(transition.to);
+        if (transition.at) {
+          this.state = this.state
+            ? { ...this.state, phaseStartedAt: transition.at, phaseEndsAt: null }
+            : this.state;
+        }
+        this.voteUrgentSeconds = 0;
         if (transition.to === 'NOCHE') this.gameSound.enterNightPhase();
         if (transition.to === 'DIA') this.gameSound.enterDayPhase();
         if (transition.to === 'VOTACION') {
@@ -195,14 +245,12 @@ export class App implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
-        const duration = payload.reason === 'tie' ? 12000 : 8000;
-        this.showStatusMessage(this.voteTiedMessage, 'warn', duration);
       }),
       this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
         if (!this.inRoom || this.gameOverActive) return;
         const toast = formatNightResolutionToast(resolution);
         if (toast) {
-          this.showStatusMessage(toast, 'warn');
+          this.showStatusMessage(toast, 'warn', 5_000, true);
         }
         if (hasNightResolutionContent(resolution)) {
           this.nightResolution = resolution;
@@ -211,19 +259,16 @@ export class App implements OnInit, OnDestroy {
           this.nightPanelTimeout = setTimeout(() => {
             this.showNightResolution = false;
             this.nightPanelTimeout = null;
-          }, 12000);
+          }, 8_000);
         }
       }),
       this.gameSocket.playerEliminated$.subscribe(({ playerId, reason }) => {
         if (!this.inRoom || this.gameOverActive) return;
-        this.gameSound.play('node_leave');
-        const name = playerNameById(this.state, playerId);
-        const role = this.state?.players.find((p) => p.id === playerId)?.role;
-        const rolePart = role ? ` — ${role}` : '';
-        this.showStatusMessage(
-          `Nodo eliminado: ${name}${rolePart} (${translateEliminationReason(reason)})`,
-          'error',
-        );
+        const isVote = reason === 'vote';
+        this.gameSound.play(isVote ? 'death' : 'node_leave');
+        this.patchPlayersAlive([playerId], false);
+        this.beginEliminationAnimation([playerId]);
+        this.queueNodeDeathAlerts([playerId], reason);
       }),
       this.gameSocket.playerDisconnected$.subscribe(({ playerId, playerName }) => {
         if (!this.inRoom || this.gameOverActive) return;
@@ -244,6 +289,7 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.playerConnected$.subscribe(({ playerId, playerName }) => {
         if (!this.inRoom || this.gameOverActive) return;
+        if (this.state?.players.find((p) => p.id === playerId)?.isBot) return;
         this.connectedNoticeAt.set(playerId, Date.now());
         this.gameSound.play('node_join');
         this.showStatusMessage(
@@ -253,7 +299,11 @@ export class App implements OnInit, OnDestroy {
       }),
       this.gameSocket.voteTrace$.subscribe((trace) => {
         if (!this.inRoom || this.gameOverActive) return;
-        this.gameSound.play('vote');
+        if (this.state?.phaseConfig?.botQaAutoRun) {
+          this.gameSound.playThrottled('vote', 3_000);
+        } else {
+          this.gameSound.play('vote');
+        }
         this.highlightTrace = trace;
         setTimeout(() => {
           if (this.highlightTrace === trace) {
@@ -265,9 +315,12 @@ export class App implements OnInit, OnDestroy {
         if (!this.inRoom || this.gameOverActive) return;
         this.gameSound.play('chat');
       }),
-      this.gameSocket.publicLog$.subscribe(() => {
+      this.gameSocket.publicLog$.subscribe((entry) => {
         if (!this.inRoom || this.gameOverActive) return;
-        this.gameSound.play('warning');
+        if (this.state?.phaseConfig?.botQaAutoRun && entry.message.includes('[BOT/QA]')) return;
+        if (entry.severity === 'critical') {
+          this.gameSound.playThrottled('incident', 4_000);
+        }
       }),
       this.gameSocket.gameStats$.subscribe((stats) => {
         if (this.gameOverSummary) {
@@ -403,6 +456,22 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  async onExportSessionLog(): Promise<void> {
+    if (!this.roomCode || this.exportingSessionLog) return;
+    this.exportingSessionLog = true;
+    try {
+      await downloadSessionLog(this.roomCode);
+      this.statusMessage = 'Registro .log descargado';
+      this.statusMessageType = 'success';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al descargar registro';
+      this.errorMessage = msg;
+      this.statusMessageType = 'error';
+    } finally {
+      this.exportingSessionLog = false;
+    }
+  }
+
   onRemoveSavedRoom(roomId: string): void {
     const code = roomId.toUpperCase().trim();
     this.gameSocket.abandonLobby(code);
@@ -420,6 +489,26 @@ export class App implements OnInit, OnDestroy {
   onStartGame(): void {
     if (this.gameOverActive) return;
     this.gameSocket.startGame();
+  }
+
+  onFillBots(): void {
+    if (this.gameOverActive) return;
+    this.gameSocket.fillBots();
+  }
+
+  onClearBots(): void {
+    if (this.gameOverActive) return;
+    this.gameSocket.clearBots();
+  }
+
+  onKickPlayer(player: PublicPlayer): void {
+    if (this.gameOverActive || this.state?.phase !== 'LOBBY') return;
+    this.gameSocket.kickPlayer(player.id);
+  }
+
+  onRunBotQaMatch(): void {
+    if (this.gameOverActive) return;
+    this.gameSocket.runBotQaMatch();
   }
 
   onAdvancePhase(): void {
@@ -444,6 +533,24 @@ export class App implements OnInit, OnDestroy {
       sessionStorage.setItem(`fp_threat_${this.state.roomId}`, '1');
     }
     this.showThreatBriefing = false;
+  }
+
+  onRoleDistributionDismissed(): void {
+    if (this.state?.roomId) {
+      sessionStorage.setItem(`fp_role_dist_${this.state.roomId}`, '1');
+    }
+    this.showRoleDistribution = false;
+    if (
+      this.state?.sessionThreatBrief &&
+      this.state.dayNumber === 1 &&
+      !this.threatBriefingSeenForRoom(this.state.roomId)
+    ) {
+      this.showThreatBriefing = true;
+    }
+  }
+
+  private roleDistributionSeenForRoom(roomId: string): boolean {
+    return sessionStorage.getItem(`fp_role_dist_${roomId}`) === '1';
   }
 
   private threatBriefingSeenForRoom(roomId: string): boolean {
@@ -495,6 +602,7 @@ export class App implements OnInit, OnDestroy {
       clearTimeout(this.nightPanelTimeout);
       this.nightPanelTimeout = null;
     }
+    this.clearNodeDeathAlerts();
   }
 
   private refreshGameOverSummary(): void {
@@ -521,45 +629,163 @@ export class App implements OnInit, OnDestroy {
     msg: string,
     type: 'info' | 'warn' | 'success' | 'error',
     durationMs = 6000,
+    bottom = false,
   ): void {
     if (this.statusTimeout) clearTimeout(this.statusTimeout);
     this.statusMessage = msg;
     this.statusMessageType = type;
+    this.statusToastBottom = bottom;
     this.statusTimeout = setTimeout(() => {
       if (this.statusMessage === msg) {
         this.statusMessage = '';
+        this.statusToastBottom = false;
         this.statusTimeout = null;
       }
     }, durationMs);
   }
 
+  private beginEliminationAnimation(playerIds: string[]): void {
+    if (!playerIds.length) return;
+    this.eliminationAnimUntil = Date.now() + App.ELIMINATION_ANIM_MS;
+    this.glitchPlayerIds = [...new Set([...this.glitchPlayerIds, ...playerIds])];
+    setTimeout(() => {
+      const remaining = this.glitchPlayerIds.filter((id) => !playerIds.includes(id));
+      this.glitchPlayerIds = remaining;
+    }, App.ELIMINATION_ANIM_MS);
+  }
+
+  private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
+    const names = playerIds.map((id) => playerNameById(this.state, id));
+    const alert = buildNodeDeathAlert(names, reason);
+    if (!alert) return;
+    this.deathAlertQueue.push(alert);
+    this.pumpNodeDeathAlertQueue();
+  }
+
+  private pumpNodeDeathAlertQueue(): void {
+    if (this.nodeDeathAlertVisible || !this.deathAlertQueue.length) return;
+
+    if (this.deathAlertTimer) {
+      clearTimeout(this.deathAlertTimer);
+      this.deathAlertTimer = null;
+    }
+    if (this.deathAlertExitTimer) {
+      clearTimeout(this.deathAlertExitTimer);
+      this.deathAlertExitTimer = null;
+    }
+
+    this.nodeDeathAlert = this.deathAlertQueue.shift() ?? null;
+    if (!this.nodeDeathAlert) return;
+
+    this.nodeDeathAlertExiting = false;
+    this.nodeDeathAlertVisible = true;
+
+    this.deathAlertTimer = setTimeout(() => {
+      this.nodeDeathAlertExiting = true;
+      this.deathAlertExitTimer = setTimeout(() => {
+        this.nodeDeathAlertVisible = false;
+        this.nodeDeathAlert = null;
+        this.nodeDeathAlertExiting = false;
+        this.deathAlertTimer = null;
+        this.deathAlertExitTimer = null;
+        this.pumpNodeDeathAlertQueue();
+      }, 420);
+    }, App.DEATH_ALERT_MS);
+  }
+
+  private clearNodeDeathAlerts(): void {
+    this.deathAlertQueue = [];
+    if (this.deathAlertTimer) clearTimeout(this.deathAlertTimer);
+    if (this.deathAlertExitTimer) clearTimeout(this.deathAlertExitTimer);
+    this.deathAlertTimer = null;
+    this.deathAlertExitTimer = null;
+    this.nodeDeathAlertVisible = false;
+    this.nodeDeathAlertExiting = false;
+    this.nodeDeathAlert = null;
+  }
+
+  /** Marca jugadores muertos/vivos de inmediato (antes del publicState del servidor). */
+  private patchPlayersAlive(playerIds: string[], isAlive: boolean): void {
+    if (!this.state || !playerIds.length) return;
+    const idSet = new Set(playerIds);
+    this.state = {
+      ...this.state,
+      players: this.state.players.map((p) =>
+        idSet.has(p.id) ? { ...p, isAlive } : p,
+      ),
+    };
+  }
+
   private startPhaseTimer(): void {
     this.phaseTimerInterval = setInterval(() => {
-      const startedAt = this.state?.phaseStartedAt;
-      if (!startedAt || !this.inRoom) {
+      const matchStart = this.resolveMatchStartedAt();
+      if (!matchStart || !this.inRoom) {
         this.phaseElapsed = '';
         this.phaseCountdown = '';
+        this.voteUrgentSeconds = 0;
         return;
       }
-      const secs = Math.floor((Date.now() - startedAt) / 1000);
+      const secs = Math.floor((Date.now() - matchStart) / 1000);
       const m = Math.floor(secs / 60);
       const s = secs % 60;
       this.phaseElapsed = `${m}:${s.toString().padStart(2, '0')}`;
 
-      const endsAt = this.state?.phaseEndsAt;
+      const endsAt = this.resolvePhaseEndsAt();
       if (endsAt && this.state?.phaseConfig?.autoAdvance) {
         const remaining = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
         const rm = Math.floor(remaining / 60);
         const rs = remaining % 60;
         this.phaseCountdown = `⏱ ${rm}:${rs.toString().padStart(2, '0')}`;
-        if (remaining <= 10 && !this.timerWarningFired) {
-          this.timerWarningFired = true;
-          this.gameSound.play('warning');
+        if (this.state?.phase === 'VOTACION' && remaining > 0 && remaining <= 10) {
+          this.voteUrgentSeconds = remaining;
+        } else {
+          this.voteUrgentSeconds = 0;
         }
       } else {
         this.phaseCountdown = '';
+        this.voteUrgentSeconds = 0;
       }
     }, 1000);
+  }
+
+  get blockPhaseOverlays(): boolean {
+    return (
+      this.nodeDeathAlertVisible ||
+      this.glitchPlayerIds.length > 0 ||
+      this.deathAlertQueue.length > 0
+    );
+  }
+
+  private resolveMatchStartedAt(): number | null {
+    const s = this.state;
+    if (!s || s.phase === 'LOBBY') return null;
+    return s.gameStartedAt ?? s.phaseStartedAt ?? null;
+  }
+
+  private resolvePhaseEndsAt(): number | null {
+    const s = this.state;
+    if (!s) return null;
+    if (s.phaseEndsAt) return s.phaseEndsAt;
+    if (!s.phaseConfig?.autoAdvance || !s.phaseStartedAt) return null;
+    const cfg = s.phaseConfig;
+    let ms = 0;
+    switch (s.phase) {
+      case 'NOCHE':
+        ms = cfg.nightDurationMs;
+        break;
+      case 'DIA':
+        ms = cfg.dayDurationMs;
+        break;
+      case 'VOTACION':
+        ms = cfg.voteDurationMs;
+        break;
+      case 'VERIFICACION':
+        ms = 1_500;
+        break;
+      default:
+        return null;
+    }
+    return ms > 0 ? s.phaseStartedAt + ms : null;
   }
 
   ngOnDestroy(): void {

@@ -72,6 +72,14 @@
       >
         {{ exportingReplay ? 'Exportando…' : 'Descargar replay JSON' }}
       </button>
+      <button
+        type="button"
+        class="btn-export-replay"
+        (click)="onExportSessionLog()"
+        [disabled]="exportingSessionLog"
+      >
+        {{ exportingSessionLog ? 'Exportando…' : 'Descargar registro .log' }}
+      </button>
     }
   </div>
 </div>

@@ -69,6 +69,7 @@ export class SocketService {
   readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
   readonly lobbyClosed$ = new Subject<{ roomId: string; reason?: string }>();
+  readonly playerKicked$ = new Subject<{ roomId: string; reason?: string }>();
   readonly gameOver$ = new Subject<GameOverPayload>();
   readonly minigameChallenge$ = new Subject<MinigameChallenge>();
   readonly minigameAnswerResult$ = new Subject<{
@@ -274,6 +275,22 @@ export class SocketService {
     this.myTeam = undefined;
   }
 
+  /** Expulsado del lobby por el host. */
+  exitAfterPlayerKicked(roomId: string, reason = 'host_kick'): void {
+    const code = roomId.toUpperCase().trim();
+    const storedRoom = localStorage.getItem('roomCode')?.toUpperCase();
+    if (storedRoom && storedRoom !== code) return;
+
+    this.reconnecting$.next(false);
+    this.cancelGameOverRedirect();
+    this.pendingAutoRejoin = false;
+    this.manualJoinInFlight = false;
+    clearGameSessionStorage();
+    this.myRole = undefined;
+    this.myTeam = undefined;
+    this.playerKicked$.next({ roomId: code, reason });
+  }
+
   /** Sala eliminada por el host: limpia sesión sin intentar leaveRoom (la sala ya no existe). */
   exitAfterLobbyClosed(roomId: string, reason = 'host_abandoned'): void {
     const code = roomId.toUpperCase().trim();
@@ -378,6 +395,7 @@ export class SocketService {
             team: this.myTeam ?? me.team,
             isDead: !me.isAlive,
             silenced: !!me.silenced,
+            frozen: !!me.frozen,
             isConnected: me.isConnected,
           });
         }
@@ -441,6 +459,10 @@ export class SocketService {
 
     this.socket.on('lobbyClosed', (roomId: string, payload?: { reason?: string }) => {
       this.exitAfterLobbyClosed(roomId, payload?.reason);
+    });
+
+    this.socket.on('playerKicked', (roomId: string, payload?: { playerId?: string; reason?: string }) => {
+      this.exitAfterPlayerKicked(roomId, payload?.reason ?? 'host_kick');
     });
 
     this.socket.on('playerDisconnected', (roomId: string, playerId: string, playerName?: string) => {

@@ -4,6 +4,8 @@
 import { Namespace, Socket } from 'socket.io';
 import Room from '../game/Room';
 import { toPublicNightResolution } from '../types/events.types';
+import { attachBotController } from '../game/BotController';
+import { buildBotQaLog } from '../game/PublicLogService';
 
 export function broadcastRoomState(gameNs: Namespace, room: Room) {
   for (const p of room.state.players) {
@@ -21,11 +23,14 @@ function broadcastPublicState(dashboardNs: Namespace | undefined, room: Room) {
 export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Namespace) {
   if ((room as any)._bridged) return;
   (room as any)._bridged = true;
+  attachBotController(room);
 
   const refresh = () => {
     broadcastRoomState(gameNs, room);
     broadcastPublicState(dashboardNs, room);
   };
+
+  room.on('actionAccepted', refresh);
 
   room.on('phaseChanged', ({ roomId, to }) => {
     gameNs.to(roomId).emit('phaseChanged', roomId, to);
@@ -113,6 +118,16 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
     refresh();
   });
   room.on('playerLeft', refresh);
+  room.on('playerKicked', ({ roomId, playerName, isBot }) => {
+    const entry = buildBotQaLog(
+      `${playerName} expulsado de la sala (${isBot ? 'bot' : 'jugador'})`,
+      'warn',
+    );
+    room.state.publicLogs.push(entry);
+    dashboardNs?.to(roomId).emit('publicLog', roomId, entry);
+    gameNs.to(roomId).emit('publicLog', roomId, entry);
+    refresh();
+  });
   room.on('voteRecorded', ({ roomId, voter, target, timestamp }) => {
     const trace = { roomId, voter, target, timestamp };
     gameNs.to(roomId).emit('voteTrace', trace);
