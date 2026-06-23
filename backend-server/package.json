@@ -13,8 +13,9 @@
     "test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
     "test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
     "test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
-    "test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket",
     "test:socket": "node -r ts-node/register src/utils/socketErrors.test.ts",
+    "test:database": "node -r ts-node/register src/services/MongoDBAdapter.test.ts",
+    "test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket && npm run test:database",
     "qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
 	},
 	"dependencies": {

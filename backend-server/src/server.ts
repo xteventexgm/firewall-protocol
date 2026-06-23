@@ -10,6 +10,7 @@ import { MONGO_URI } from './config/env';
 import { connectMongo, isMongoEnabled } from './services/mongoConnection';
 import { logger } from './utils/logger';
 import { PORT } from './config/env';
+import { closeDatabase, initializeDatabase } from './config/database';
 
 function printMongoFailure(error: unknown): void {
 	const msg = error instanceof Error ? error.message : String(error);

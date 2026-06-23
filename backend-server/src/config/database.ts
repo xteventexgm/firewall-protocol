@@ -9,6 +9,8 @@ import { createJsonAdapter } from '../services/JsonAdapter';
 import { createMongoDBAdapter } from '../services/MongoDBAdapter';
 import { isMongoEnabled } from '../services/mongoConnection';
 import { logger } from '../utils/logger';
+import { MONGO_DB_NAME, MONGO_URI } from './env';
+import type { DBAdapter } from './database.types';
 
 export type ActiveRoomStatus = {
 	exists: boolean;
@@ -55,6 +57,21 @@ export async function warmDatabaseCache(): Promise<void> {
 
 export function getPersistenceMode(): 'mongodb' | 'json' {
 	return useMongo ? 'mongodb' : 'json';
+}
+
+const mongoAdapter = MONGO_URI ? new MongoDBAdapter(MONGO_URI, MONGO_DB_NAME) : null;
+const adapter: DBAdapter = mongoAdapter ?? jsonAdapter;
+
+export async function initializeDatabase(): Promise<void> {
+  if (mongoAdapter) {
+    await mongoAdapter.initialize();
+  } else {
+    logger.info('[db] using JSON fallback (MONGO_URI is not configured)');
+  }
+}
+
+export async function closeDatabase(): Promise<void> {
+  await mongoAdapter?.close();
 }
 
 export default adapter;
