@@ -4,6 +4,7 @@
  * Leídas desde `.env` o valores fallback. Usadas en arranque (`server.ts`),
  * persistencia (`DATA_DIRECTORY`) y timers opcionales de `Room` (`defaultRoomOptions`).
  */
+import 'dotenv/config';
 import * as path from 'path';
 
 export const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -11,6 +12,10 @@ export const PORT = Number(process.env.PORT || 3000);
 export const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
 export const DATA_DIRECTORY = process.env.DATA_DIRECTORY || path.join(process.cwd(), 'data');
+
+/** MongoDB is opt-in; an empty URI keeps the JSON adapter active. */
+export const MONGO_URI = process.env.MONGO_URI?.trim() || '';
+export const MONGO_DB_NAME = process.env.MONGO_DB_NAME?.trim() || 'firewall_protocol';
 
 /** Duración de la fase NOCHE antes de auto-avance (ms). */
 export const NIGHT_DURATION_MS = Number(process.env.NIGHT_DURATION_MS || 60_000);

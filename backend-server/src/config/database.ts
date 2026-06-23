@@ -1,66 +1,41 @@
-/**
- * Adaptador de persistencia de partidas.
- *
- * Abstrae `dbSyncService` (JSON en disco hoy) para migrar a MongoDB sin cambiar
- * `Room` ni `RoomManager`. Métodos `delete` y `list` preparados para admin futuro.
- */
-import dbSync, { GameArchiveCategory } from '../services/dbSyncService';
+/** Selects MongoDB when MONGO_URI is configured, otherwise keeps the JSON fallback. */
+import dbSync from '../services/dbSyncService';
 import { readSessionLogFile } from '../services/GameSessionLogService';
+import { MongoDBAdapter } from '../services/MongoDBAdapter';
 import { logger } from '../utils/logger';
+import { MONGO_DB_NAME, MONGO_URI } from './env';
+import type { DBAdapter } from './database.types';
 
-/** Contrato de persistencia; implementación actual: JSON vía dbSyncService. */
-export interface DBAdapter {
-	save(roomId: string, state: any): boolean;
-	load(roomId: string): any | null;
-	loadOrArchive(roomId: string): any | null;
-	readSessionLog(roomId: string): string | null;
-	delete(roomId: string): boolean;
-	archive(roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>): boolean;
-	list(): string[];
-	getStatus(roomId: string, playerId?: string): ReturnType<typeof dbSync.getActiveRoomStatus>;
+export type { ActiveRoomStatus, DBAdapter } from './database.types';
+
+const jsonAdapter: DBAdapter = {
+  save: (roomId, state) => {
+    const ok = dbSync.saveGameState(roomId, state);
+    logger.info('[db] JSON save', ok ? 'OK' : 'FAIL', { roomId, phase: state?.phase, players: state?.players?.length ?? 0 });
+    return ok;
+  },
+  load: dbSync.loadGameState,
+  loadOrArchive: dbSync.loadGameStateOrArchive,
+  readSessionLog: readSessionLogFile,
+  delete: dbSync.deleteGameState,
+  archive: dbSync.archiveGameState,
+  list: dbSync.listSavedGames,
+  getStatus: dbSync.getActiveRoomStatus,
+};
+
+const mongoAdapter = MONGO_URI ? new MongoDBAdapter(MONGO_URI, MONGO_DB_NAME) : null;
+const adapter: DBAdapter = mongoAdapter ?? jsonAdapter;
+
+export async function initializeDatabase(): Promise<void> {
+  if (mongoAdapter) {
+    await mongoAdapter.initialize();
+  } else {
+    logger.info('[db] using JSON fallback (MONGO_URI is not configured)');
+  }
 }
 
-const adapter: DBAdapter = {
-	save: (roomId: string, state: any) => {
-		const players = state?.players?.length ?? 0;
-		const phase = state?.phase ?? '?';
-		const ok = dbSync.saveGameState(roomId, state);
-		logger.info('[db] save', ok ? 'OK' : 'FAIL', { roomId, phase, players });
-		return ok;
-	},
-	load: (roomId: string) => {
-		const data = dbSync.loadGameState(roomId);
-		if (data) {
-			logger.info('[db] load OK', {
-				roomId,
-				phase: data.phase,
-				players: data.players?.length ?? 0,
-			});
-		} else {
-			logger.info('[db] load miss (sin archivo JSON)', { roomId });
-		}
-		return data;
-	},
-	loadOrArchive: (roomId: string) => {
-		const data = dbSync.loadGameStateOrArchive(roomId);
-		if (data) {
-			logger.info('[db] loadOrArchive OK', { roomId, phase: data.phase });
-		}
-		return data;
-	},
-	readSessionLog: (roomId: string) => readSessionLogFile(roomId),
-	delete: (roomId: string) => {
-		const ok = dbSync.deleteGameState(roomId);
-		logger.info('[db] delete', ok ? 'OK' : 'FAIL', { roomId });
-		return ok;
-	},
-	archive: (roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>) => {
-		const ok = dbSync.archiveGameState(roomId, category, extra);
-		logger.info('[db] archive', ok ? 'OK' : 'FAIL', { roomId, category });
-		return ok;
-	},
-	list: () => dbSync.listSavedGames(),
-	getStatus: (roomId: string, playerId?: string) => dbSync.getActiveRoomStatus(roomId, playerId),
-};
+export async function closeDatabase(): Promise<void> {
+  await mongoAdapter?.close();
+}
 
 export default adapter;
