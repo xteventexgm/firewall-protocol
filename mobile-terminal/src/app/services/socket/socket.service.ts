@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
+import { resolveApiBase, apiTunnelHeaders } from '../../core/utils/api-base.utils';
 import { environment } from '../../../environments/environment';
 import { getNightActionType } from '../../core/role-actions';
 import {
@@ -132,24 +133,32 @@ export class SocketService {
     this.attachListeners();
   }
 
-  private buildSocketUrl(): string {
-    let base = environment.apiUrl.replace(/\/$/, '');
-    if (!/^https?:\/\//i.test(base)) {
-      base = `https://${base}`;
+  /** Fuerza nueva conexión (p. ej. tras cambiar URL del backend/ngrok). */
+  reconnect(): void {
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      this.listenersAttached = false;
     }
-    return `${base}${environment.socketNamespace}`;
+    this.connected$.next(false);
+    this.connect();
+  }
+
+  private buildSocketUrl(): string {
+    return `${resolveApiBase()}${environment.socketNamespace}`;
   }
 
   private buildTunnelHeaders(): Record<string, string> {
-    const host = environment.apiUrl.toLowerCase();
-    const headers: Record<string, string> = {};
-    if (host.includes('ngrok')) {
-      headers['ngrok-skip-browser-warning'] = '69420';
-    }
-    if (host.includes('loca.lt') || host.includes('localtunnel')) {
-      headers['Bypass-Tunnel-Reminder'] = 'true';
-    }
-    return headers;
+    return apiTunnelHeaders();
+  }
+
+  private joinOpts(autoReconnect: boolean): { autoReconnect: boolean; accessToken?: string } {
+    const accessToken = localStorage.getItem('fp_accessToken');
+    return {
+      autoReconnect,
+      ...(accessToken ? { accessToken } : {}),
+    };
   }
 
   joinRoom(roomId: string, playerId: string, name: string): void {
@@ -162,7 +171,7 @@ export class SocketService {
     localStorage.setItem('myPlayerId', playerId);
     localStorage.setItem('playerName', name);
 
-    this.socket?.emit('joinRoom', code, playerId, name, { autoReconnect: false });
+    this.socket?.emit('joinRoom', code, playerId, name, this.joinOpts(false));
   }
 
   reconnectFromStorage(): boolean {
@@ -340,7 +349,7 @@ export class SocketService {
     const name = localStorage.getItem('playerName');
     if (!roomId || !playerId || !name) return;
     this.reconnecting$.next(true);
-    this.socket?.emit('joinRoom', roomId.toUpperCase().trim(), playerId, name, { autoReconnect: true });
+    this.socket?.emit('joinRoom', roomId.toUpperCase().trim(), playerId, name, this.joinOpts(true));
   }
 
   private handleServerError(msg: string): void {

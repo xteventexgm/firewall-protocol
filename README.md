@@ -49,8 +49,9 @@ Monorepo con tres aplicaciones y un contrato socket compartido:
 │  web-dashboard  │ ◄──────────────────────► │                  │
 │  (Angular)      │                          └────────┬─────────┘
 └─────────────────┘                                   │
-                                              Persistencia JSON
-                                              (data/games/)
+                                              Persistencia: MongoDB
+                                              (o JSON en data/games/)
+                                              Avatares: data/avatars/
 ```
 
 | Carpeta | Rol | Audiencia |
@@ -126,6 +127,9 @@ Guía de QA paso a paso: [`TESTING.md`](TESTING.md).
 | [`SOCKET_CONTRACT.md`](SOCKET_CONTRACT.md) | Eventos Socket.io (`/game` y `/dashboard`) |
 | [`TESTING.md`](TESTING.md) | Checklist manual de pruebas |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de cambios del proyecto |
+| [`DATABASE.md`](DATABASE.md) | Esquema MongoDB, auth, scripts `db:*` |
+| [`MICROSERVICES.md`](MICROSERVICES.md) | Evolución monolito → Redis → microservicios |
+| [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) | Avatares, GridFS, S3 y backups |
 | [`SOUND_AI_PROMPTS.md`](SOUND_AI_PROMPTS.md) | Prompts para generar efectos de sonido con IA |
 | [`backend-server/README.md`](backend-server/README.md) | API, motor de reglas, persistencia |
 | [`web-dashboard/README.md`](web-dashboard/README.md) | Dashboard host, build y despliegue |

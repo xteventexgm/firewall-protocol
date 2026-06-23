@@ -559,7 +559,22 @@ Variables previstas: `JWT_SECRET`, `SESSION_SECRET` en `.env`.
 
 ---
 
-## 11. Scripts de creación y migración
+## 11. Almacenamiento de avatares (archivos binarios)
+
+Los **metadatos** del usuario (incl. `avatarUrl`) están en la colección `users`. Los **bytes** de la imagen subida viven hoy en **disco** (`backend-server/data/avatars/`), no dentro de un documento MongoDB.
+
+| Campo / ruta | Contenido |
+|--------------|-----------|
+| `users.avatarUrl` | `/api/auth/avatars/<userId>` o URL externa `https://…` |
+| `data/avatars/<userId>.{jpg\|png\|webp}` | Archivo binario (máx. 2 MB) |
+
+**Backups:** incluir `mongodump` **y** la carpeta `data/avatars/` si usas subida de archivo.
+
+**Evolución:** GridFS, S3 o servicio Media — ver [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) (comparativa, microservicios, roadmap).
+
+---
+
+## 12. Scripts de creación y migración
 
 El script principal para crear la estructura de MongoDB es:
 
@@ -593,7 +608,7 @@ El gameplay **no depende** del seed de `roles` mientras el backend siga importan
 
 ---
 
-## 12. Estado de implementación
+## 13. Estado de implementación
 
 - [x] Driver nativo `mongodb` agregado en `backend-server`
 - [x] `MongoDBAdapter` implementa `DBAdapter`
@@ -606,7 +621,7 @@ El gameplay **no depende** del seed de `roles` mientras el backend siga importan
 
 ---
 
-## 13. Referencias en el repositorio
+## 14. Referencias en el repositorio
 
 | Archivo | Contenido |
 |---------|-----------|
@@ -621,6 +636,8 @@ El gameplay **no depende** del seed de `roles` mientras el backend siga importan
 | `backend-server/scripts/setup-mongodb.ts` | Script de creación de BD, colecciones, índices y roles |
 | `backend-server/scripts/seed-roles.ts` | Seed reutilizable de `roles` |
 | `backend-server/scripts/migrate-json-to-mongodb.ts` | Migración desde JSON a MongoDB |
+| `backend-server/src/services/AvatarService.ts` | Avatares en disco (ver `STORAGE_AND_AVATARS.md`) |
+| `STORAGE_AND_AVATARS.md` | GridFS, S3, backups, relación con microservicios |
 | `backend-server/.env.example` | `MONGO_URI`, `JWT_SECRET` |
 | `SOCKET_CONTRACT.md` | Eventos socket (no persistidos como colección) |
 | `ROLES.md` | Guía de roles para humanos |

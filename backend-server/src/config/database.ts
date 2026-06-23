@@ -1,27 +1,63 @@
-/** Selects MongoDB when MONGO_URI is configured, otherwise keeps the JSON fallback. */
-import dbSync from '../services/dbSyncService';
-import { readSessionLogFile } from '../services/GameSessionLogService';
-import { MongoDBAdapter } from '../services/MongoDBAdapter';
+/**
+ * Adaptador de persistencia de partidas.
+ *
+ * Selecciona automáticamente MongoDB (`MONGO_URI`) o JSON en disco (`dbSyncService`).
+ * Ver DATABASE.md y `services/MongoDBAdapter.ts`.
+ */
+import { GameArchiveCategory } from '../services/dbSyncService';
+import { createJsonAdapter } from '../services/JsonAdapter';
+import { createMongoDBAdapter } from '../services/MongoDBAdapter';
+import { isMongoEnabled } from '../services/mongoConnection';
 import { logger } from '../utils/logger';
 import { MONGO_DB_NAME, MONGO_URI } from './env';
 import type { DBAdapter } from './database.types';
 
-export type { ActiveRoomStatus, DBAdapter } from './database.types';
-
-const jsonAdapter: DBAdapter = {
-  save: (roomId, state) => {
-    const ok = dbSync.saveGameState(roomId, state);
-    logger.info('[db] JSON save', ok ? 'OK' : 'FAIL', { roomId, phase: state?.phase, players: state?.players?.length ?? 0 });
-    return ok;
-  },
-  load: dbSync.loadGameState,
-  loadOrArchive: dbSync.loadGameStateOrArchive,
-  readSessionLog: readSessionLogFile,
-  delete: dbSync.deleteGameState,
-  archive: dbSync.archiveGameState,
-  list: dbSync.listSavedGames,
-  getStatus: dbSync.getActiveRoomStatus,
+export type ActiveRoomStatus = {
+	exists: boolean;
+	phase: string | null;
+	playerCount: number;
+	connectedCount: number;
+	canJoin: boolean;
+	canReconnect: boolean;
 };
+
+/** Contrato de persistencia compartido por JSON y MongoDB. */
+export interface DBAdapter {
+	save(roomId: string, state: any): boolean;
+	load(roomId: string): any | null;
+	loadOrArchive(roomId: string): any | null;
+	loadOrArchiveAsync(roomId: string): Promise<any | null>;
+	readSessionLog(roomId: string): string | null;
+	readSessionLogAsync(roomId: string): Promise<string | null>;
+	delete(roomId: string): boolean;
+	archive(roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>): boolean;
+	list(): string[];
+	getStatus(roomId: string, playerId?: string): ActiveRoomStatus;
+	warmCache?(): Promise<void>;
+}
+
+const isTestRun = Boolean(process.env.npm_lifecycle_event?.includes('test'));
+const useMongo = isMongoEnabled() && !isTestRun && process.env.FP_USE_JSON !== '1';
+
+const adapter: DBAdapter = useMongo ? createMongoDBAdapter() : createJsonAdapter();
+
+if (useMongo) {
+	logger.info('[db] using MongoDB adapter');
+} else if (isMongoEnabled() && isTestRun) {
+	logger.info('[db] using JSON adapter (modo test)');
+} else {
+	logger.info('[db] using JSON file adapter');
+}
+
+export async function warmDatabaseCache(): Promise<void> {
+	if (adapter.warmCache) {
+		await adapter.warmCache();
+	}
+}
+
+export function getPersistenceMode(): 'mongodb' | 'json' {
+	return useMongo ? 'mongodb' : 'json';
+}
 
 const mongoAdapter = MONGO_URI ? new MongoDBAdapter(MONGO_URI, MONGO_DB_NAME) : null;
 const adapter: DBAdapter = mongoAdapter ?? jsonAdapter;

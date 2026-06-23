@@ -1,211 +1,244 @@
-import { Collection, Db, Document, MongoClient } from 'mongodb';
-import type { DBAdapter, ActiveRoomStatus } from '../config/database.types';
-import type { GameArchiveCategory } from './dbSyncService';
-import { buildSessionLogText } from './GameSessionLogService';
-import { logger } from '../utils/logger';
-
-type GameDocument = Document & {
-  _id: string;
-  roomId: string;
-  archiveCategory: 'active' | GameArchiveCategory;
-  createdAt: Date;
-  updatedAt: Date;
-  archivedAt?: Date;
-};
-
-type SessionLogDocument = Document & {
-  roomId: string;
-  text: string;
-  archivedAt: Date;
-};
-
-function clone<T>(value: T): T {
-  return structuredClone(value);
-}
-
-/** Removes fields that only make sense while a socket is connected to this process. */
-export function prepareGameDocument(roomId: string, state: any): Record<string, any> {
-  const copy = clone(state ?? {});
-  delete copy._id;
-  copy.roomId = roomId;
-  if (Array.isArray(copy.players)) {
-    copy.players = copy.players.map((player: Record<string, unknown>) => {
-      const { socketId: _socketId, lastDisconnectReason: _reason, ...persisted } = player;
-      return persisted;
-    });
-  }
-  return copy;
-}
-
-export function statusFromGame(data: any | null, playerId?: string): ActiveRoomStatus {
-  if (!data) {
-    return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
-  }
-  const phase = data.phase ?? null;
-  const players = Array.isArray(data.players) ? data.players : [];
-  const inProgress = phase && phase !== 'LOBBY' && phase !== 'FIN';
-  const playerKnown = !playerId || players.some((player: { id?: string }) => player.id === playerId);
-  return {
-    exists: true,
-    phase,
-    playerCount: players.length,
-    connectedCount: players.filter((player: { isConnected?: boolean }) => player.isConnected !== false).length,
-    canJoin: phase === 'LOBBY',
-    canReconnect: Boolean(inProgress && playerKnown),
-  };
-}
-
 /**
- * MongoDB-backed adapter with a synchronous read-through cache.
+ * Implementación MongoDB de `DBAdapter`.
  *
- * The game engine intentionally uses a synchronous persistence contract. Active and
- * finished games are loaded before the server starts, while mutations are serialized
- * through one promise chain so save -> archive ordering is preserved.
+ * - Partidas activas en caché en memoria (lecturas síncronas para `Room` / `RoomManager`).
+ * - Escrituras encoladas de forma asíncrona hacia la colección `games`.
+ * - Archivado en `finishgame` / `deletegame` + `session_logs` según DATABASE.md.
  */
-export class MongoDBAdapter implements DBAdapter {
-  private readonly client: MongoClient;
-  private db?: Db;
-  private games?: Collection<GameDocument>;
-  private sessionLogs?: Collection<SessionLogDocument>;
-  private readonly cache = new Map<string, any>();
-  private readonly logCache = new Map<string, string>();
-  private writes: Promise<void> = Promise.resolve();
-  private initialized = false;
+import { GameArchiveCategory } from './dbSyncService';
+import { buildSessionLogText } from './GameSessionLogService';
+import {
+	incrementUserStatsAfterGame,
+	recordGameParticipations,
+} from './GameParticipationService';
+import { getDb } from './mongoConnection';
+import { logger } from '../utils/logger';
+import type { ActiveRoomStatus, DBAdapter } from '../config/database';
 
-  constructor(uri: string, private readonly databaseName = 'firewall_protocol') {
-    this.client = new MongoClient(uri);
-  }
+type GameDocument = { _id: string; roomId: string; archiveCategory: string; [key: string]: unknown };
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-    await this.client.connect();
-    this.db = this.client.db(this.databaseName);
-    this.games = this.db.collection<GameDocument>('games');
-    this.sessionLogs = this.db.collection<SessionLogDocument>('session_logs');
+/** Omite campos de MongoDB y runtime antes de hidratar `GameStateModel`. */
+export function documentToGameState(doc: Record<string, unknown>): Record<string, unknown> {
+	const { _id, archiveCategory, archivedAt, createdAt, updatedAt, ...state } = doc;
+	return state;
+}
 
-    await Promise.all([
-      this.games.createIndex({ roomId: 1 }, { unique: true }),
-      this.games.createIndex({ archiveCategory: 1, updatedAt: -1 }),
-      this.games.createIndex({ phase: 1, archiveCategory: 1 }),
-      this.games.createIndex({ 'players.id': 1 }, { sparse: true }),
-      this.db.collection('roles').createIndex({ team: 1 }),
-      this.db.collection('roles').createIndex({ locale: 1, version: 1 }),
-      this.sessionLogs.createIndex({ roomId: 1 }, { unique: true }),
-      this.sessionLogs.createIndex({ archivedAt: -1 }),
-    ]);
+/** Prepara snapshot de partida para persistencia (sin socketId). */
+export function prepareGameDocument(roomId: string, state: Record<string, unknown>): Record<string, unknown> {
+	const id = roomId.trim().toUpperCase();
+	const players = ((state.players as Array<Record<string, unknown>>) ?? []).map((player) => {
+		const { socketId: _socketId, ...rest } = player;
+		return rest;
+	});
+	return {
+		...state,
+		roomId: id,
+		players,
+	};
+}
 
-    const [games, logs] = await Promise.all([
-      this.games.find({ archiveCategory: { $in: ['active', 'finishgame'] } }).toArray(),
-      this.sessionLogs.find({}).toArray(),
-    ]);
-    for (const game of games) this.cache.set(game.roomId, this.withoutMongoId(game));
-    for (const log of logs) this.logCache.set(log.roomId, log.text);
-    this.initialized = true;
-    logger.info('[db] MongoDB ready', { database: this.databaseName, games: games.length, sessionLogs: logs.length });
-  }
+function normalizeId(roomId: string): string {
+	return roomId.trim().toUpperCase();
+}
 
-  private withoutMongoId(document: GameDocument): any {
-    const { _id: _id, ...state } = document;
-    return clone(state);
-  }
+function computeRoomStatus(data: Record<string, unknown> | null, playerId?: string): ActiveRoomStatus {
+	if (!data) {
+		return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
+	}
+	const phase = (data.phase as string) ?? null;
+	const players = (data.players as Array<{ id: string; isConnected?: boolean }>) ?? [];
+	const playerCount = players.length;
+	const connectedCount = players.filter((p) => p.isConnected !== false).length;
+	const canJoin = phase === 'LOBBY';
+	const inProgress = Boolean(phase && phase !== 'LOBBY' && phase !== 'FIN');
+	const playerKnown = !playerId || players.some((p) => p.id === playerId);
+	const canReconnect = inProgress && playerKnown;
+	return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
+}
 
-  private enqueue(label: string, operation: () => Promise<unknown>): void {
-    this.writes = this.writes.then(async () => {
-      try {
-        await operation();
-      } catch (error: any) {
-        logger.error(`[db] MongoDB ${label} failed`, error?.message ?? error);
-      }
-    });
-  }
+export function createMongoDBAdapter(): DBAdapter & { warmCache(): Promise<void> } {
+	const activeCache = new Map<string, Record<string, unknown>>();
+	let writeChain: Promise<void> = Promise.resolve();
 
-  private requireCollections(): { games: Collection<GameDocument>; logs: Collection<SessionLogDocument> } {
-    if (!this.games || !this.sessionLogs) throw new Error('MongoDB adapter has not been initialized');
-    return { games: this.games, logs: this.sessionLogs };
-  }
+	function enqueueWrite(label: string, roomId: string, fn: () => Promise<void>): void {
+		writeChain = writeChain
+			.then(fn)
+			.catch((err: unknown) => {
+				const msg = err instanceof Error ? err.message : String(err);
+				logger.error(`[db:mongo] ${label} failed`, { roomId, error: msg });
+			});
+	}
 
-  save(roomId: string, state: any): boolean {
-    const { games } = this.requireCollections();
-    const now = new Date();
-    const payload = prepareGameDocument(roomId, state);
-    const existing = this.cache.get(roomId);
-    const cached = { ...payload, archiveCategory: 'active', createdAt: existing?.createdAt ?? now, updatedAt: now };
-    this.cache.set(roomId, cached);
-    this.enqueue('save', () => games.updateOne(
-      { _id: roomId },
-      {
-        $set: { ...payload, archiveCategory: 'active', updatedAt: now },
-        $setOnInsert: { _id: roomId, createdAt: now },
-        $unset: { archivedAt: '' },
-      },
-      { upsert: true },
-    ));
-    return true;
-  }
+	async function warmCache(): Promise<void> {
+		const games = getDb().collection<GameDocument>('games');
+		const docs = await games.find({ archiveCategory: 'active' }).toArray();
+		activeCache.clear();
+		for (const doc of docs) {
+			activeCache.set(doc.roomId, documentToGameState(doc) as Record<string, unknown>);
+		}
+		logger.info('[db:mongo] cache warmed', { activeGames: activeCache.size });
+	}
 
-  load(roomId: string): any | null {
-    const game = this.cache.get(roomId);
-    return game?.archiveCategory === 'active' ? clone(game) : null;
-  }
+	return {
+		warmCache,
 
-  loadOrArchive(roomId: string): any | null {
-    const game = this.cache.get(roomId);
-    return game && (game.archiveCategory === 'active' || game.archiveCategory === 'finishgame') ? clone(game) : null;
-  }
+		save(roomId: string, state: any): boolean {
+			const id = normalizeId(roomId);
+			const plain = prepareGameDocument(id, state);
+			activeCache.set(id, plain);
+			enqueueWrite('save', id, async () => {
+				const now = new Date();
+				await getDb().collection('games').updateOne(
+					{ roomId: id },
+					{
+						$set: { ...plain, roomId: id, archiveCategory: 'active', updatedAt: now },
+						$setOnInsert: { _id: id, createdAt: now },
+						$unset: { archivedAt: '' },
+					},
+					{ upsert: true },
+				);
+			});
+			logger.info('[db:mongo] save queued', {
+				roomId: id,
+				phase: plain.phase,
+				players: Array.isArray(plain.players) ? plain.players.length : 0,
+			});
+			return true;
+		},
 
-  readSessionLog(roomId: string): string | null {
-    return this.logCache.get(roomId) ?? null;
-  }
+		load(roomId: string) {
+			const id = normalizeId(roomId);
+			const data = activeCache.get(id) ?? null;
+			if (data) {
+				logger.info('[db:mongo] load OK (cache)', { roomId: id, phase: data.phase, players: (data.players as unknown[])?.length ?? 0 });
+			}
+			return data;
+		},
 
-  delete(roomId: string): boolean {
-    return this.archive(roomId, 'deletegame', { reason: 'deleted' });
-  }
+		loadOrArchive(roomId: string) {
+			const id = normalizeId(roomId);
+			return activeCache.get(id) ?? null;
+		},
 
-  archive(roomId: string, category: GameArchiveCategory, extra: Record<string, unknown> = {}): boolean {
-    const current = this.load(roomId);
-    if (!current) return false;
-    const { games, logs } = this.requireCollections();
-    const now = new Date();
-    const archived = { ...current, ...extra, archiveCategory: category, archivedAt: now, updatedAt: now };
-    this.cache.set(roomId, archived);
-    if (category === 'deletegame') this.cache.delete(roomId);
+		async loadOrArchiveAsync(roomId: string) {
+			const id = normalizeId(roomId);
+			const active = activeCache.get(id);
+			if (active) return active;
 
-    let logText: string | undefined;
-    if (category === 'finishgame') {
-      logText = buildSessionLogText(archived);
-      this.logCache.set(roomId, logText);
-    }
+			const doc = await getDb()
+				.collection<GameDocument>('games')
+				.findOne({ roomId: id, archiveCategory: 'finishgame' });
+			return doc ? (documentToGameState(doc) as Record<string, unknown>) : null;
+		},
 
-    this.enqueue('archive', async () => {
-      await games.updateOne(
-        { _id: roomId, archiveCategory: 'active' },
-        { $set: { ...extra, archiveCategory: category, archivedAt: now, updatedAt: now } },
-      );
-      if (logText) {
-        await logs.updateOne(
-          { roomId },
-          { $set: { text: logText, archivedAt: now, winner: archived.winner ?? null, soloWinner: archived.soloWinner ?? null } },
-          { upsert: true },
-        );
-      }
-    });
-    return true;
-  }
+		readSessionLog(_roomId: string) {
+			return null;
+		},
 
-  list(): string[] {
-    return [...this.cache.entries()]
-      .filter(([, game]) => game.archiveCategory === 'active')
-      .map(([roomId]) => roomId)
-      .sort();
-  }
+		async readSessionLogAsync(roomId: string) {
+			const id = normalizeId(roomId);
+			const doc = await getDb().collection<{ text?: string }>('session_logs').findOne({ roomId: id });
+			return doc?.text ?? null;
+		},
 
-  getStatus(roomId: string, playerId?: string): ActiveRoomStatus {
-    return statusFromGame(this.load(roomId), playerId);
-  }
+		delete(roomId: string): boolean {
+			const id = normalizeId(roomId);
+			activeCache.delete(id);
+			enqueueWrite('delete', id, async () => {
+				await getDb().collection('games').deleteOne({ roomId: id, archiveCategory: 'active' });
+			});
+			logger.info('[db:mongo] delete queued', { roomId: id });
+			return true;
+		},
 
-  async close(): Promise<void> {
-    await this.writes;
-    await this.client.close();
-    this.initialized = false;
-  }
+		archive(roomId: string, category: GameArchiveCategory, extra?: Record<string, unknown>): boolean {
+			const id = normalizeId(roomId);
+			const cached = activeCache.get(id);
+			activeCache.delete(id);
+
+			enqueueWrite('archive', id, async () => {
+				const games = getDb().collection<GameDocument>('games');
+				const existing = await games.findOne({ roomId: id, archiveCategory: 'active' });
+				const base = cached ?? (existing ? (documentToGameState(existing) as Record<string, unknown>) : {});
+				const now = new Date();
+				const merged = prepareGameDocument(id, { ...base, ...extra });
+				const archivedAt = now;
+
+				await games.updateOne(
+					{ roomId: id },
+					{
+						$set: {
+							...merged,
+							roomId: id,
+							archiveCategory: category,
+							archivedAt,
+							updatedAt: now,
+						},
+						$setOnInsert: { _id: id, createdAt: now },
+					},
+					{ upsert: true },
+				);
+
+				if (category === 'finishgame') {
+					const logState = {
+						...merged,
+						roomId: id,
+						archivedAt: archivedAt.toISOString(),
+						archiveCategory: category,
+					};
+					const text = buildSessionLogText(logState);
+					await getDb().collection('session_logs').updateOne(
+						{ roomId: id },
+						{
+							$set: {
+								roomId: id,
+								text,
+								archivedAt,
+								winner: merged.winner ?? null,
+								soloWinner: merged.soloWinner ?? null,
+							},
+						},
+						{ upsert: true },
+					);
+					const count = await recordGameParticipations(id, merged);
+					const players = (merged.players ?? []) as Array<{
+						userId?: string;
+						id: string;
+						team?: string;
+						role?: string;
+						isAlive?: boolean;
+						isBot?: boolean;
+					}>;
+					const mvpPlayerId = (merged.gameStats as { mvpPlayerId?: string } | undefined)?.mvpPlayerId;
+					const winner = merged.winner as string | null | undefined;
+					const soloWinner = merged.soloWinner as { playerId?: string } | null | undefined;
+					for (const p of players) {
+						if (!p.userId || p.isBot) continue;
+						await incrementUserStatsAfterGame(p.userId, {
+							won:
+								soloWinner?.playerId === p.id ||
+								(winner === 'system' && p.team === 'system' && p.isAlive !== false) ||
+								(winner === 'black_hat' && p.team === 'black_hat' && p.isAlive !== false),
+							isMvp: mvpPlayerId === p.id,
+							role: p.role,
+							team: p.team,
+						});
+					}
+					logger.info('[db:mongo] participations recorded', { roomId: id, count });
+				}
+			});
+
+			logger.info('[db:mongo] archive queued', { roomId: id, category });
+			return true;
+		},
+
+		list(): string[] {
+			return Array.from(activeCache.keys());
+		},
+
+		getStatus(roomId: string, playerId?: string): ActiveRoomStatus {
+			const id = normalizeId(roomId);
+			return computeRoomStatus(activeCache.get(id) ?? null, playerId);
+		},
+	};
 }

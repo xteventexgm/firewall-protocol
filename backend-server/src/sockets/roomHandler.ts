@@ -18,16 +18,22 @@ import {
   isValidRoomCode,
   normalizeRoomCode,
 } from '../utils/socketErrors';
+import { verifyAccessToken } from '../auth/jwt';
 
 /** Registra handlers de lobby/conexión en namespace `/game`. */
 export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, dashboardNs: Namespace) {
   logClient('mobile', 'connected', socket.id);
 
-  socket.on('joinRoom', (roomId: string, playerId: string, name?: string, opts?: { autoReconnect?: boolean }) => {
+  socket.on('joinRoom', (roomId: string, playerId: string, name?: string, opts?: { autoReconnect?: boolean; accessToken?: string }) => {
     try {
       const code = normalizeRoomCode(roomId);
       const autoReconnect = opts?.autoReconnect === true;
-      logClient('mobile', 'joinRoom', socket.id, { roomId: code, playerId, name, autoReconnect });
+      let linkedUserId: string | undefined;
+      if (opts?.accessToken) {
+        const payload = verifyAccessToken(opts.accessToken);
+        linkedUserId = payload?.sub;
+      }
+      logClient('mobile', 'joinRoom', socket.id, { roomId: code, playerId, name, autoReconnect, linkedUserId: linkedUserId ?? null });
 
       if (!isValidRoomCode(code)) {
         socket.emit(
@@ -103,9 +109,9 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
           !existing.isConnected &&
           existing.lastDisconnectReason === 'transport';
         if (isInvoluntaryReconnect) {
-          room.reconnectPlayer(playerId, socket.id, name);
+          room.reconnectPlayer(playerId, socket.id, name, linkedUserId);
         } else {
-          room.connectPlayer(playerId, socket.id, name);
+          room.connectPlayer(playerId, socket.id, name, linkedUserId);
         }
         if (previousSocketId && previousSocketId !== socket.id) {
           const oldSock = gameNs.sockets.get(previousSocketId);
@@ -120,6 +126,7 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
         });
       } else {
         const p = new Player(playerId, name || `Player-${playerId}`, socket.id);
+        if (linkedUserId) p.userId = linkedUserId;
         try {
           room.addPlayer(p);
         } catch (err) {

@@ -1,0 +1,340 @@
+import { Injectable } from '@angular/core';
+import { apiTunnelHeaders, networkErrorMessage, resolveApiBase } from '../../core/utils/api-base.utils';
+import { validatePassword } from '../../core/utils/password-policy.utils';
+
+export interface UserStats {
+  gamesPlayed: number;
+  mvpCount: number;
+  winsByTeam: Record<string, number>;
+  favoriteRoles: string[];
+}
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email?: string;
+  authProvider?: string;
+  avatarUrl?: string;
+  preferredLocale?: string;
+  stats: UserStats;
+  linkedGuestIds: string[];
+  createdAt: string;
+  lastLoginAt?: string;
+  isActive?: boolean;
+}
+
+export interface GameParticipation {
+  roomId: string;
+  playerName: string;
+  role?: string;
+  team?: string;
+  won: boolean;
+  isMvp: boolean;
+  eliminatedOnDay?: number;
+  finishedAt: string;
+}
+
+export interface UserProfileBundle {
+  user: AuthUser;
+  participations: GameParticipation[];
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  accessToken: string;
+  refreshToken: string;
+}
+
+const STORAGE_KEYS = {
+  accessToken: 'fp_accessToken',
+  refreshToken: 'fp_refreshToken',
+  user: 'fp_user',
+  avatarRev: 'fp_avatarRev',
+} as const;
+
+const SESSION_EXPIRED = 'session_expired';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private avatarBlobUrl: string | null = null;
+
+  private apiBase(): string {
+    return resolveApiBase();
+  }
+
+  private async apiFetch(url: string, init?: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, init);
+    } catch {
+      throw new Error('network_error');
+    }
+  }
+
+  private async readJson(res: Response): Promise<Record<string, unknown>> {
+    try {
+      return (await res.json()) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  private headers(json = true): Record<string, string> {
+    const h: Record<string, string> = { ...apiTunnelHeaders() };
+    if (json) h['Content-Type'] = 'application/json';
+    const token = this.getAccessToken();
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    return h;
+  }
+
+  isLoggedIn(): boolean {
+    return Boolean(this.getAccessToken() && localStorage.getItem(STORAGE_KEYS.user));
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem(STORAGE_KEYS.accessToken);
+  }
+
+  getUser(): AuthUser | null {
+    const raw = localStorage.getItem(STORAGE_KEYS.user);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as AuthUser;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Nombre visible en partidas (= username de la cuenta). */
+  getDisplayName(): string | null {
+    return this.getUser()?.username ?? null;
+  }
+
+  async checkAuthAvailable(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.apiBase()}/api/auth/status`, { headers: this.headers(false) });
+      if (!res.ok) return false;
+      const data = (await res.json()) as { enabled?: boolean };
+      return data.enabled === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Construye URL absoluta para mostrar avatar (subido o externo). */
+  resolveAvatarUrl(avatarUrl?: string, cacheBust = false): string | null {
+    if (!avatarUrl) return null;
+    const base = this.apiBase();
+    let url = avatarUrl;
+    if (url.startsWith('/')) url = `${base}${url}`;
+    else if (!/^https?:\/\//i.test(url)) url = `${base}/${url}`;
+    const rev = localStorage.getItem(STORAGE_KEYS.avatarRev);
+    if ((cacheBust || rev) && url.includes('/api/auth/avatars/')) {
+      const v = rev ?? String(Date.now());
+      const sep = url.includes('?') ? '&' : '?';
+      url = `${url}${sep}v=${v}`;
+    } else if (cacheBust) {
+      const sep = url.includes('?') ? '&' : '?';
+      url = `${url}${sep}v=${Date.now()}`;
+    }
+    return url;
+  }
+
+  /** Carga avatar subido vía fetch (más fiable en móvil/LAN que `<img src>` directo). */
+  async loadAvatarBlobUrl(avatarUrl?: string): Promise<string | null> {
+    const resolved = this.resolveAvatarUrl(avatarUrl, true);
+    if (!resolved) return null;
+    if (!resolved.includes('/api/auth/avatars/')) return resolved;
+
+    try {
+      const res = await this.apiFetch(resolved, { headers: this.headers(false) });
+      if (!res.ok) return this.avatarBlobUrl;
+      const blob = await res.blob();
+      const next = URL.createObjectURL(blob);
+      if (this.avatarBlobUrl) URL.revokeObjectURL(this.avatarBlobUrl);
+      this.avatarBlobUrl = next;
+      return this.avatarBlobUrl;
+    } catch {
+      return this.avatarBlobUrl;
+    }
+  }
+
+  revokeAvatarBlob(): void {
+    if (this.avatarBlobUrl) {
+      URL.revokeObjectURL(this.avatarBlobUrl);
+      this.avatarBlobUrl = null;
+    }
+  }
+
+  async uploadAvatar(file: File): Promise<AuthUser> {
+    const form = new FormData();
+    form.append('avatar', file, file.name || 'avatar.jpg');
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/avatar`, {
+      method: 'POST',
+      headers: this.headers(false),
+      body: form,
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'avatar_upload_failed'));
+    const user = data['user'] as AuthUser;
+    this.persistUser(user);
+    return user;
+  }
+
+  async deleteAvatar(): Promise<AuthUser | null> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/avatar`, {
+      method: 'DELETE',
+      headers: this.headers(false),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'avatar_delete_failed'));
+    this.revokeAvatarBlob();
+    const user = data['user'] as AuthUser | undefined;
+    if (user) this.persistUser(user);
+    else localStorage.removeItem(STORAGE_KEYS.user);
+    return user ?? null;
+  }
+
+  async fetchProfile(): Promise<UserProfileBundle> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/profile`, { headers: this.headers(false) });
+    const data = await this.readJson(res);
+    if (!res.ok) {
+      this.maybeLogoutOnAuthFailure(res.status, String(data['code'] ?? ''));
+      throw new Error(String(data['code'] || data['error'] || 'profile_fetch_failed'));
+    }
+    this.persistUser(data['user'] as AuthUser);
+    return data as unknown as UserProfileBundle;
+  }
+
+  async validateSession(): Promise<boolean> {
+    if (!this.isLoggedIn()) return false;
+    try {
+      await this.fetchProfile();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateAvatarUrl(avatarUrl: string): Promise<AuthUser> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/profile`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify({ avatarUrl }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_avatar_url'));
+    this.persistUser(data['user'] as AuthUser);
+    return data['user'] as AuthUser;
+  }
+
+  async updateUsername(currentPassword: string, username: string): Promise<AuthUser> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/change-username`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ currentPassword, username: username.trim() }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'username_change_failed'));
+    const user = data['user'] as AuthUser;
+    this.persistUser(user);
+    return user;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const issue = validatePassword(newPassword);
+    if (issue) throw new Error(issue);
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/change-password`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'password_change_failed'));
+  }
+
+  async register(email: string, username: string, password: string): Promise<AuthSession> {
+    const issue = validatePassword(password);
+    if (issue) throw new Error(issue);
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/register`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ email: email.trim(), username: username.trim(), password }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'register_failed'));
+    this.persistSession(data as unknown as AuthSession);
+    return data as unknown as AuthSession;
+  }
+
+  async login(email: string, password: string): Promise<AuthSession> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/login`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ login: email.trim(), password }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_credentials'));
+    this.persistSession(data as unknown as AuthSession);
+    return data as unknown as AuthSession;
+  }
+
+  mapError(code: string): string {
+    if (code === 'network_error') return networkErrorMessage();
+    return code;
+  }
+
+  async linkGuest(guestPlayerId: string): Promise<void> {
+    const res = await fetch(`${this.apiBase()}/api/auth/link-guest`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ guestPlayerId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.code || 'link_failed');
+    }
+  }
+
+  logout(): void {
+    const refresh = localStorage.getItem(STORAGE_KEYS.refreshToken);
+    if (refresh) {
+      void fetch(`${this.apiBase()}/api/auth/logout`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({ refreshToken: refresh }),
+      });
+    }
+    localStorage.removeItem(STORAGE_KEYS.accessToken);
+    localStorage.removeItem(STORAGE_KEYS.refreshToken);
+    localStorage.removeItem(STORAGE_KEYS.user);
+    localStorage.removeItem(STORAGE_KEYS.avatarRev);
+    this.revokeAvatarBlob();
+  }
+
+  private maybeLogoutOnAuthFailure(status: number, code?: string): void {
+    const expired =
+      status === 401 ||
+      status === 404 ||
+      code === 'unauthorized' ||
+      code === 'user_not_found' ||
+      code === 'invalid_refresh_token';
+    if (expired) {
+      this.logout();
+      throw new Error(SESSION_EXPIRED);
+    }
+  }
+
+  private persistSession(data: AuthSession): void {
+    localStorage.setItem(STORAGE_KEYS.accessToken, data.accessToken);
+    localStorage.setItem(STORAGE_KEYS.refreshToken, data.refreshToken);
+    this.persistUser(data.user);
+  }
+
+  private persistUser(user: AuthUser): void {
+    const prev = this.getUser()?.avatarUrl;
+    localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    if (prev !== user.avatarUrl) {
+      localStorage.setItem(STORAGE_KEYS.avatarRev, String(Date.now()));
+    }
+  }
+}

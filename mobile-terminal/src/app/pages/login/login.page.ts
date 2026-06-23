@@ -8,8 +8,16 @@ import { QrScannerService } from '../../services/qr-scanner.service';
 import { formatServerErrorForToast } from '../../core/utils/error.utils';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
+import { AccountPanelComponent } from '../../components/account-panel/account-panel.component';
 import { GameSoundService } from '../../services/game-sound.service';
+import { AuthService } from '../../services/auth/auth.service';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
+import {
+  getStoredApiUrl,
+  resolveApiBase,
+  setStoredApiUrl,
+} from '../../core/utils/api-base.utils';
+import { environment } from '../../../environments/environment';
 import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
 
 @Component({
@@ -17,7 +25,14 @@ import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
   templateUrl: './login.page.html',
   styleUrls: ['./login.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, LobbyClosedOverlayComponent, HomeAtmosphereComponent],
+  imports: [
+    IonicModule,
+    FormsModule,
+    CommonModule,
+    LobbyClosedOverlayComponent,
+    HomeAtmosphereComponent,
+    AccountPanelComponent,
+  ],
 })
 export class LoginPage implements OnInit, OnDestroy {
   roomCode = '';
@@ -30,6 +45,10 @@ export class LoginPage implements OnInit, OnDestroy {
   pendingReconnect: { roomId: string; phaseLabel: string } | null = null;
   validatingRoom = false;
   showLobbyClosedOverlay = false;
+  showAccountPanel = false;
+  accountAvatarUrl: string | null = null;
+  showServerConfig = false;
+  serverUrlInput = '';
 
   private subs = new Subscription();
 
@@ -40,10 +59,14 @@ export class LoginPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private toastController: ToastController,
     private gameSound: GameSoundService,
+    private authService: AuthService,
   ) {
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
         this.connected = c;
+        if (c && this.errorMessage.startsWith('No se pudo conectar')) {
+          this.errorMessage = '';
+        }
       }),
     );
     this.subs.add(
@@ -56,8 +79,8 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const savedName = localStorage.getItem('playerName');
-    if (savedName) this.playerName = savedName;
+    this.serverUrlInput = getStoredApiUrl() || environment.apiUrl;
+    this.syncPlayerNameFromAccount();
 
     const finished = this.route.snapshot.queryParamMap.get('finished');
     if (finished) {
@@ -77,6 +100,83 @@ export class LoginPage implements OnInit, OnDestroy {
 
     this.socketService.connect();
     void this.checkPendingReconnect();
+    void this.refreshAccountAvatar();
+    if (this.isLoggedIn) void this.validateAccountSession();
+  }
+
+  private async validateAccountSession(): Promise<void> {
+    const ok = await this.authService.validateSession();
+    if (!ok && !this.authService.isLoggedIn()) {
+      this.errorMessage = 'Tu sesión expiró o la cuenta ya no existe. Inicia sesión de nuevo.';
+    }
+    void this.refreshAccountAvatar();
+  }
+
+  private async refreshAccountAvatar(): Promise<void> {
+    if (!this.authService.isLoggedIn()) {
+      this.authService.revokeAvatarBlob();
+      this.accountAvatarUrl = null;
+      return;
+    }
+    const user = this.authService.getUser();
+    if (!user?.avatarUrl) {
+      this.authService.revokeAvatarBlob();
+      this.accountAvatarUrl = null;
+      return;
+    }
+    this.accountAvatarUrl = await this.authService.loadAvatarBlobUrl(user.avatarUrl);
+  }
+
+  get isLoggedIn(): boolean {
+    return this.authService.isLoggedIn();
+  }
+
+  get loggedInUsername(): string | null {
+    return this.authService.getDisplayName();
+  }
+
+  /** Con cuenta: no hace falta paso de alias manual. */
+  get needsAliasStep(): boolean {
+    return !this.isLoggedIn;
+  }
+
+  get activeServerUrl(): string {
+    return resolveApiBase();
+  }
+
+  saveServerUrl(): void {
+    setStoredApiUrl(this.serverUrlInput.trim());
+    this.showServerConfig = false;
+    this.errorMessage = '';
+    this.socketService.reconnect();
+    void this.showToast('URL del servidor guardada. Reconectando…', 'success');
+  }
+
+  openAccountPanel(): void {
+    this.showAccountPanel = true;
+  }
+
+  onAccountPanelClosed(): void {
+    this.showAccountPanel = false;
+  }
+
+  onAuthChanged(): void {
+    this.syncPlayerNameFromAccount();
+    if (this.isLoggedIn) {
+      this.errorMessage = '';
+    }
+    void this.refreshAccountAvatar();
+  }
+
+  private syncPlayerNameFromAccount(): void {
+    const name = this.authService.getDisplayName();
+    if (name) {
+      this.playerName = name;
+      localStorage.setItem('playerName', name);
+    } else {
+      const saved = localStorage.getItem('playerName');
+      if (saved) this.playerName = saved;
+    }
   }
 
   ngOnDestroy(): void {
@@ -100,7 +200,11 @@ export class LoginPage implements OnInit, OnDestroy {
       const status = await fetchRoomStatus(this.roomCode);
 
       if (isRoomStatusUnavailable(status)) {
-        this.step = 'alias';
+        if (this.needsAliasStep) {
+          this.step = 'alias';
+        } else {
+          void this.joinNetworkAsync();
+        }
         return;
       }
 
@@ -118,7 +222,11 @@ export class LoginPage implements OnInit, OnDestroy {
         return;
       }
 
-      this.step = 'alias';
+      if (this.needsAliasStep) {
+        this.step = 'alias';
+      } else {
+        void this.joinNetworkAsync();
+      }
     } finally {
       this.validatingRoom = false;
     }
@@ -147,13 +255,20 @@ export class LoginPage implements OnInit, OnDestroy {
     }
 
     this.roomCode = result.roomCode;
-    this.step = 'alias';
+    await this.goToAliasStep();
   }
 
   joinNetwork(): void {
-    if (!this.roomCode.trim() || !this.playerName.trim()) {
-      this.errorMessage = 'Completa el código de sala y tu alias.';
+    if (!this.roomCode.trim()) {
+      this.errorMessage = 'Ingresa el código de sala.';
       return;
+    }
+    if (this.needsAliasStep && !this.playerName.trim()) {
+      this.errorMessage = 'Ingresa tu alias de invitado.';
+      return;
+    }
+    if (!this.needsAliasStep) {
+      this.syncPlayerNameFromAccount();
     }
 
     void this.joinNetworkAsync();
@@ -162,15 +277,28 @@ export class LoginPage implements OnInit, OnDestroy {
   reconnectToActiveGame(): void {
     if (!this.pendingReconnect) return;
     this.roomCode = this.pendingReconnect.roomId;
-    const savedName = localStorage.getItem('playerName');
-    if (savedName) this.playerName = savedName;
-    this.step = 'alias';
+    this.syncPlayerNameFromAccount();
+    if (this.needsAliasStep) {
+      this.step = 'alias';
+    }
     this.joinNetwork();
   }
 
   private async joinNetworkAsync(): Promise<void> {
     this.connecting = true;
     this.errorMessage = '';
+
+    const displayName = this.needsAliasStep
+      ? this.playerName.trim()
+      : (this.authService.getDisplayName() ?? this.playerName.trim());
+
+    if (!displayName) {
+      this.connecting = false;
+      this.errorMessage = 'Inicia sesión o ingresa un alias de invitado.';
+      return;
+    }
+
+    localStorage.setItem('playerName', displayName);
 
     const status = await fetchRoomStatus(this.roomCode);
 
@@ -204,6 +332,14 @@ export class LoginPage implements OnInit, OnDestroy {
       localStorage.setItem('myPlayerId', myPlayerId);
     }
 
+    if (this.authService.isLoggedIn()) {
+      try {
+        await this.authService.linkGuest(myPlayerId);
+      } catch {
+        // No bloquea el join
+      }
+    }
+
     this.socketService.connect();
 
     const joinSub = this.socketService.connected$
@@ -220,11 +356,7 @@ export class LoginPage implements OnInit, OnDestroy {
       .subscribe((ok) => {
         if (!ok) return;
 
-        this.socketService.joinRoom(
-          this.roomCode.toUpperCase(),
-          myPlayerId,
-          this.playerName.trim(),
-        );
+        this.socketService.joinRoom(this.roomCode.toUpperCase(), myPlayerId, displayName);
 
         const stateSub = this.socketService.gameState$
           .pipe(take(1), timeout(6000))

@@ -4,6 +4,45 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ---
 
+## [Unreleased] — 2026-06-23
+
+### Persistencia MongoDB y cuentas de usuario
+
+- **Backend:** `MongoDBAdapter`, conexión obligatoria si `MONGO_URI` está definido; fallback JSON sin Mongo.
+- **Auth:** JWT, colecciones `users`, `auth_sessions`, `game_participations`; rutas `/api/auth/*`.
+- **Scripts:** `npm run db:setup`, `db:seed`, `db:migrate` (JSON → Mongo).
+- **Docker:** `backend-server/docker-compose.yml` (Mongo 7 + backend con `db:setup` automático).
+- Documentación: [`DATABASE.md`](DATABASE.md), [`MICROSERVICES.md`](MICROSERVICES.md).
+
+### Avatares y perfil (móvil)
+
+- **Avatares en disco** `data/avatars/` (PNG/JPG/WebP, máx. 2 MB); metadato en `users.avatarUrl`; endpoints `POST/DELETE /api/auth/avatar`, `GET /api/auth/avatars/:userId`.
+- **Perfil móvil:** vista resumen + *Editar perfil* (avatar, nombre de usuario, contraseña); login con **correo** obligatorio; username = nombre en partida (cambio con contraseña actual).
+- **URL backend configurable** en login (ngrok/LAN) vía `localStorage` (`fp_apiUrl`).
+- **Sesión:** cierre automático si el usuario ya no existe; limpieza de avisos y avatar del FAB al desloguear.
+- Documentación: [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) (opciones GridFS, S3, microservicios).
+
+### Web dashboard — lobby
+
+- Guías hub→slot vacías: líneas **discontinuas** y más tenues (alineadas con nodos fantasma `?`).
+- Oculto indicador de estado MongoDB en UI (solo *Servidor en línea*).
+
+### Documentación
+
+- Nuevo [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md): disco vs GridFS vs S3, backups, relación con microservicios.
+- [`DATABASE.md`](DATABASE.md) §11 avatares; [`MICROSERVICES.md`](MICROSERVICES.md) §10 blobs; enlaces en [`README.md`](README.md).
+
+### Archivos principales
+
+| Área | Archivos |
+|------|----------|
+| Mongo / auth | `MongoDBAdapter.ts`, `UserService.ts`, `auth.routes.ts`, `mongoConnection.ts` |
+| Avatares | `AvatarService.ts`, `data/avatars/` |
+| Móvil cuenta | `account-panel/`, `auth.service.ts`, `api-base.utils.ts` |
+| Docs | `STORAGE_AND_AVATARS.md`, `DATABASE.md`, `MICROSERVICES.md` |
+
+---
+
 ## [Unreleased] — 2026-06-21
 
 ### Bots de QA (Fase 1) — partida solo contra bots
@@ -151,6 +190,7 @@ Ver [`TESTING.md`](TESTING.md) §1.1 — animación de boot y layout 7 vs 8–12
 | **Socket** | Eventos, payloads, `roomBridge` |
 | **Cliente** | web-dashboard o mobile-terminal |
 | **Docs** | Archivos `.md` del repositorio |
+| **Storage / avatares** | `AvatarService`, `data/avatars/`, GridFS, S3 |
 
 Para el detalle línea a línea, consulta el historial de git y el transcript de la sesión de desarrollo.
 
