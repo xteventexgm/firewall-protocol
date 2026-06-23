@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
@@ -11,5 +11,5 @@
     "typeRoots": ["./node_modules/@types"],
     "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "scripts/**/*"]
 }
