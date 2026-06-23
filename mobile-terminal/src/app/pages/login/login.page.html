@@ -1,6 +1,24 @@
 <ion-content class="login-content scroll-page" [scrollY]="false">
   <app-home-atmosphere />
 
+  <button
+    type="button"
+    class="account-fab"
+    (click)="openAccountPanel()"
+    [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
+  >
+    <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
+    <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true">👤</span>
+    <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
+  </button>
+
+  <app-account-panel
+    *ngIf="showAccountPanel"
+    [initialView]="isLoggedIn ? 'profile' : 'auth'"
+    (closed)="onAccountPanelClosed()"
+    (authChanged)="onAuthChanged()"
+  />
+
   <div class="page-scroll login-page">
     <div class="login-shell">
       <header class="login-hero">
@@ -31,18 +49,28 @@
         >
           1 · Sala
         </button>
-        <button type="button" class="login-tab" [class.active]="step === 'alias'" disabled>
-          2 · Alias
+        <button
+          type="button"
+          class="login-tab"
+          [class.active]="step === 'alias'"
+          [class.disabled]="!needsAliasStep"
+          [disabled]="!needsAliasStep"
+        >
+          {{ needsAliasStep ? '2 · Alias' : '2 · Cuenta' }}
         </button>
       </nav>
 
       <div class="login-panel-wrap">
-        <!-- Paso 1: sala -->
         <section *ngIf="step === 'room'" class="login-panel">
           <div class="panel-head">
             <span class="panel-tag">◈ UNIRSE</span>
             <h2 class="panel-heading">Conectar a sala</h2>
             <p class="panel-hint">Escanea el QR del host o ingresa el código <strong>FIRE-XXXX</strong>.</p>
+          </div>
+
+          <div *ngIf="isLoggedIn" class="logged-banner">
+            Entrarás como: <strong>{{" " + loggedInUsername + " " }}</strong>
+            <button type="button" class="inline-link" (click)="openAccountPanel()">Editar en perfil</button>
           </div>
 
           <div *ngIf="pendingReconnect" class="reconnect-banner">
@@ -93,17 +121,16 @@
             [disabled]="!canProceedToAlias || connecting || scanning || validatingRoom"
           >
             <span class="login-cta-text">
-              {{ validatingRoom ? 'Verificando…' : 'Continuar' }}
+              {{ validatingRoom ? 'Verificando…' : (isLoggedIn ? 'Entrar a la partida' : 'Continuar') }}
             </span>
           </button>
         </section>
 
-        <!-- Paso 2: alias -->
-        <section *ngIf="step === 'alias'" class="login-panel">
+        <section *ngIf="step === 'alias' && needsAliasStep" class="login-panel">
           <div class="panel-head">
-            <span class="panel-tag">◈ IDENTIDAD</span>
-            <h2 class="panel-heading">Tu alias en la red</h2>
-            <p class="panel-hint">Este nombre verán los demás jugadores y el host.</p>
+            <span class="panel-tag">◈ INVITADO</span>
+            <h2 class="panel-heading">Alias temporal</h2>
+            <p class="panel-hint">Sin cuenta, elige un nickname para esta partida.</p>
           </div>
 
           <button type="button" class="back-link" (click)="backToRoomStep()">← Cambiar sala</button>
@@ -145,7 +172,16 @@
       </div>
 
       <footer class="login-footer">
-        <p>Escanea el QR en el dashboard del host para unirte rápido.</p>
+        <p>Invitado: alias libre. Con cuenta: entras con <strong>correo</strong>; tu <strong>nombre de usuario</strong> es el que ves en partida.</p>
+        <button type="button" class="server-config-toggle" (click)="showServerConfig = !showServerConfig">
+          {{ showServerConfig ? 'Ocultar servidor' : 'Configurar URL del servidor (ngrok)' }}
+        </button>
+        <div *ngIf="showServerConfig" class="server-config">
+          <p class="muted small">Pega la URL de ngrok del <strong>backend</strong> (puerto 3000), ej. <code>https://xxxx.ngrok-free.app</code></p>
+          <input type="url" class="terminal-input" [(ngModel)]="serverUrlInput" placeholder="https://…" />
+          <p class="muted small">Activa: {{ activeServerUrl }}</p>
+          <button type="button" class="ghost-btn" (click)="saveServerUrl()">Guardar y reconectar</button>
+        </div>
       </footer>
     </div>
   </div>

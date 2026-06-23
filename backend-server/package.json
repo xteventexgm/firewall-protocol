@@ -5,8 +5,11 @@
 	"license": "MIT",
 	"scripts": {
 		"start": "node -r ts-node/register src/server.ts",
-    "dev": "node -r ts-node/register src/server.ts",
-    "test:votes": "node -r ts-node/register src/game/voteResolution.test.ts",
+		"dev": "node -r ts-node/register src/server.ts",
+		"db:setup": "node -r ts-node/register scripts/setup-mongodb.ts",
+		"db:seed": "node -r ts-node/register scripts/seed-roles.ts",
+		"db:migrate": "node -r ts-node/register scripts/migrate-json-to-mongodb.ts",
+		"test:votes": "node -r ts-node/register src/game/voteResolution.test.ts",
     "test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
     "test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
     "test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
@@ -16,11 +19,15 @@
 	},
 	"dependencies": {
 		"body-parser": "^1.20.2",
+		"dotenv": "^16.4.7",
 		"express": "^4.18.2",
+		"mongodb": "^6.12.0",
+		"multer": "^1.4.5-lts.1",
 		"socket.io": "^4.7.2"
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.25",
+		"@types/multer": "^1.4.12",
 		"@types/node": "^20.19.43",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"

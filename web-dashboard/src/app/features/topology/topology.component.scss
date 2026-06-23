@@ -71,7 +71,9 @@
 
   &.network-ready {
     .slot-guide:not(.slot-guide-branch) {
-      opacity: 0.48;
+      stroke: #00f0ff44;
+      stroke-dasharray: 6 8;
+      opacity: 0.32;
     }
   }
 }
@@ -130,8 +132,8 @@
     filter: drop-shadow(0 0 3px rgba(0, 240, 255, 0.2));
   }
   100% {
-    opacity: 0.48;
-    stroke: #00c8e8;
+    opacity: 0.32;
+    stroke: #00f0ff44;
     filter: none;
   }
 }
@@ -176,21 +178,21 @@
 
 .slot-guide {
   fill: none;
-  stroke: #00c8e8;
-  stroke-width: 1.85;
+  stroke: #00f0ff44;
+  stroke-width: 1.5;
   stroke-linecap: round;
-  opacity: 0.52;
+  opacity: 0.32;
 
   &:not(.slot-guide-branch) {
-    stroke-dasharray: 1;
+    stroke-dasharray: 6 8;
     stroke-dashoffset: 0;
   }
 
   &.slot-guide-branch {
     stroke: #5a9aaa;
-    stroke-width: 1.5;
-    stroke-dasharray: 5 6;
-    opacity: 0.42;
+    stroke-width: 1.35;
+    stroke-dasharray: 5 7;
+    opacity: 0.28;
   }
 
   &.slot-guide-reveal {
@@ -212,7 +214,7 @@
     stroke-dashoffset: 1;
   }
   to {
-    opacity: 0.52;
+    opacity: 0.32;
     stroke-dashoffset: 0;
   }
 }

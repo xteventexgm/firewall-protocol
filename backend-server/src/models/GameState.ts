@@ -129,6 +129,7 @@ export class GameStateModel implements GameState {
       pl.joinedAt = p.joinedAt || Date.now();
       pl.metadata = p.metadata || {};
       pl.isBot = p.isBot === true;
+      pl.userId = p.userId;
       if (pl.isBot) pl.isConnected = true;
       return pl;
     });
@@ -160,6 +161,7 @@ export class GameStateModel implements GameState {
       gameStats: this.gameStats,
       lastChatSentAt: this.lastChatSentAt,
       lastVoteByPlayer: this.lastVoteByPlayer,
+      sessionThreatBrief: this.sessionThreatBrief,
     };
   }
 
@@ -310,6 +312,7 @@ export class GameStateModel implements GameState {
       joinedAt: p.joinedAt,
       metadata: p.metadata,
       isBot: p.isBot === true,
+      userId: p.userId,
     };
   }
 

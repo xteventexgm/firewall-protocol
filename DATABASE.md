@@ -3,6 +3,9 @@
 Especificación para implementar **MongoDB** como backend de persistencia del juego.  
 Sincronizado con el código en `backend-server/` (junio 2026).
 
+**Preparado por:** Steven Zambrano  
+**Script de creación:** `backend-server/scripts/setup-mongodb.ts`
+
 **Alcance de este documento**
 
 - Diseño de base de datos, colecciones, campos e índices.
@@ -556,33 +559,69 @@ Variables previstas: `JWT_SECRET`, `SESSION_SECRET` en `.env`.
 
 ---
 
-## 11. Script de seed (roles)
+## 11. Almacenamiento de avatares (archivos binarios)
 
-Al desplegar MongoDB, poblar `roles` desde el código:
+Los **metadatos** del usuario (incl. `avatarUrl`) están en la colección `users`. Los **bytes** de la imagen subida viven hoy en **disco** (`backend-server/data/avatars/`), no dentro de un documento MongoDB.
 
-1. Leer `ROLE_CATALOG` y `ROLE_NIGHT_ACTIONS` en Node.
-2. Enriquecer con `NIGHT_ACTION_HINTS` y `TEAM_LABELS` de `roleInfo.ts`.
-3. `bulkWrite` con `upsert` por `_id` = `RoleName`.
+| Campo / ruta | Contenido |
+|--------------|-----------|
+| `users.avatarUrl` | `/api/auth/avatars/<userId>` o URL externa `https://…` |
+| `data/avatars/<userId>.{jpg\|png\|webp}` | Archivo binario (máx. 2 MB) |
 
-El gameplay **no depende** de este seed mientras el backend siga importando `roles.types.ts`.
+**Backups:** incluir `mongodump` **y** la carpeta `data/avatars/` si usas subida de archivo.
 
----
-
-## 12. Checklist de implementación
-
-- [ ] Añadir `mongoose` o driver nativo `mongodb` en `backend-server`
-- [ ] Crear `MongoDBAdapter` implementando `DBAdapter`
-- [ ] Seleccionar adaptador en `config/database.ts` según `MONGO_URI`
-- [ ] Crear BD `firewall_protocol` y colección `games` con índices
-- [ ] Migrar documentos desde `data/games/*.json` (script one-shot)
-- [ ] (Opcional) Seed colección `roles`
-- [ ] (Opcional) Colección `session_logs` al archivar
-- [ ] Probar: crear sala, join móvil, reconexión, `getStatus` HTTP, archive `finishgame`
-- [ ] Mantener JSON como fallback si `MONGO_URI` no está definido
+**Evolución:** GridFS, S3 o servicio Media — ver [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) (comparativa, microservicios, roadmap).
 
 ---
 
-## 13. Referencias en el repositorio
+## 12. Scripts de creación y migración
+
+El script principal para crear la estructura de MongoDB es:
+
+```bash
+cd backend-server
+npm run db:setup
+```
+
+Ese comando ejecuta `scripts/setup-mongodb.ts` y realiza:
+
+1. Crea las colecciones `games`, `roles` y `session_logs` si aún no existen.
+2. Crea los índices recomendados de cada colección.
+3. Puebla `roles` con los 44 roles desde el código fuente (`ROLE_CATALOG`, `ROLE_NIGHT_ACTIONS` y `roleInfo.ts`).
+
+Requisitos antes de correrlo:
+
+```env
+MONGO_URI=mongodb://localhost:27017/firewall_protocol
+MONGO_DB_NAME=firewall_protocol
+```
+
+Scripts auxiliares:
+
+| Comando | Script | Uso |
+|---------|--------|-----|
+| `npm run db:setup` | `scripts/setup-mongodb.ts` | Crear colecciones, índices y seed de roles |
+| `npm run db:seed` | `scripts/seed-roles.ts` | Re-sembrar solo la colección `roles` |
+| `npm run db:migrate` | `scripts/migrate-json-to-mongodb.ts` | Migrar partidas JSON existentes hacia MongoDB |
+
+El gameplay **no depende** del seed de `roles` mientras el backend siga importando `roles.types.ts`; la colección queda lista para paneles/admin o consumo futuro.
+
+---
+
+## 13. Estado de implementación
+
+- [x] Driver nativo `mongodb` agregado en `backend-server`
+- [x] `MongoDBAdapter` implementa `DBAdapter`
+- [x] Selección automática de adaptador en `config/database.ts` según `MONGO_URI`
+- [x] Script `db:setup` para crear colecciones, índices y seed de roles
+- [x] Script `db:migrate` para migrar documentos desde `data/games/*.json`
+- [x] Colección `session_logs` al archivar partidas terminadas
+- [x] Fallback JSON cuando `MONGO_URI` no está definido
+- [ ] Validación manual pendiente: crear sala, unir móvil, reconectar, consultar `getStatus` y archivar `finishgame`
+
+---
+
+## 14. Referencias en el repositorio
 
 | Archivo | Contenido |
 |---------|-----------|
@@ -593,10 +632,16 @@ El gameplay **no depende** de este seed mientras el backend siga importando `rol
 | `backend-server/src/types/events.types.ts` | Fases, chat, stats, acciones |
 | `backend-server/src/config/database.ts` | Contrato de persistencia |
 | `backend-server/src/services/dbSyncService.ts` | Implementación JSON actual |
+| `backend-server/src/services/MongoDBAdapter.ts` | Implementación MongoDB |
+| `backend-server/scripts/setup-mongodb.ts` | Script de creación de BD, colecciones, índices y roles |
+| `backend-server/scripts/seed-roles.ts` | Seed reutilizable de `roles` |
+| `backend-server/scripts/migrate-json-to-mongodb.ts` | Migración desde JSON a MongoDB |
+| `backend-server/src/services/AvatarService.ts` | Avatares en disco (ver `STORAGE_AND_AVATARS.md`) |
+| `STORAGE_AND_AVATARS.md` | GridFS, S3, backups, relación con microservicios |
 | `backend-server/.env.example` | `MONGO_URI`, `JWT_SECRET` |
 | `SOCKET_CONTRACT.md` | Eventos socket (no persistidos como colección) |
 | `ROLES.md` | Guía de roles para humanos |
 
 ---
 
-*Última revisión: código en `backend-server` — 44 roles, fases `GamePhase`, persistencia JSON vía `DBAdapter`.*
+*Última revisión: Steven Zambrano — código en `backend-server`, 44 roles, fases `GamePhase`, persistencia MongoDB con fallback JSON vía `DBAdapter`.*

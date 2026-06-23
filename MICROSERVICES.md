@@ -2,7 +2,7 @@
 
 Recomendación técnica para evolucionar el backend (`backend-server/`) hacia escalabilidad y, opcionalmente, microservicios.
 
-**Relacionado:** [`README.md`](README.md) · [`DATABASE.md`](DATABASE.md) · [`backend-server/README.md`](backend-server/README.md)
+**Relacionado:** [`README.md`](README.md) · [`DATABASE.md`](DATABASE.md) · [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) · [`backend-server/README.md`](backend-server/README.md)
 
 **Última revisión:** junio 2026 — alineado con el código y `DATABASE.md`.
 
@@ -246,7 +246,31 @@ Menor riesgo → mayor complejidad:
 
 ---
 
-## 10. Referencias en el repositorio
+## 10. Archivos binarios (avatares) y microservicios
+
+Los avatares **no** están en MongoDB hoy: los bytes van a `data/avatars/` y en `users` solo se guarda la ruta o una URL externa. Eso **no implica** microservicio; es una decisión de **almacenamiento de blobs** en fase 0.
+
+| Enfoque | ¿Requiere microservicio? |
+|---------|---------------------------|
+| Disco local (actual) | No |
+| MongoDB GridFS en el monolito | No |
+| S3 / R2 + URL en `users.avatarUrl` | No |
+| Servicio **Media** dedicado (upload, CDN, resize) | Opcional (Fase 2–3, solo si escala) |
+
+**Auth Service** (Fase 2) podría absorber la lógica de avatar al extraer `/api/auth/*`, pero el archivo puede seguir en GridFS o S3 detrás del mismo servicio — no hace falta un microservicio solo por ser PNG.
+
+Detalle, comparativa y backups: [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md).
+
+Orden recomendado antes de Media Service:
+
+1. Centralizar blobs (GridFS o S3) en el **monolito**.
+2. Redis + sticky para salas ([§3 Fase 1](#fase-1--escalado-horizontal-del-monolito)).
+3. Extraer **Auth** si el despliegue lo exige.
+4. **Media/CDN** solo con tráfico o equipo que lo justifique.
+
+---
+
+## 11. Referencias en el repositorio
 
 | Archivo | Contenido |
 |---------|-----------|
@@ -255,6 +279,7 @@ Menor riesgo → mayor complejidad:
 | `backend-server/src/config/database.ts` | `DBAdapter` (JSON → MongoDB) |
 | `backend-server/docker-compose.yml` | Un solo servicio `backend` |
 | `DATABASE.md` | Esquema MongoDB, no microservicios |
+| `STORAGE_AND_AVATARS.md` | Avatares, GridFS, S3, cuándo Media Service |
 | `backend-server/README.md` | Roadmap Redis multi-instancia |
 
 ---

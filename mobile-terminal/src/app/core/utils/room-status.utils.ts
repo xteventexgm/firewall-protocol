@@ -1,9 +1,10 @@
-import { environment } from '../../../environments/environment';
+import { resolveApiBase, apiTunnelHeaders } from './api-base.utils';
 
 export interface RoomStatusResponse {
   exists: boolean;
   phase: string | null;
   playerCount: number;
+  connectedCount?: number;
   canJoin: boolean;
   canReconnect: boolean;
   /** true si la API no respondió (CORS/red); el join por socket sigue siendo la validación real. */
@@ -27,16 +28,10 @@ export async function fetchRoomStatus(
   roomId: string,
   playerId?: string,
 ): Promise<RoomStatusResponse> {
-  let base = environment.apiUrl.replace(/\/$/, '');
-  if (!/^https?:\/\//i.test(base)) {
-    base = `https://${base}`;
-  }
+  let base = resolveApiBase();
   const code = roomId.toUpperCase().trim();
   const query = playerId ? `?playerId=${encodeURIComponent(playerId)}` : '';
-  const headers: Record<string, string> = {};
-  if (base.toLowerCase().includes('ngrok')) {
-    headers['ngrok-skip-browser-warning'] = '69420';
-  }
+  const headers: Record<string, string> = { ...apiTunnelHeaders() };
 
   try {
     const res = await fetch(`${base}/api/games/${code}/status${query}`, { headers });

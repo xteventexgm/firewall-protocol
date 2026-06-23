@@ -11,5 +11,7 @@ yarn-error.log*
 coverage/
 logs/
 backend-server/data/*.json
+data/avatars/*
+!data/avatars/.gitkeep
 *.local
 .data/

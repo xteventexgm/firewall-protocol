@@ -1,0 +1,148 @@
+<div class="account-overlay" (click)="dismiss()">
+  <div class="account-sheet" (click)="$event.stopPropagation()">
+    <header class="sheet-header">
+      <h2>{{ sheetTitle }}</h2>
+      <button type="button" class="close-btn" (click)="dismiss()" aria-label="Cerrar">✕</button>
+    </header>
+
+    <!-- Login / Registro -->
+    <section *ngIf="view === 'auth'" class="sheet-body">
+      <p class="sheet-hint">Inicia sesión con tu correo para guardar estadísticas. También puedes jugar como invitado.</p>
+      <div class="auth-tabs">
+        <button type="button" [class.active]="authMode === 'login'" (click)="authMode = 'login'">Entrar</button>
+        <button type="button" [class.active]="authMode === 'register'" (click)="authMode = 'register'">Registro</button>
+      </div>
+      <input type="email" class="terminal-input" [(ngModel)]="authEmail" placeholder="Correo electrónico" autocomplete="email" />
+      <input *ngIf="authMode === 'register'" type="text" class="terminal-input" [(ngModel)]="authUsername" placeholder="Nombre de usuario (en partidas)" />
+      <input type="password" class="terminal-input" [(ngModel)]="authPassword" placeholder="Contraseña" autocomplete="current-password" />
+      <input *ngIf="authMode === 'register'" type="password" class="terminal-input" [(ngModel)]="authPasswordConfirm" placeholder="Confirmar contraseña" />
+      <p *ngIf="authMode === 'register'" class="muted small">{{ passwordHint }}</p>
+      <button type="button" class="primary-btn" (click)="submitAuth()" [disabled]="authBusy">
+        {{ authBusy ? 'Procesando…' : (authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta') }}
+      </button>
+      <p *ngIf="authMessage" class="msg error">{{ authMessage }}</p>
+    </section>
+
+    <!-- Perfil: vista general -->
+    <section *ngIf="view === 'profile' && profileSubView === 'overview'" class="sheet-body profile-body">
+      <div *ngIf="profileLoading" class="msg">Cargando perfil…</div>
+      <div *ngIf="profileError" class="msg error">{{ profileError }}</div>
+      <div *ngIf="profileSuccess" class="msg success">{{ profileSuccess }}</div>
+
+      <ng-container *ngIf="profile as bundle">
+        <div class="profile-hero">
+          <div class="avatar-wrap">
+            <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
+            <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
+          </div>
+          <div class="profile-id">
+            <h3>{{ bundle.user.username }}</h3>
+            <p class="muted">{{ bundle.user.email }}</p>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-val">{{ bundle.user.stats.gamesPlayed }}</span>
+            <span class="stat-lbl">Partidas</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val">{{ bundle.user.stats.mvpCount }}</span>
+            <span class="stat-lbl">MVP</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val">{{ teamWins('system') }}</span>
+            <span class="stat-lbl">Victorias System</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val">{{ teamWins('black_hat') }}</span>
+            <span class="stat-lbl">Victorias Black Hat</span>
+          </div>
+        </div>
+
+        <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles?.length">
+          <h4>Roles frecuentes</h4>
+          <p class="chip-row">
+            <span class="chip" *ngFor="let role of bundle.user.stats.favoriteRoles">{{ role }}</span>
+          </p>
+        </div>
+
+        <div class="profile-block">
+          <h4>Historial de partidas</h4>
+          <p *ngIf="!bundle.participations.length" class="muted">Aún no hay partidas registradas.</p>
+          <ul class="history-list" *ngIf="bundle.participations.length">
+            <li *ngFor="let g of bundle.participations">
+              <div class="hist-top">
+                <strong>{{ g.roomId }}</strong>
+                <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
+              </div>
+              <div class="hist-meta">
+                <span>{{ g.role || '—' }}</span>
+                <span>{{ g.team || '—' }}</span>
+                <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
+                <span *ngIf="g.isMvp" class="mvp">MVP</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="profile-block meta-block">
+          <p><span>Cuenta desde</span> {{ formatDate(bundle.user.createdAt) }}</p>
+          <p><span>Último acceso</span> {{ formatDate(bundle.user.lastLoginAt) }}</p>
+        </div>
+
+        <button type="button" class="primary-btn" (click)="openEditProfile()">Editar perfil</button>
+        <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
+      </ng-container>
+    </section>
+
+    <!-- Perfil: editar -->
+    <section *ngIf="view === 'profile' && profileSubView === 'edit'" class="sheet-body profile-body">
+      <div *ngIf="profileError" class="msg error">{{ profileError }}</div>
+
+      <ng-container *ngIf="profile as bundle">
+        <button type="button" class="back-link" (click)="cancelEdit()">← Volver al perfil</button>
+
+        <div class="profile-block avatar-block">
+          <h4>Foto de perfil</h4>
+          <p class="muted small">Solo visible aquí — no aparece en la partida.</p>
+          <div class="edit-avatar-preview">
+            <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" />
+            <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
+          </div>
+          <label class="upload-btn">
+            <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onAvatarFileSelected($event)" [disabled]="saving" />
+            Elegir foto (JPG, PNG, WebP · máx. 2 MB)
+          </label>
+          <details class="url-fallback">
+            <summary>O usar enlace externo</summary>
+            <input type="url" class="terminal-input" [(ngModel)]="avatarUrlInput" placeholder="https://…" />
+          </details>
+          <button *ngIf="displayAvatarUrl || bundle.user.avatarUrl" type="button" class="ghost-btn danger-text" (click)="markRemoveAvatar()">
+            Quitar avatar
+          </button>
+        </div>
+
+        <div class="profile-block">
+          <h4>Nombre de usuario</h4>
+          <p class="muted small">Es el nombre visible en las partidas. Para cambiarlo necesitas tu contraseña actual.</p>
+          <input type="text" class="terminal-input" [(ngModel)]="usernameInput" placeholder="Ej. node_alpha" maxlength="24" />
+        </div>
+
+        <div class="profile-block" *ngIf="bundle.user.authProvider === 'local'">
+          <h4>Seguridad</h4>
+          <input type="password" class="terminal-input" [(ngModel)]="currentPassword" placeholder="Contraseña actual (requerida para cambios)" />
+          <input type="password" class="terminal-input" [(ngModel)]="newPassword" placeholder="Nueva contraseña (opcional)" />
+          <input type="password" class="terminal-input" [(ngModel)]="newPasswordConfirm" placeholder="Confirmar nueva contraseña" />
+          <p class="muted small">{{ passwordHint }}</p>
+        </div>
+
+        <button type="button" class="primary-btn" (click)="saveProfileEdits()" [disabled]="saving">
+          {{ saving ? 'Guardando…' : 'Guardar cambios' }}
+        </button>
+        <button type="button" class="ghost-btn" (click)="cancelEdit()" [disabled]="saving">Cancelar</button>
+        <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
+      </ng-container>
+    </section>
+  </div>
+</div>

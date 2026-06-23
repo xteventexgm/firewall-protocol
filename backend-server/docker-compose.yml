@@ -1,9 +1,25 @@
 
 version: '3.8'
 services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     image: node:18
     working_dir: /usr/src/app
+    depends_on:
+      mongodb:
+        condition: service_healthy
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
@@ -12,4 +28,10 @@ services:
     environment:
       NODE_ENV: development
       PORT: "3000"
-    command: sh -c "npm install --silent && npm run dev"
+      MONGO_URI: mongodb://mongodb:27017/firewall_protocol
+      MONGO_DB_NAME: firewall_protocol
+      JWT_SECRET: dev-firewall-protocol-change-in-production
+    command: sh -c "npm install --silent && npm run db:setup && npm run dev"
+
+volumes:
+  mongo_data:

@@ -20,6 +20,8 @@ export interface PlayerProfile {
   metadata?: Record<string, any>;
   /** Jugador simulado para QA (sin socket móvil). */
   isBot?: boolean;
+  /** Vínculo a cuenta `users` cuando el jugador inició sesión. */
+  userId?: string;
 }
 
 /** Instancia mutable de jugador en runtime. */
@@ -34,6 +36,8 @@ export class Player implements PlayerProfile {
   joinedAt: number;
   metadata?: Record<string, any>;
   isBot?: boolean;
+  /** Vínculo a cuenta `users` cuando el jugador inició sesión. */
+  userId?: string;
   /** 'transport' = caída de socket; 'voluntary' = salió con leaveRoom. */
   lastDisconnectReason?: 'voluntary' | 'transport';
 
