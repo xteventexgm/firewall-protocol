@@ -12,12 +12,27 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+
   backend:
     image: node:18
     working_dir: /usr/src/app
     depends_on:
       mongodb:
         condition: service_healthy
+      minio:
+        condition: service_started
     volumes:
       - ./:/usr/src/app
       - /usr/src/app/node_modules
@@ -29,7 +44,15 @@ services:
       MONGO_URI: mongodb://mongodb:27017/firewall_protocol
       MONGO_DB_NAME: firewall_protocol
       JWT_SECRET: dev-firewall-protocol-change-in-production
+      AVATAR_STORAGE: minio
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: avatars
     command: sh -c "npm install --silent && npm run db:setup && npm run dev"
 
 volumes:
   mongo_data:
+  minio_data:

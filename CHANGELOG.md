@@ -4,6 +4,24 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ---
 
+## [Unreleased] — 2026-06-24
+
+### Documentación
+
+- Carpeta [`docs/`](docs/README.md): índice único, [`PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), roadmaps web/móvil/backend.
+- [`README.md`](README.md) y [`ROLES.md`](ROLES.md): **44 roles**, jugadores 5–16, Mongo/MinIO/auth, Docker, flujo actualizado.
+
+### UX — fin de partida
+
+- Game over móvil y web: narrativa humana; sin `Condición:` ni IDs técnicos.
+- Roadmaps ampliados (P3, preguntas equipo): [`ROADMAP_MOBILE.md`](ROADMAP_MOBILE.md), [`ROADMAP_BACKEND.md`](ROADMAP_BACKEND.md).
+
+### Sesión móvil (complemento)
+
+- Refresh proactivo al abrir/reanudar app; JWT access 24 h, refresh 90 d en `.env`.
+
+---
+
 ## [Unreleased] — 2026-06-23
 
 ### Persistencia MongoDB y cuentas de usuario
@@ -16,8 +34,10 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ### Avatares y perfil (móvil)
 
-- **Avatares en disco** `data/avatars/` (PNG/JPG/WebP, máx. 2 MB); metadato en `users.avatarUrl`; endpoints `POST/DELETE /api/auth/avatar`, `GET /api/auth/avatars/:userId`.
-- **Perfil móvil:** vista resumen + *Editar perfil* (avatar, nombre de usuario, contraseña); login con **correo** obligatorio; username = nombre en partida (cambio con contraseña actual).
+- **Avatares:** `AVATAR_STORAGE=disk` (local) o `minio` (S3-compatible); metadato en `users.avatarUrl`; proxy `GET /api/auth/avatars/:userId`.
+- **Perfil:** victorias caóticas en stats; historial con última partida + vista de 10 partidas y detalle; refresh token automático (sesión hasta cerrar sesión).
+- **En partida:** botón *Ver rol y habilidad*; textos sin markdown crudo (`**` / `` ` ``).
+- **Web dashboard:** contador gris de duración usa `gameStartedAt` (duración total de partida).
 - **URL backend configurable** en login (ngrok/LAN) vía `localStorage` (`fp_apiUrl`).
 - **Sesión:** cierre automático si el usuario ya no existe; limpieza de avisos y avatar del FAB al desloguear.
 - Documentación: [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) (opciones GridFS, S3, microservicios).
@@ -27,9 +47,9 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 - Guías hub→slot vacías: líneas **discontinuas** y más tenues (alineadas con nodos fantasma `?`).
 - Oculto indicador de estado MongoDB en UI (solo *Servidor en línea*).
 
-### Documentación
+### Documentación y roles
 
-- Nuevo [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md): disco vs GridFS vs S3, backups, relación con microservicios.
+- README y [`ROLES.md`](../ROLES.md) actualizados: **44 roles** (16 System · 14 Black Hat · 14 Caótico), jugadores 5–16, stack Mongo/MinIO.
 - [`DATABASE.md`](DATABASE.md) §11 avatares; [`MICROSERVICES.md`](MICROSERVICES.md) §10 blobs; enlaces en [`README.md`](README.md).
 
 ### Archivos principales
@@ -37,7 +57,7 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 | Área | Archivos |
 |------|----------|
 | Mongo / auth | `MongoDBAdapter.ts`, `UserService.ts`, `auth.routes.ts`, `mongoConnection.ts` |
-| Avatares | `AvatarService.ts`, `data/avatars/` |
+| Avatares | `AvatarService.ts`, `minioClient.ts`, `data/avatars/` o bucket MinIO |
 | Móvil cuenta | `account-panel/`, `auth.service.ts`, `api-base.utils.ts` |
 | Docs | `STORAGE_AND_AVATARS.md`, `DATABASE.md`, `MICROSERVICES.md` |
 

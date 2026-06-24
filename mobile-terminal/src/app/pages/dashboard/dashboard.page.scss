@@ -1958,8 +1958,86 @@
 .role-panel-compact {
   .role-name {
     font-size: 1.05rem;
-    margin-bottom: 0;
+    margin-bottom: 0.35rem;
   }
+}
+
+.role-guide-btn {
+  display: block;
+  width: 100%;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 240, 255, 0.28);
+  background: rgba(0, 240, 255, 0.06);
+  color: #8ad4e8;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.role-guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.role-guide-sheet {
+  width: 100%;
+  max-width: 26rem;
+  max-height: min(80vh, 560px);
+  overflow-y: auto;
+  border-radius: 16px 16px 12px 12px;
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  background: rgba(5, 12, 20, 0.96);
+  padding: 1rem;
+  color: #c8e6f0;
+
+  &[data-team='black_hat'] {
+    border-color: rgba(255, 80, 80, 0.35);
+  }
+
+  &[data-team='chaotic'] {
+    border-color: rgba(255, 200, 80, 0.35);
+  }
+
+  .terminal-btn {
+    width: 100%;
+    margin-top: 0.75rem;
+  }
+}
+
+.role-guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #00f0ff;
+  }
+}
+
+.role-guide-close {
+  border: none;
+  background: transparent;
+  color: #8ab4c7;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+}
+
+.role-guide-team {
+  margin: 0.25rem 0 0.85rem;
+  font-size: 0.72rem;
+  color: #8ab4c7;
 }
 
 .metrics-inline {

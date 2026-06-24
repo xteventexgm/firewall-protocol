@@ -58,6 +58,10 @@
             <span class="stat-val">{{ teamWins('black_hat') }}</span>
             <span class="stat-lbl">Victorias Black Hat</span>
           </div>
+          <div class="stat-card stat-card-wide">
+            <span class="stat-val">{{ teamWins('chaotic') }}</span>
+            <span class="stat-lbl">Victorias Caóticas</span>
+          </div>
         </div>
 
         <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles?.length">
@@ -68,22 +72,27 @@
         </div>
 
         <div class="profile-block">
-          <h4>Historial de partidas</h4>
-          <p *ngIf="!bundle.participations.length" class="muted">Aún no hay partidas registradas.</p>
-          <ul class="history-list" *ngIf="bundle.participations.length">
-            <li *ngFor="let g of bundle.participations">
-              <div class="hist-top">
-                <strong>{{ g.roomId }}</strong>
-                <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
-              </div>
-              <div class="hist-meta">
-                <span>{{ g.role || '—' }}</span>
-                <span>{{ g.team || '—' }}</span>
-                <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
-                <span *ngIf="g.isMvp" class="mvp">MVP</span>
-              </div>
-            </li>
-          </ul>
+          <h4>Última partida</h4>
+          <p *ngIf="!lastParticipation" class="muted">Aún no hay partidas registradas.</p>
+          <div *ngIf="lastParticipation as g" class="history-card">
+            <div class="hist-top">
+              <strong>{{ g.roomId }}</strong>
+              <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
+            </div>
+            <div class="hist-meta">
+              <span>{{ g.role || '—' }}</span>
+              <span>{{ formatTeam(g.team) }}</span>
+              <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
+              <span *ngIf="g.isMvp" class="mvp">MVP</span>
+            </div>
+          </div>
+          <button
+            *ngIf="totalParticipations > 0"
+            type="button"
+            class="ghost-btn history-btn"
+            (click)="openHistory()">
+            Ver historial ({{ totalParticipations > historyLimit ? historyLimit + '+' : totalParticipations }})
+          </button>
         </div>
 
         <div class="profile-block meta-block">
@@ -94,6 +103,46 @@
         <button type="button" class="primary-btn" (click)="openEditProfile()">Editar perfil</button>
         <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
       </ng-container>
+    </section>
+
+    <!-- Historial de partidas -->
+    <section *ngIf="view === 'profile' && profileSubView === 'history'" class="sheet-body profile-body">
+      <button type="button" class="back-link" (click)="backFromHistory()">← Volver al perfil</button>
+      <p *ngIf="!historyGames.length" class="muted">No hay partidas en el historial.</p>
+      <ul class="history-list history-list-full" *ngIf="historyGames.length">
+        <li *ngFor="let g of historyGames" class="history-item-btn" (click)="openHistoryDetail(g)">
+          <div class="hist-top">
+            <strong>{{ g.roomId }}</strong>
+            <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
+          </div>
+          <div class="hist-meta">
+            <span>{{ g.role || '—' }}</span>
+            <span>{{ formatTeam(g.team) }}</span>
+            <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
+            <span *ngIf="g.isMvp" class="mvp">MVP</span>
+          </div>
+        </li>
+      </ul>
+      <p *ngIf="totalParticipations > historyLimit" class="muted small">
+        Mostrando las {{ historyLimit }} partidas más recientes.
+      </p>
+    </section>
+
+    <!-- Detalle de partida -->
+    <section *ngIf="view === 'profile' && profileSubView === 'history-detail' && selectedParticipation as g" class="sheet-body profile-body">
+      <button type="button" class="back-link" (click)="backFromHistoryDetail()">← Volver al historial</button>
+      <div class="history-detail">
+        <h3 class="detail-room">{{ g.roomId }}</h3>
+        <p class="detail-date">{{ formatDate(g.finishedAt) }}</p>
+        <dl class="detail-grid">
+          <div><dt>Jugador</dt><dd>{{ g.playerName }}</dd></div>
+          <div><dt>Rol</dt><dd>{{ g.role || '—' }}</dd></div>
+          <div><dt>Equipo</dt><dd>{{ formatTeam(g.team) }}</dd></div>
+          <div><dt>Resultado</dt><dd [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</dd></div>
+          <div><dt>MVP</dt><dd>{{ g.isMvp ? 'Sí' : 'No' }}</dd></div>
+          <div *ngIf="g.eliminatedOnDay"><dt>Eliminado día</dt><dd>{{ g.eliminatedOnDay }}</dd></div>
+        </dl>
+      </div>
     </section>
 
     <!-- Perfil: editar -->

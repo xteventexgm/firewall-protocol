@@ -74,7 +74,7 @@ export async function recordGameParticipations(
 	return docs.length;
 }
 
-export async function listParticipationsByUser(userId: string, limit = 20): Promise<ParticipationDocument[]> {
+export async function listParticipationsByUser(userId: string, limit = 10): Promise<ParticipationDocument[]> {
 	if (!ObjectId.isValid(userId)) return [];
 	return participations()
 		.find({ userId: new ObjectId(userId) })
