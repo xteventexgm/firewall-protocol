@@ -1,6 +1,7 @@
 /**
  * Variables de entorno y opciones por defecto de sala.
  */
+import 'dotenv/config';
 import * as path from 'path';
 
 export const NODE_ENV = process.env.NODE_ENV || 'development';
