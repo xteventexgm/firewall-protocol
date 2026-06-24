@@ -11,22 +11,12 @@
 		"db:migrate": "node -r ts-node/register scripts/migrate-json-to-mongodb.ts",
 		"avatars:migrate-to-minio": "node -r ts-node/register scripts/migrate-avatars-to-minio.ts",
 		"test:votes": "node -r ts-node/register src/game/voteResolution.test.ts",
-<<<<<<< HEAD
 		"test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
 		"test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
 		"test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
 		"test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket",
 		"test:socket": "node -r ts-node/register src/utils/socketErrors.test.ts",
 		"qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
-=======
-    "test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
-    "test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
-    "test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
-    "test:socket": "node -r ts-node/register src/utils/socketErrors.test.ts",
-    "test:database": "node -r ts-node/register src/services/MongoDBAdapter.test.ts",
-    "test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket && npm run test:database",
-    "qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
->>>>>>> bcfa1a97330339e805975de39c89ebf7c8561856
 	},
 	"dependencies": {
 		"body-parser": "^1.20.2",
