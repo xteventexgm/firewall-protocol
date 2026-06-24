@@ -7,6 +7,7 @@
 import { PrivateResultPayload } from '../types/events.types';
 import { ROLE_NIGHT_ACTIONS } from '../types/player-metadata.types';
 import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
+import { formatRoleCopy } from '../utils/roleCopy';
 
 const TEAM_LABELS: Record<Team, string> = {
   [Team.SYSTEM]: 'Equipo Sistema (Blue Team)',
@@ -146,10 +147,10 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
     role,
     team: resolvedTeam,
     displayName: catalog.displayName,
-    description: catalog.playerGuide ?? catalog.description ?? '',
+    description: formatRoleCopy(catalog.playerGuide ?? catalog.description ?? ''),
     teamLabel: TEAM_LABELS[resolvedTeam],
     nightAction,
-    nightActionHint,
-    victoryHint: victoryHintFor(role, resolvedTeam),
+    nightActionHint: formatRoleCopy(nightActionHint),
+    victoryHint: formatRoleCopy(victoryHintFor(role, resolvedTeam)),
   };
 }

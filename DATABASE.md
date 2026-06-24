@@ -561,16 +561,14 @@ Variables previstas: `JWT_SECRET`, `SESSION_SECRET` en `.env`.
 
 ## 11. Almacenamiento de avatares (archivos binarios)
 
-Los **metadatos** del usuario (incl. `avatarUrl`) están en la colección `users`. Los **bytes** de la imagen subida viven hoy en **disco** (`backend-server/data/avatars/`), no dentro de un documento MongoDB.
+Los **metadatos** del usuario (incl. `avatarUrl`) están en la colección `users`. Los **bytes** de la imagen viven en:
 
-| Campo / ruta | Contenido |
-|--------------|-----------|
-| `users.avatarUrl` | `/api/auth/avatars/<userId>` o URL externa `https://…` |
-| `data/avatars/<userId>.{jpg\|png\|webp}` | Archivo binario (máx. 2 MB) |
+| `AVATAR_STORAGE` | Ubicación |
+|------------------|-----------|
+| `disk` (default) | `backend-server/data/avatars/` |
+| `minio` | Bucket `MINIO_BUCKET` (p. ej. `avatars`) vía SDK MinIO |
 
-**Backups:** incluir `mongodump` **y** la carpeta `data/avatars/` si usas subida de archivo.
-
-**Evolución:** GridFS, S3 o servicio Media — ver [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) (comparativa, microservicios, roadmap).
+Ver [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) §2 para variables `.env` y migración.
 
 ---
 

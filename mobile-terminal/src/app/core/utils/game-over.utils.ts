@@ -21,11 +21,16 @@ export interface SoloWinnerInfo {
   reason: string;
 }
 
-const SOLO_REASON_MESSAGES: Record<string, string> = {
-  troll_banned: 'Expulsado por votación — victoria del Troll.',
-  worm_last_standing: 'Último nodo en pie — victoria del Gusano.',
-  miner_survived: 'Supervivencia confirmada — victoria del Minero de Cripto.',
+const SOLO_VICTORY_NARRATIVE: Record<string, string> = {
+  troll_banned: 'Provocó el caos hasta ser expulsado — victoria del Troll.',
+  worm_last_standing: 'Infectó la red hasta quedar como único nodo en pie.',
+  miner_survived: 'Parasitó la infraestructura y sobrevivió como último nodo activo.',
+  chaotic_stalemate_break: 'El caos prevaleció en el desempate final de la red.',
 };
+
+function soloVictoryNarrative(reason: string): string {
+  return SOLO_VICTORY_NARRATIVE[reason] ?? 'Ha cumplido su victoria solitaria.';
+}
 
 export function buildGameOverView(
   myTeam: string | undefined,
@@ -110,11 +115,11 @@ function resolveMessage(
 ): string {
   if (soloWinner) {
     const name = players.find((p) => p.id === soloWinner.playerId)?.name ?? soloWinner.playerId;
-    const reason = SOLO_REASON_MESSAGES[soloWinner.reason] ?? `Condición: ${soloWinner.reason}`;
+    const narrative = soloVictoryNarrative(soloWinner.reason);
     if (didWin) {
-      return `Has ganado en solitario como ${soloWinner.role}. ${reason}`;
+      return `Has ganado en solitario como ${soloWinner.role}. ${narrative}`;
     }
-    return `${name} (${soloWinner.role}) ha ganado en solitario. ${reason}`;
+    return `${name} (${soloWinner.role}) ha ganado en solitario. ${narrative}`;
   }
 
   if (didWin && winner) {
@@ -186,7 +191,7 @@ function buildReveals(
 
     reveals.push({
       title: `Ganador solitario — ${soloWinner.role}`,
-      items: [soloLine, SOLO_REASON_MESSAGES[soloWinner.reason] ?? soloWinner.reason],
+      items: [soloLine, soloVictoryNarrative(soloWinner.reason)],
     });
 
     if (hackers.length) {

@@ -7,6 +7,9 @@ import { isJwtConfigured } from './auth/jwt';
 import database, { getPersistenceMode } from './config/database';
 import authRoutes from './routes/auth.routes';
 import { isMongoConnected, isMongoEnabled, getMongoLastError } from './services/mongoConnection';
+import { getAvatarStorageMode } from './services/AvatarService';
+import { isMinioAvatarStorage, isMinioConnected, getMinioLastError } from './services/minioClient';
+import { MINIO_BUCKET, MINIO_ENDPOINT, MINIO_PORT } from './config/env';
 import { isValidRoomCode, normalizeRoomCode } from './utils/socketErrors';
 
 const app = express();
@@ -43,6 +46,18 @@ app.get('/health', (_req, res) => {
 		auth: {
 			enabled: isMongoEnabled() && isJwtConfigured(),
 			guestPlayAllowed: true,
+		},
+		avatars: {
+			storage: getAvatarStorageMode(),
+			minio: isMinioAvatarStorage()
+				? {
+						configured: true,
+						connected: isMinioConnected(),
+						endpoint: `${MINIO_ENDPOINT}:${MINIO_PORT}`,
+						bucket: MINIO_BUCKET,
+						error: !isMinioConnected() ? getMinioLastError() : null,
+					}
+				: { configured: false },
 		},
 	});
 });

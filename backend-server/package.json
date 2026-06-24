@@ -9,21 +9,24 @@
 		"db:setup": "node -r ts-node/register scripts/setup-mongodb.ts",
 		"db:seed": "node -r ts-node/register scripts/seed-roles.ts",
 		"db:migrate": "node -r ts-node/register scripts/migrate-json-to-mongodb.ts",
+		"avatars:migrate-to-minio": "node -r ts-node/register scripts/migrate-avatars-to-minio.ts",
 		"test:votes": "node -r ts-node/register src/game/voteResolution.test.ts",
-    "test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
-    "test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
-    "test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
-    "test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket",
-    "test:socket": "node -r ts-node/register src/utils/socketErrors.test.ts",
-    "qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
+		"test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
+		"test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
+		"test:chat": "node -r ts-node/register src/game/ChatManager.test.ts",
+		"test": "npm run test:votes && npm run test:join && npm run test:chat && npm run test:socket",
+		"test:socket": "node -r ts-node/register src/utils/socketErrors.test.ts",
+		"qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
 	},
 	"dependencies": {
 		"body-parser": "^1.20.2",
 		"dotenv": "^16.4.7",
 		"express": "^4.18.2",
+		"minio": "^8.0.7",
 		"mongodb": "^6.12.0",
 		"multer": "^1.4.5-lts.1",
-		"socket.io": "^4.7.2"
+		"socket.io": "^4.7.2",
+		"uuid": "^14.0.1"
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.25",

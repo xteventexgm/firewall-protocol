@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Thriller de deducción social multijugador</strong> con temática de ciberseguridad.<br/>
-  5–15 jugadores · roles secretos · noche/día · votaciones · victoria en tiempo real.
+  5–16 jugadores · 44 roles · noche/día · votaciones · victoria en tiempo real.
 </p>
 
 <p align="center">
@@ -21,44 +21,57 @@
 
 ## Qué es el juego
 
-**Firewall Protocol** es un juego de mesa digital inspirado en *Mafia* / *Werewolf*, ambientado en un datacenter bajo ataque. Los jugadores son **nodos de una red**: administradores, analistas, hackers y roles caóticos con agendas propias.
+**Firewall Protocol** es un juego de mesa digital inspirado en *Mafia* / *Werewolf*, ambientado en un datacenter bajo ataque. Los jugadores son **nodos de una red**: defensores del Sistema, hackers Black Hat y agentes **caóticos** con victorias solitarias.
 
 | Elemento | Descripción |
 |----------|-------------|
-| **Equipos** | **System** (defensa), **Black Hat** (ataque) y roles **Caóticos** con victorias solitarias |
-| **Ciclo** | **Noche** (acciones secretas en el móvil) → **Día** (debate e incidentes) → **Votación** (expulsar sospechosos) |
-| **Roles** | 16 roles únicos: escaneos SOC, antivirus, honeypots, ransomware, gusano, minero de cripto, etc. |
-| **Host** | Una pantalla grande (PC/TV) muestra la topología, votos y logs públicos — **sin revelar roles vivos** |
-| **Jugadores** | Cada uno usa su teléfono como terminal secreta: rol, acciones nocturnas, chat y votos |
+| **Equipos** | **System** (defensa), **Black Hat** (ataque) y **Caótico** (agendas independientes) |
+| **Ciclo** | **Noche** (acciones secretas en el móvil) → **Día** (debate e incidentes) → **Votación** (expulsar sospechosos) → **Verificación** |
+| **Roles** | **44 roles** en catálogo (16 System · 14 Black Hat · 14 Caótico); en cada partida se reparten sin repetir hasta agotar el pool del bando |
+| **Host** | Pantalla grande (PC/TV): topología, votos, logs SIEM — **sin revelar roles vivos** |
+| **Jugadores** | Teléfono como terminal: rol, acciones, chat, votos; cuenta opcional para historial y avatar |
+| **Cuentas** | Jugar como **invitado** o registrarse (correo); sesión persistente; perfil con estadísticas e historial |
 
-La partida termina cuando un bando cumple su condición de victoria o un rol solitario gana (Troll baneado, Gusano/Minero último superviviente, etc.). Ver [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) y [`ROLES.md`](ROLES.md).
+La partida termina cuando un bando gana (System / Black Hat) o un rol **solitario** (Troll, Gusano, Minero, desempate caótico tardío, Zero-Day heredado, etc.). Ver [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) y [`ROLES.md`](ROLES.md).
+
+### Balance por tamaño de mesa
+
+| Parámetro | Regla |
+|-----------|--------|
+| Jugadores | 5–16 (`MIN_PLAYERS` / `MAX_PLAYERS`) |
+| Black Hat | ~1 cada 4 jugadores (≤8) o cada 3 (9+) |
+| Caóticos | ~1 cada 5 jugadores |
+| Resto | System (Antivirus, SOC, Parcheador, etc.) |
+
+Detalle en `backend-server/src/game/balance.ts`.
 
 ---
 
 ## Arquitectura
 
-Monorepo con tres aplicaciones y un contrato socket compartido:
+Monorepo: **tres clientes** + **un backend monolítico** (microservicios planificados, no desplegados). Ver [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 
 ```
-┌─────────────────┐     Socket.io /game      ┌──────────────────┐
-│  mobile-terminal │ ◄──────────────────────► │                  │
-│  (Ionic/Angular) │                          │  backend-server  │
-└─────────────────┘                          │  Node + Socket.io│
-                                             │                  │
-┌─────────────────┐   Socket.io /dashboard   │                  │
-│  web-dashboard  │ ◄──────────────────────► │                  │
-│  (Angular)      │                          └────────┬─────────┘
-└─────────────────┘                                   │
-                                              Persistencia: MongoDB
-                                              (o JSON en data/games/)
-                                              Avatares: data/avatars/
+┌─────────────────┐     Socket.io /game      ┌──────────────────────────┐
+│  mobile-terminal │ ◄──────────────────────► │                          │
+│  (Ionic/Angular) │                          │    backend-server        │
+└─────────────────┘                          │    Node + Express        │
+                                             │    Socket.io             │
+┌─────────────────┐   Socket.io /dashboard   │                          │
+│  web-dashboard  │ ◄──────────────────────► └───────────┬──────────────┘
+│  (Angular)      │                                      │
+└─────────────────┘                          ┌───────────┴──────────────┐
+                                             │ MongoDB    MinIO (opt.) │
+                                             │ partidas   avatares      │
+                                             │ usuarios   JSON fallback │
+                                             └──────────────────────────┘
 ```
 
 | Carpeta | Rol | Audiencia |
 |---------|-----|-----------|
-| [`backend-server/`](backend-server/) | Autoridad del juego: fases, reglas, victoria, chat | Servidor |
-| [`mobile-terminal/`](mobile-terminal/) | Terminal del jugador: login, rol, acciones, chat | Teléfonos |
-| [`web-dashboard/`](web-dashboard/) | Centro de mando: QR, topología 3D, host, replay | PC / TV |
+| [`backend-server/`](backend-server/) | Motor de juego, auth, persistencia, bots QA | Servidor |
+| [`mobile-terminal/`](mobile-terminal/) | Terminal del jugador: login, rol, acciones, cuenta | Teléfonos |
+| [`web-dashboard/`](web-dashboard/) | Host/TV: QR, topología, SIEM, replay, bots | PC / proyector |
 
 **Contrato de eventos:** [`SOCKET_CONTRACT.md`](SOCKET_CONTRACT.md)  
 **Tipos canónicos:** [`backend-server/src/types/events.types.ts`](backend-server/src/types/events.types.ts)
@@ -67,17 +80,26 @@ Monorepo con tres aplicaciones y un contrato socket compartido:
 
 ## Inicio rápido
 
-### 1. Backend (obligatorio)
+### Opción A — Docker (Mongo + MinIO + backend)
 
 ```bash
 cd backend-server
+docker compose up
+```
+
+Backend en `http://localhost:3000`, Mongo en `27017`, MinIO en `9000` (consola `9001`).
+
+### Opción B — Local
+
+```bash
+cd backend-server
+cp .env.example .env    # ajusta MONGO_URI, JWT_SECRET, AVATAR_STORAGE
 npm install
+npm run db:setup        # requiere Mongo
 npm run dev
 ```
 
-Servidor en `http://localhost:3000`. Ver [`backend-server/README.md`](backend-server/README.md).
-
-### 2. Dashboard (host)
+### Dashboard (host)
 
 ```bash
 cd web-dashboard
@@ -85,9 +107,9 @@ npm install
 ng serve
 ```
 
-Abre `http://localhost:4200` → crea sala → muestra QR/código `FIRE-XXXX`.
+`http://localhost:4200` → crear sala → QR / código `FIRE-XXXX`.
 
-### 3. Terminal móvil (jugadores)
+### Terminal móvil (jugadores)
 
 ```bash
 cd mobile-terminal
@@ -95,45 +117,45 @@ npm install
 ionic serve
 ```
 
-En red local, apunta la URL del socket al IP del servidor. En producción, compila con Capacitor para Android/iOS. Ver [`mobile-terminal/README.md`](mobile-terminal/README.md).
+En LAN: configurar URL del backend en login (ngrok/LAN) o `environment.ts`. Build nativo: Capacitor (`ionic cap`).
 
 ### Prueba en red externa
 
-Si los móviles no están en la misma LAN, expón el backend con un túnel (ngrok, localtunnel, etc.) y configura la URL en `environment.ts` de cada cliente.
+Túnel (ngrok, etc.) hacia el puerto **3000**; en el móvil guarda la URL en la pantalla de login (`fp_apiUrl`).
 
 ---
 
 ## Flujo típico de una partida
 
-1. **Host** crea sala en web-dashboard (5–15 jugadores).
-2. **Jugadores** escanean QR o ingresan `FIRE-XXXX` en el móvil.
-3. **Host** pulsa *Iniciar partida* → reparto automático de roles.
-4. Cada móvil muestra briefing de rol; la TV muestra *RED COMPROMETIDA*.
-5. **Noche:** jugadores con habilidad actúan desde el móvil; la TV muestra progreso.
-6. **Día:** reporte de incidentes (bajas nocturnas sin revelar atacante).
-7. **Votación:** expulsión por mayoría; posible victoria inmediata si se cumple condición.
-8. **Fin:** overlay de victoria en todos los dispositivos; host puede exportar replay JSON.
+1. **Host** crea sala en web-dashboard (5–16 jugadores).
+2. **Jugadores** escanean QR o ingresan `FIRE-XXXX` en el móvil (invitado o con cuenta).
+3. **Host** inicia → overlay *Distribuyendo roles* en TV; reparto automático sin repetir rol en el mismo bando.
+4. **Móvil:** briefing de credencial (~20 s) + amenaza por equipo; botón *Ver rol y habilidad* durante la partida.
+5. **Noche:** acciones secretas; minijuegos (skill checks) en algunos roles; TV muestra progreso.
+6. **Día:** incidentes (bajas sin revelar atacante); debate en chat público.
+7. **Votación:** expulsión por mayoría; posible victoria inmediata.
+8. **Fin:** overlay narrativo en todos los dispositivos; replay JSON / `.log`; historial en cuenta si estabas logueado.
 
-Guía de QA paso a paso: [`TESTING.md`](TESTING.md).
+Bots QA y partida automática: [`TESTING.md`](TESTING.md).
 
 ---
 
 ## Documentación
 
+**Índice del equipo:** [`docs/README.md`](docs/README.md) · [**Estado del proyecto**](docs/PROJECT_STATUS.md) · [Roadmap web](docs/ROADMAP_WEB_DASHBOARD.md) · [Roadmap móvil](docs/ROADMAP_MOBILE.md) · [Roadmap backend](docs/ROADMAP_BACKEND.md)
+
 | Documento | Contenido |
 |-----------|-----------|
-| [`ROLES.md`](ROLES.md) | Catálogo de los 16 roles, habilidades y victorias |
-| [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) | Condiciones de victoria/derrota y orden de evaluación |
+| [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | Qué cumple hoy (BD, clientes, monolito vs microservicios) |
+| [`ROLES.md`](ROLES.md) | Catálogo de **44 roles**, habilidades y victorias |
+| [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) | Condiciones de victoria y orden de evaluación |
 | [`SOCKET_CONTRACT.md`](SOCKET_CONTRACT.md) | Eventos Socket.io (`/game` y `/dashboard`) |
-| [`TESTING.md`](TESTING.md) | Checklist manual de pruebas |
-| [`CHANGELOG.md`](CHANGELOG.md) | Historial de cambios del proyecto |
-| [`DATABASE.md`](DATABASE.md) | Esquema MongoDB, auth, scripts `db:*` |
-| [`MICROSERVICES.md`](MICROSERVICES.md) | Evolución monolito → Redis → microservicios |
-| [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) | Avatares, GridFS, S3 y backups |
-| [`SOUND_AI_PROMPTS.md`](SOUND_AI_PROMPTS.md) | Prompts para generar efectos de sonido con IA |
-| [`backend-server/README.md`](backend-server/README.md) | API, motor de reglas, persistencia |
-| [`web-dashboard/README.md`](web-dashboard/README.md) | Dashboard host, build y despliegue |
-| [`mobile-terminal/README.md`](mobile-terminal/README.md) | App Ionic, Capacitor y pantalla completa |
+| [`DATABASE.md`](DATABASE.md) | MongoDB, auth, colecciones, scripts `db:*` |
+| [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) | Avatares MinIO / disco |
+| [`MICROSERVICES.md`](MICROSERVICES.md) | Roadmap monolito → Redis → servicios |
+| [`TESTING.md`](TESTING.md) | QA manual y bots |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial de cambios |
+| README por app | [`backend-server/`](backend-server/README.md) · [`web-dashboard/`](web-dashboard/README.md) · [`mobile-terminal/`](mobile-terminal/README.md) |
 
 ---
 
@@ -141,24 +163,27 @@ Guía de QA paso a paso: [`TESTING.md`](TESTING.md).
 
 | Capa | Tecnologías |
 |------|-------------|
-| Backend | TypeScript, Node.js, Express, Socket.io |
-| Web dashboard | Angular 20, Three.js (topología 3D), Tailwind |
+| Backend | TypeScript, Node.js, Express, Socket.io, MongoDB driver |
+| Web dashboard | Angular 20, topología 2D/3D, Tailwind |
 | Mobile terminal | Ionic, Angular, Capacitor, Socket.io-client |
-| Datos | JSON en disco (`data/games/`), preparado para MongoDB |
+| Datos | MongoDB (`MONGO_URI`), fallback JSON; **MinIO** avatares (`AVATAR_STORAGE=minio`) |
+| Auth | JWT + refresh (90 d), cuentas, `game_participations` |
 
 ---
 
 ## Estado del proyecto
 
-Proyecto de grado — **Programación Móvil**. El backend es la fuente de verdad del estado; los clientes son vistas sincronizadas en tiempo real.
+Proyecto de grado — **Programación Móvil**. El backend es la fuente de verdad; los clientes son vistas en tiempo real.
 
-Funcional hoy: matchmaking, 16 roles, noche/día/votación, minijuegos (skill checks), chat por canales, victoria, reconexión, persistencia y export de replay.
+**Detalle:** [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
 
-Pendiente / roadmap: JWT en sockets, tests automatizados amplios, MongoDB, despliegue multi-instancia.
+**Funcional hoy:** 44 roles, fases completas, minijuegos, chat multicanal, victoria, reconexión, MongoDB, cuentas e historial, avatares MinIO, bots QA, persistencia y replay, sesión móvil larga.
+
+**Arquitectura:** monolito + Mongo + MinIO; microservicios documentados para evolución futura.
 
 ---
 
 ## Licencia y créditos
 
-Proyecto académico — *Firewall Protocol Master Document (GDD)*.  
+Proyecto académico — *Firewall Protocol Master Document (GDD)*, ampliado a catálogo de 44 roles.  
 Desarrollo colaborativo: backend, dashboard web y terminal móvil.

@@ -14,14 +14,61 @@ Guía sobre **dónde viven los datos**, por qué los avatares están en disco ho
 |--------------|----------------|--------------|
 | Partidas activas/archivadas | Colección `games` | Sí |
 | Usuarios, sesiones, historial | `users`, `auth_sessions`, `game_participations` | Sí |
-| **Archivos de avatar (PNG/JPG/WebP)** | **Disco** `backend-server/data/avatars/` | **No** (solo la ruta en `users.avatarUrl`) |
+| **Archivos de avatar (PNG/JPG/WebP)** | **MinIO** (bucket `avatars`) o **disco** `data/avatars/` según `AVATAR_STORAGE` | **No** (solo la ruta en `users.avatarUrl`) |
 | Partidas sin Mongo (`MONGO_URI` vacío) | JSON `data/games/*.json` | No |
 
 **Los avatares en disco no es un requisito de diseño permanente** — es la opción más simple para la fase actual del proyecto (monolito, LAN, pocos usuarios). Se puede migrar a MongoDB GridFS o a almacenamiento en nube **sin** dividir en microservicios.
 
+**Almacenamiento configurable:** `AVATAR_STORAGE=disk` (default) o `minio`. MinIO vive en el **monolito** (no hace falta microservicio solo por avatares). Ver §2.1.
+
 ---
 
-## 2. Por qué los avatares están en disco (implementación actual)
+## 2. Implementación actual (`AVATAR_STORAGE`)
+
+| Modo | Variable | Dónde van los bytes |
+|------|----------|---------------------|
+| **Disco** (default) | `AVATAR_STORAGE=disk` | `backend-server/data/avatars/<userId>.{ext}` |
+| **MinIO** | `AVATAR_STORAGE=minio` + `MINIO_*` | Bucket S3 (`MINIO_BUCKET`, p. ej. `avatars`) |
+
+Código: `AvatarService.ts`, `minioClient.ts`, rutas en `auth.routes.ts`.
+
+El móvil **siempre** consume `GET /api/auth/avatars/:userId` — el backend hace de **proxy** hacia disco o MinIO; el cliente no habla con el puerto 9000.
+
+### 2.1 MinIO en el monolito (no microservicio)
+
+MinIO es un **servicio de infraestructura** (como MongoDB), no un microservicio de aplicación. El backend sube con el SDK `minio` y sirve por la misma API HTTP.
+
+```env
+AVATAR_STORAGE=minio
+MINIO_ENDPOINT=localhost      # en Docker Compose: minio
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=avatars
+```
+
+**Arranque local:**
+
+```bash
+cd backend-server
+docker compose up minio -d    # consola web :9001
+npm start
+```
+
+**Migrar avatares ya en disco:**
+
+```bash
+AVATAR_STORAGE=minio npm run avatars:migrate-to-minio
+```
+
+**Health:** `GET /health` incluye `avatars.storage` y estado MinIO.
+
+Un **Media microservicio** separado solo tendría sentido con mucho tráfico de uploads, CDN propia o equipo que despliegue auth/assets aparte del juego ([`MICROSERVICES.md`](MICROSERVICES.md) Fase 2–3).
+
+---
+
+## 3. Por qué el disco sigue siendo el fallback por defecto
 
 Código: `backend-server/src/services/AvatarService.ts`
 

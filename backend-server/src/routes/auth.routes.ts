@@ -25,9 +25,9 @@ import { listParticipationsByUser } from '../services/GameParticipationService';
 import {
 	AVATAR_MAX_BYTES,
 	deleteAvatarFiles,
-	findAvatarFile,
 	resolveAvatarUrl,
 	saveAvatarFile,
+	serveAvatarFile,
 } from '../services/AvatarService';
 import { logger } from '../utils/logger';
 import multer from 'multer';
@@ -207,7 +207,7 @@ router.patch('/profile', async (req, res) => {
 		res.status(400).json({ error: 'avatarUrl debe ser un enlace http(s)', code: 'invalid_avatar_url' });
 		return;
 	}
-	if (avatarUrl) deleteAvatarFiles(userId);
+	if (avatarUrl) await deleteAvatarFiles(userId);
 	await getDb()
 		.collection('users')
 		.updateOne(
@@ -288,7 +288,7 @@ router.post('/avatar', (req, res, next) => {
 		return;
 	}
 	try {
-		const apiPath = saveAvatarFile(userId, req.file.buffer, req.file.mimetype);
+		const apiPath = await saveAvatarFile(userId, req.file.buffer, req.file.mimetype);
 		await getDb().collection('users').updateOne({ _id: new ObjectId(userId) }, { $set: { avatarUrl: apiPath } });
 		const user = await getPublicUser(userId);
 		res.json({ user: user ? enrichUserAvatar(user) : null });
@@ -307,27 +307,21 @@ router.delete('/avatar', async (req, res) => {
 		res.status(401).json({ error: 'Token inválido', code: 'unauthorized' });
 		return;
 	}
-	deleteAvatarFiles(userId);
+	await deleteAvatarFiles(userId);
 	await getDb().collection('users').updateOne({ _id: new ObjectId(userId) }, { $unset: { avatarUrl: '' } });
 	const user = await getPublicUser(userId);
 	res.json({ user: user ? enrichUserAvatar(user) : null });
 });
 
-/** Sirve avatar subido (público por userId). */
-router.get('/avatars/:userId', (req, res) => {
+/** Sirve avatar subido (público por userId; proxy desde disco o MinIO). */
+router.get('/avatars/:userId', async (req, res) => {
 	const userId = String(req.params.userId ?? '');
 	if (!ObjectId.isValid(userId)) {
 		res.status(404).end();
 		return;
 	}
-	const found = findAvatarFile(userId);
-	if (!found) {
-		res.status(404).end();
-		return;
-	}
-	res.setHeader('Content-Type', found.mime);
-	res.setHeader('Cache-Control', 'public, max-age=300');
-	res.sendFile(found.filePath);
+	const served = await serveAvatarFile(userId, res);
+	if (!served) res.status(404).end();
 });
 
 router.post('/link-guest', async (req, res) => {

@@ -101,7 +101,12 @@ export class LoginPage implements OnInit, OnDestroy {
     this.socketService.connect();
     void this.checkPendingReconnect();
     void this.refreshAccountAvatar();
-    if (this.isLoggedIn) void this.validateAccountSession();
+    if (this.isLoggedIn) void this.bootstrapAccountSession();
+  }
+
+  private async bootstrapAccountSession(): Promise<void> {
+    await this.authService.ensureSessionFresh();
+    await this.validateAccountSession();
   }
 
   private async validateAccountSession(): Promise<void> {

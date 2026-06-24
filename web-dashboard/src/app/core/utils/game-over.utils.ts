@@ -13,12 +13,16 @@ function resolvePlayerTeam(player: PublicPlayer): Team | null {
   return player.team ?? roleTeamHint(player.role);
 }
 
-const SOLO_REASON_MESSAGES: Record<string, string> = {
-  troll_banned: 'Expulsado por votación — victoria del Troll.',
-  worm_last_standing: 'Último nodo en pie — victoria del Gusano.',
-  miner_survived: 'Supervivencia confirmada — victoria del Minero de Cripto.',
-  chaotic_stalemate_break: 'Desempate tardío — victoria caótica.',
+const SOLO_VICTORY_NARRATIVE: Record<string, string> = {
+  troll_banned: 'Provocó el caos hasta ser expulsado — victoria del Troll.',
+  worm_last_standing: 'Infectó la red hasta quedar como único nodo en pie.',
+  miner_survived: 'Parasitó la infraestructura y sobrevivió como último nodo activo.',
+  chaotic_stalemate_break: 'El caos prevaleció en el desempate final de la red.',
 };
+
+function soloVictoryNarrative(reason: string): string {
+  return SOLO_VICTORY_NARRATIVE[reason] ?? 'Ha cumplido su victoria solitaria.';
+}
 
 export function buildHostGameOverSummary(
   payload: GameOverPayload,
@@ -31,7 +35,7 @@ export function buildHostGameOverSummary(
   if (soloWinner) {
     const player = players.find((p) => p.id === soloWinner.playerId);
     const playerName = player?.name ?? soloWinner.playerId;
-    const reason = SOLO_REASON_MESSAGES[soloWinner.reason] ?? soloWinner.reason;
+    const reason = soloVictoryNarrative(soloWinner.reason);
     return {
       headline: `Victoria solitaria — ${playerName}`,
       message: `${soloWinner.role}. ${reason}`,
@@ -126,7 +130,7 @@ function buildHostReveals(
       title: `Ganador solitario — ${soloWinner.role}`,
       items: [
         soloPlayer ? formatPlayerReveal(soloPlayer) : `${soloWinner.playerId} — ${soloWinner.role}`,
-        SOLO_REASON_MESSAGES[soloWinner.reason] ?? soloWinner.reason,
+        soloVictoryNarrative(soloWinner.reason),
       ],
     });
   }

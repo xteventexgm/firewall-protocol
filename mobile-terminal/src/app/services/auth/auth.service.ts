@@ -57,6 +57,7 @@ const SESSION_EXPIRED = 'session_expired';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private avatarBlobUrl: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   private apiBase(): string {
     return resolveApiBase();
@@ -68,6 +69,104 @@ export class AuthService {
     } catch {
       throw new Error('network_error');
     }
+  }
+
+  /** Reintenta con refresh token si el access JWT expiró (sesión hasta cerrar sesión). */
+  private async authorizedFetch(url: string, init?: RequestInit): Promise<Response> {
+    let res = await this.apiFetch(url, init);
+    if (res.status !== 401 || !localStorage.getItem(STORAGE_KEYS.refreshToken)) {
+      return res;
+    }
+    const refreshed = await this.refreshAccessToken();
+    if (!refreshed) return res;
+    const retryInit = { ...init, headers: this.mergeAuthHeaders(init?.headers) };
+    return this.apiFetch(url, retryInit);
+  }
+
+  private mergeAuthHeaders(existing?: HeadersInit): Record<string, string> {
+    const base = this.headers(false);
+    if (!existing) return base;
+    if (existing instanceof Headers) {
+      existing.forEach((v, k) => {
+        base[k] = v;
+      });
+      return base;
+    }
+    if (Array.isArray(existing)) {
+      for (const [k, v] of existing) base[k] = v;
+      return base;
+    }
+    return { ...base, ...existing };
+  }
+
+  async refreshAccessToken(): Promise<boolean> {
+    if (this.refreshPromise) return this.refreshPromise;
+    this.refreshPromise = this.doRefreshAccessToken();
+    try {
+      return await this.refreshPromise;
+    } finally {
+      this.refreshPromise = null;
+    }
+  }
+
+  private async doRefreshAccessToken(): Promise<boolean> {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.refreshToken);
+    if (!refreshToken) return false;
+    try {
+      const res = await this.apiFetch(`${this.apiBase()}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { ...apiTunnelHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const data = await this.readJson(res);
+      if (!res.ok) return false;
+      localStorage.setItem(STORAGE_KEYS.accessToken, String(data['accessToken'] ?? ''));
+      if (data['refreshToken']) {
+        localStorage.setItem(STORAGE_KEYS.refreshToken, String(data['refreshToken']));
+      }
+      if (data['user']) this.persistUser(data['user'] as AuthUser);
+      return Boolean(data['accessToken']);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Decodifica `exp` del JWT de acceso (sin verificar firma — solo UX local). */
+  private getAccessTokenExpiresAt(token: string): number | null {
+    try {
+      const segment = token.split('.')[1];
+      if (!segment) return null;
+      const padded = segment.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(padded)) as { exp?: number };
+      return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isAccessTokenExpiringSoon(token: string, bufferMs = 10 * 60 * 1000): boolean {
+    const exp = this.getAccessTokenExpiresAt(token);
+    if (!exp) return true;
+    return exp <= Date.now() + bufferMs;
+  }
+
+  /**
+   * Renueva tokens al abrir o reanudar la app, antes de que caduque el access.
+   * Cada refresh exitoso rota el refresh en Mongo y extiende su validez (p. ej. +90 días).
+   */
+  async ensureSessionFresh(): Promise<boolean> {
+    if (!localStorage.getItem(STORAGE_KEYS.user)) return false;
+
+    const refresh = localStorage.getItem(STORAGE_KEYS.refreshToken);
+    if (!refresh) return Boolean(this.getAccessToken());
+
+    const access = this.getAccessToken();
+    const shouldRefresh = !access || this.isAccessTokenExpiringSoon(access);
+    if (!shouldRefresh) return true;
+
+    const ok = await this.refreshAccessToken();
+    if (ok) return true;
+    return Boolean(this.getAccessToken());
   }
 
   private async readJson(res: Response): Promise<Record<string, unknown>> {
@@ -87,7 +186,9 @@ export class AuthService {
   }
 
   isLoggedIn(): boolean {
-    return Boolean(this.getAccessToken() && localStorage.getItem(STORAGE_KEYS.user));
+    const hasUser = Boolean(localStorage.getItem(STORAGE_KEYS.user));
+    const hasSession = Boolean(this.getAccessToken() || localStorage.getItem(STORAGE_KEYS.refreshToken));
+    return hasUser && hasSession;
   }
 
   getAccessToken(): string | null {
@@ -168,7 +269,7 @@ export class AuthService {
   async uploadAvatar(file: File): Promise<AuthUser> {
     const form = new FormData();
     form.append('avatar', file, file.name || 'avatar.jpg');
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/avatar`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/avatar`, {
       method: 'POST',
       headers: this.headers(false),
       body: form,
@@ -181,7 +282,7 @@ export class AuthService {
   }
 
   async deleteAvatar(): Promise<AuthUser | null> {
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/avatar`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/avatar`, {
       method: 'DELETE',
       headers: this.headers(false),
     });
@@ -195,7 +296,7 @@ export class AuthService {
   }
 
   async fetchProfile(): Promise<UserProfileBundle> {
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/profile`, { headers: this.headers(false) });
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/profile`, { headers: this.headers(false) });
     const data = await this.readJson(res);
     if (!res.ok) {
       this.maybeLogoutOnAuthFailure(res.status, String(data['code'] ?? ''));
@@ -206,17 +307,27 @@ export class AuthService {
   }
 
   async validateSession(): Promise<boolean> {
-    if (!this.isLoggedIn()) return false;
+    if (!localStorage.getItem(STORAGE_KEYS.refreshToken) && !this.getAccessToken()) return false;
+    if (!localStorage.getItem(STORAGE_KEYS.user)) return false;
+    await this.ensureSessionFresh();
     try {
       await this.fetchProfile();
       return true;
     } catch {
+      if (await this.refreshAccessToken()) {
+        try {
+          await this.fetchProfile();
+          return true;
+        } catch {
+          return false;
+        }
+      }
       return false;
     }
   }
 
   async updateAvatarUrl(avatarUrl: string): Promise<AuthUser> {
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/profile`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/profile`, {
       method: 'PATCH',
       headers: this.headers(),
       body: JSON.stringify({ avatarUrl }),
@@ -228,7 +339,7 @@ export class AuthService {
   }
 
   async updateUsername(currentPassword: string, username: string): Promise<AuthUser> {
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/change-username`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/change-username`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ currentPassword, username: username.trim() }),
@@ -243,7 +354,7 @@ export class AuthService {
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     const issue = validatePassword(newPassword);
     if (issue) throw new Error(issue);
-    const res = await this.apiFetch(`${this.apiBase()}/api/auth/change-password`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/change-password`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ currentPassword, newPassword }),
@@ -284,7 +395,7 @@ export class AuthService {
   }
 
   async linkGuest(guestPlayerId: string): Promise<void> {
-    const res = await fetch(`${this.apiBase()}/api/auth/link-guest`, {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/link-guest`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ guestPlayerId }),

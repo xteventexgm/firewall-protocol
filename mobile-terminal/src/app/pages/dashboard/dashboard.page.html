@@ -130,6 +130,13 @@
           <span *ngIf="playerTeamLabel" class="team-badge" [attr.data-team]="myTeam">{{ playerTeamLabel }}</span>
         </div>
         <h2 class="role-name">{{ playerRole }}</h2>
+        <button
+          type="button"
+          class="role-guide-btn"
+          *ngIf="roleDescription || nightActionHint || roleVictoryHint"
+          (click)="openRoleGuide()">
+          Ver rol y habilidad
+        </button>
         <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
         <p *ngIf="isFrozen && gamePhase === 'NOCHE'" class="frozen-warn">❄ Nodo congelado — no puedes actuar esta noche</p>
       </section>
@@ -542,6 +549,30 @@
       <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissRoleBriefing()">
         Entendido — entrar a la red
       </button>
+    </div>
+  </div>
+
+  <!-- Hoja: rol y habilidad (durante la partida) -->
+  <div *ngIf="showRoleGuide" class="role-guide-overlay" (click)="closeRoleGuide()">
+    <div class="role-guide-sheet" [attr.data-team]="myTeam" (click)="$event.stopPropagation()">
+      <header class="role-guide-header">
+        <h3>{{ playerRole }}</h3>
+        <button type="button" class="role-guide-close" (click)="closeRoleGuide()" aria-label="Cerrar">✕</button>
+      </header>
+      <p class="role-guide-team">{{ playerTeamLabel }}</p>
+      <section *ngIf="roleDescription" class="briefing-block">
+        <h4 class="briefing-heading">Descripción</h4>
+        <p class="briefing-text">{{ roleDescription }}</p>
+      </section>
+      <section *ngIf="nightActionHint" class="briefing-block ability">
+        <h4 class="briefing-heading">Habilidad nocturna</h4>
+        <p class="briefing-text">{{ nightActionHint }}</p>
+      </section>
+      <section *ngIf="roleVictoryHint" class="briefing-block victory">
+        <h4 class="briefing-heading">Condición de victoria</h4>
+        <p class="briefing-text">{{ roleVictoryHint }}</p>
+      </section>
+      <button type="button" class="terminal-btn primary" (click)="closeRoleGuide()">Cerrar</button>
     </div>
   </div>
 

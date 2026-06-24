@@ -1,312 +1,291 @@
 # Catálogo de roles — Firewall Protocol
 
-Referencia de los **16 roles** del juego: equipo, descripción, habilidades y condición de victoria.  
-Sincronizado con `backend-server/src/types/roles.types.ts`, `roleInfo.ts` y `VictoryChecker.ts`.
+Referencia de los **44 roles** del juego: equipo, acción nocturna y victoria.  
+Sincronizado con `backend-server/src/types/roles.types.ts`, `player-metadata.types.ts`, `roleInfo.ts` y `VictoryChecker.ts`.
 
 - Condiciones de fin de partida → [`WIN_CONDITIONS.md`](./WIN_CONDITIONS.md)
 - Índice del proyecto → [`README.md`](./README.md)
+
+**Reparto:** en cada partida se asignan roles **sin repetir** dentro de cada bando hasta agotar el catálogo disponible para ese tamaño de mesa (ver `balance.ts`).
 
 ---
 
 ## Leyenda de equipos
 
-| Equipo | ID backend | Color | Victoria |
-|--------|------------|-------|----------|
-| **System** | `system` | Blue Team | Eliminar a todos los hackers vivos |
-| **Black Hat** | `black_hat` | Red Team | Más hackers vivos que jugadores System |
-| **Caótico** | `chaotic` | — | Victoria **solitaria** propia (salvo Zero-Day, que puede heredar bando) |
+| Equipo | ID | Victoria de bando |
+|--------|-----|-------------------|
+| **System** | `system` | 0 hackers vivos, 0 caóticos vivos, ≥1 System vivo |
+| **Black Hat** | `black_hat` | 0 System vivos; si quedan caóticos, hackers > caóticos |
+| **Caótico** | `chaotic` | Victoria **solitaria** propia (salvo Zero-Day, que puede heredar bando) |
 
-> Los caóticos **no cuentan** en el conteo hacker vs system para victoria de bando.
-
----
-
-## Tabla general (todos los roles)
-
-| Rol | Equipo | Acción nocturna | Acción diurna | Condición de victoria |
-|-----|--------|-----------------|---------------|------------------------|
-| **SysAdmin** | System | — | Debate y votación | Gana con **System** (0 hackers vivos) |
-| **Analista SOC** | System | `scan` | Debate y votación | Gana con **System** |
-| **Antivirus** | System | `protect` o `cure` | Debate y votación | Gana con **System** |
-| **Pentester** | System | `pentester_kill` | Debate y votación | Gana con **System** |
-| **Honeypot** | System | `honeypot_drag` | Debate y votación | Gana con **System** |
-| **Deep Freeze** | System | `freeze` | Debate y votación | Gana con **System** |
-| **Enrutador BGP** | System | `bgp_swap` | Debate y votación | Gana con **System** |
-| **DDoS Operator** | Black Hat | `hacker_vote` | Debate y votación | Gana con **Black Hat** (H > S) |
-| **Rootkit** | Black Hat | `hacker_vote` | Debate y votación | Gana con **Black Hat** |
-| **Ransomware** | Black Hat | `ransomware` | Debate y votación | Gana con **Black Hat** |
-| **Spyware** | Black Hat | `spy` | Debate y votación | Gana con **Black Hat** |
-| **Phisher** | Black Hat | `phisher_redirect` | Debate y votación | Gana con **Black Hat** |
-| **Troll** | Caótico | `troll_provoke` | Debate y votación | **Solitario:** ser expulsado por votación |
-| **Gusano** | Caótico | `worm_infect` | Debate y votación | **Solitario:** único jugador vivo |
-| **Minero de Cripto** | Caótico | `mine_crypto` **o** `crypto_bribe` | Debate y votación | **Solitario:** único jugador vivo |
-| **Zero-Day** | Caótico | `zero_day_assume` | Debate y votación | Hereda victoria del **rol asumido**; o desempate caótico tardío |
+> Los caóticos **no** suman al conteo hacker vs system para victoria de bando.
 
 ---
 
-## System (Blue Team) — 7 roles
+## Resumen — 44 roles
 
-Victoria compartida del bando:
+### System (16)
 
-> **0 hackers vivos** y al menos 1 jugador System vivo.  
-> En empate prolongado (límite de días), gana System si `hackers ≤ system`.
+| Rol | Acción nocturna | Victoria |
+|-----|-----------------|----------|
+| **SysAdmin** | — (día: parche emergencia 1×/partida) | System |
+| **Analista SOC** | `scan` | System |
+| **Antivirus** | `protect` o `cure` | System |
+| **Pentester** | `pentester_kill` | System |
+| **Honeypot** | `honeypot_drag` | System |
+| **Deep Freeze** | `freeze` | System |
+| **Enrutador BGP** | `bgp_swap` | System |
+| **Detector IDS** | `ids_watch` | System |
+| **Parcheador** | `patch_harden` | System |
+| **Analista Forense** | `forensic_trace` | System |
+| **Nodo de Respaldo** | `backup_mark` (1×/partida) | System |
+| **Cazador de Amenazas** | `threat_hunt` | System |
+| **Respondedor de Incidentes** | `incident_clear` | System |
+| **Cortafuegos WAF** | `waf_block` | System |
+| **Intel de Amenazas** | `intel_pulse` (1×/partida) | System |
+| **Monitor de Integridad** | `ally_verify` | System |
+
+### Black Hat (14)
+
+| Rol | Acción nocturna | Victoria |
+|-----|-----------------|----------|
+| **DDoS Operator** | `hacker_vote` (voto ×2) | Black Hat |
+| **Rootkit** | `hacker_vote` | Black Hat |
+| **Ransomware** | `ransomware` | Black Hat |
+| **Spyware** | `spy` | Black Hat |
+| **Phisher** | `phisher_redirect` | Black Hat |
+| **Fuerza Bruta** | `brute_force` (1×/partida) | Black Hat |
+| **Sniffer** | `team_probe` | Black Hat |
+| **Kit de Exploits** | `exploit_strip` | Black Hat |
+| **Implante Backdoor** | `backdoor_plant` | Black Hat |
+| **Movimiento Lateral** | `lateral_probe` | Black Hat |
+| **Keylogger** | `vote_trace` | Black Hat |
+| **Escáner de Vulnerabilidades** | `vuln_scan` | Black Hat |
+| **Robador de Credenciales** | `cred_probe` | Black Hat |
+| **Proxy MitM** | `mitm_hijack` | Black Hat |
+
+### Caótico (14)
+
+| Rol | Acción nocturna | Victoria |
+|-----|-----------------|----------|
+| **Troll** | `troll_provoke` | Solitaria: expulsado por votación |
+| **Gusano** | `worm_infect` | Solitaria: único vivo |
+| **Minero de Cripto** | `mine_crypto` o `crypto_bribe` | Solitaria: único vivo |
+| **Zero-Day** | `zero_day_assume` (1×/partida) | Hereda bando asumido / solitaria |
+| **Filtrador** | `data_leak` | Sin bando; desempate tardío |
+| **Sombra** | `shadow_mask` | Sin bando; desempate tardío |
+| **Bomba Lógica** | `logic_bomb` | Sin bando; desempate tardío |
+| **Envenenador DNS** | `dns_spoof` | Sin bando; desempate tardío |
+| **Nota de Rescate** | `ransom_note` | Sin bando; desempate tardío |
+| **Dropper** | `rigged_payload` | Sin bando; desempate tardío |
+| **Saboteador** | `jam_hacker` | Sin bando; desempate tardío |
+| **Ruido Blanco** | `noise_burst` | Sin bando; desempate tardío |
+| **Espejismo** | `mirage_cloak` | Sin bando; desempate tardío |
+| **Router del Caos** | `chaos_route` | Sin bando; desempate tardío |
 
 ---
+
+## System (Blue Team) — detalle
+
+Victoria compartida: **0 hackers vivos**, **0 caóticos vivos**, al menos un System en pie.
 
 ### SysAdmin
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Administrador de infraestructura. Coordina parches, credenciales y votaciones. |
-| **Noche** | Sin acción nocturna. |
-| **Día** | Debate y votación para expulsar sospechosos. |
-| **Pasiva** | — |
-| **Victoria** | **System** — eliminar a todos los hackers. |
-
----
+Administrador de infraestructura. Sin acción nocturna. En **VOTACIÓN**, parche de emergencia **1×/partida**: anula por completo el voto de un jugador.
 
 ### Analista SOC
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Analista SIEM que correlaciona actividad de red sobre un nodo. |
-| **Noche** | **`scan`** — escanea un jugador vivo. Resultado: **SEGURO** (System), **SOSPECHOSO** (caótico) o **MALICIOSO** (Black Hat). No revela el rol exacto. |
-| **Día** | Debate y votación. |
-| **Pasiva** | El Rootkit siempre aparece como SEGURO. Tras asunción Zero-Day, el scan refleja el rol asumido. |
-| **Victoria** | **System**. |
-
----
+`scan`: clasifica un nodo — SEGURO (System), SOSPECHOSO (caótico) o MALICIOSO (Black Hat). No revela rol exacto. Rootkit y nodos enmascarados (Sombra, etc.) pueden aparecer SEGURO.
 
 ### Antivirus
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | EDR del Sistema: protección y remediación nocturna. |
-| **Noche** | **`protect`** — bloquea un kill directo sobre el objetivo esta noche. **`cure`** — elimina una infección activa (p. ej. Gusano). **Una sola acción por noche** (protect **o** cure, nunca ambas). |
-| **Día** | Debate y votación. |
-| **Pasiva** | No repetir el mismo objetivo dos noches seguidas con la misma acción. `protect` no frena infección madura (solo `cure`). |
-| **Victoria** | **System**. |
-
----
+Una acción por noche: `protect` (bloquea kill directo o consenso hacker) **o** `cure` (elimina infección de Gusano). No repetir mismo nodo dos noches seguidas con la misma acción. Kit de Exploits puede anular protect esa noche.
 
 ### Pentester
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Red team autorizado con permiso de eliminación ofensiva limitada. |
-| **Noche** | **`pentester_kill`** — elimina a un jugador vivo. **1 uso** en mesas ≤7 jugadores, **2 usos** en mesas 8+. |
-| **Día** | Debate y votación. |
-| **Pasiva** | Si eliminas a un aliado **System**, mueres por culpa (`Pentester died of guilt`). |
-| **Victoria** | **System**. |
-
----
+`pentester_kill`: kill autorizado (1 uso en mesas ≤7, 2 en 8+). Si matas a un aliado System, mueres por culpa.
 
 ### Honeypot
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Señuelo defensivo que atrae y castiga ataques. |
-| **Noche** | **`honeypot_drag`** — marcas un nodo como objetivo de trampa. |
-| **Día** | Debate y votación. |
-| **Pasiva** | Si **mueres de noche** (kill o consenso hacker), arrastras contigo al nodo marcado. La trampa **ignora protección Antivirus**. Funciona también si te expulsan de día. |
-| **Victoria** | **System**. |
-
----
+`honeypot_drag`: marcas un nodo. Si mueres de noche, arrastras al marcado (ignora protect Antivirus).
 
 ### Deep Freeze
-
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Contención EDR: aislamiento de endpoint. |
-| **Noche** | **`freeze`** — el objetivo no ejecuta acciones nocturnas esta ronda (respeta redirección BGP). |
-| **Día** | Debate y votación. |
-| **Pasiva** | — |
-| **Victoria** | **System**. |
-
----
+`freeze`: el objetivo no ejecuta acciones nocturnas esta ronda.
 
 ### Enrutador BGP
+`bgp_swap`: intercambias destinos de dos nodos; ataques a uno impactan al otro.
 
-| | |
-|---|---|
-| **Equipo** | System |
-| **Descripción** | Mitigación de enrutamiento para desviar ataques. |
-| **Noche** | **`bgp_swap`** — intercambia el destino de **dos nodos** vivos (`target` + `swapWith`). Los ataques dirigidos a uno afectan al otro. |
-| **Día** | Debate y votación. |
-| **Pasiva** | — |
-| **Victoria** | **System**. |
+### Detector IDS
+`ids_watch`: vigilas un nodo; si recibe visitas hostiles esa noche, alerta privada con conteo (sin roles).
+
+### Parcheador
+`patch_harden`: el objetivo no puede morir por **consenso hacker** esta noche (kills directos sí aplican).
+
+### Analista Forense
+`forensic_trace`: desglose de bajas de la última noche por bando y si el nodo estuvo entre víctimas.
+
+### Nodo de Respaldo
+`backup_mark` **1×/partida**: si el marcado moriría esta noche por ataque, sobrevive una vez. No bloquea infección madura.
+
+### Cazador de Amenazas
+`threat_hunt`: AMENAZA (hacker/caótico) o LIMPIO (System/enmascarado). Sin rol exacto.
+
+### Respondedor de Incidentes
+`incident_clear`: levanta silencio de Ransomware/DDoS sobre un jugador.
+
+### Cortafuegos WAF
+`waf_block`: el objetivo no puede ser infectado por Gusano esta noche.
+
+### Intel de Amenazas
+`intel_pulse` **1×/partida**: conteo privado de vivos por bando.
+
+### Monitor de Integridad
+`ally_verify`: ¿el objetivo es del **mismo bando** que tú? (sí/no).
 
 ---
 
-## Black Hat (Red Team) — 5 roles
+## Black Hat (Red Team) — detalle
 
-Victoria compartida del bando:
+Victoria compartida: **0 System vivos**; si quedan caóticos, **hackers > caóticos**.
 
-> **Hackers vivos > System vivos** (estrictamente mayor; empate numérico no basta).  
-> Los caóticos vivos no impiden la victoria si se cumple la condición.
-
-Al iniciar la partida, todos los hackers reciben el evento privado **`hacker_team`** con la lista de compañeros.
-
----
+Todos los hackers reciben `hacker_team` con la lista de compañeros.
 
 ### DDoS Operator
-
-| | |
-|---|---|
-| **Equipo** | Black Hat |
-| **Descripción** | Operador de botnet; refuerza el consenso nocturno del equipo rojo. |
-| **Noche** | **`hacker_vote`** — vota objetivo del consenso hacker. Tu voto cuenta **×2**. |
-| **Día** | Debate y votación. |
-| **Pasiva** | Si hay consenso hacker sobre un objetivo y **sobrevive** el ataque, queda **silenciado** el día siguiente (no actúa ni vota). Conoces al resto de hackers. |
-| **Victoria** | **Black Hat**. |
-
----
+`hacker_vote` con peso **×2**. Si el objetivo del consenso sobrevive, queda silenciado al día siguiente.
 
 ### Rootkit
-
-| | |
-|---|---|
-| **Equipo** | Black Hat |
-| **Descripción** | Implant persistente oculto ante análisis superficial. |
-| **Noche** | **`hacker_vote`** — participa en el consenso hacker (mayoría simple ponderada). |
-| **Día** | Debate y votación. |
-| **Pasiva** | Los escaneos SOC te clasifican siempre como **SEGURO**. Conoces al resto de hackers. |
-| **Victoria** | **Black Hat**. |
-
----
+`hacker_vote`. Siempre aparece SEGURO en escaneos SOC.
 
 ### Ransomware
-
-| | |
-|---|---|
-| **Equipo** | Black Hat |
-| **Descripción** | Cifrado operativo que paraliza nodos objetivo. |
-| **Noche** | **`ransomware`** — silencias a un jugador hasta el **día siguiente** (no actúa de noche ni vota de día). |
-| **Día** | Debate y votación. |
-| **Pasiva** | **Enfriamiento** tras cada uso: **2 noches** en mesas ≤9 jugadores, **1 noche** en mesas 10+. Conoces al resto de hackers. |
-| **Victoria** | **Black Hat**. |
-
----
+`ransomware`: silencia hasta el día siguiente. Cooldown tras cada uso según tamaño de sala.
 
 ### Spyware
-
-| | |
-|---|---|
-| **Equipo** | Black Hat |
-| **Descripción** | Interceptación de tráfico hacia un nodo objetivo. |
-| **Noche** | **`spy`** — observas qué jugadores **visitaron** al objetivo y el **tipo de actividad** (`visitorActivities`). No revela roles. |
-| **Día** | Debate y votación. |
-| **Pasiva** | Conoces al resto de hackers. |
-| **Victoria** | **Black Hat**. |
-
----
+`spy`: visitantes al objetivo y tipo de actividad (sin roles).
 
 ### Phisher
+`phisher_redirect`: redirige el voto diurno de A hacia B en la próxima VOTACIÓN.
 
-| | |
-|---|---|
-| **Equipo** | Black Hat |
-| **Descripción** | Ingeniería social para manipular votaciones diurnas. |
-| **Noche** | **`phisher_redirect`** — configuras redirección: el voto diurno del jugador A se aplica al objetivo B. |
-| **Día** | Debate y votación. |
-| **Pasiva** | La redirección se aplica en fase **VOTACION** y se limpia tras resolver votos. Conoces al resto de hackers. |
-| **Victoria** | **Black Hat**. |
+### Fuerza Bruta
+`brute_force`: kill directo **una vez por partida** (sin consenso).
+
+### Sniffer
+`team_probe`: equipo del objetivo (System / Black Hat / Caótico).
+
+### Kit de Exploits
+`exploit_strip`: protect del Antivirus no aplica sobre el objetivo esta noche.
+
+### Implante Backdoor
+`backdoor_plant`: +1 peso en consenso hacker contra el objetivo.
+
+### Movimiento Lateral
+`lateral_probe`: ¿el objetivo es System? (sí/no).
+
+### Keylogger
+`vote_trace`: a quién votó el objetivo en la última votación.
+
+### Escáner de Vulnerabilidades
+`vuln_scan`: ¿comprometido? (infectado o silenciado).
+
+### Robador de Credenciales
+`cred_probe`: DEFENSA_CRÍTICA vs PERFIL_ESTÁNDAR.
+
+### Proxy MitM
+`mitm_hijack`: fuerzas el `hacker_vote` de un hacker hacia tu objetivo.
+
+### Consenso hacker
+Mayoría estricta del peso de votos (`hacker_vote`; DDoS ×2, Backdoor +1 al objetivo). Kill sujeto a protect, inmunidad Gusano, escudos Minero, etc.
 
 ---
 
-### Consenso hacker (DDoS, Rootkit y cualquier hacker)
+## Caótico — detalle
 
-Acción compartida **`hacker_vote`**:
-
-- Cada hacker vivo vota un objetivo (DDoS ×2).
-- Se necesita **mayoría estricta** del peso total (`votos > hackers_vivos / 2`).
-- El objetivo consensuado recibe un kill directo nocturno (sujeto a protect, inmunidad Gusano, escudos Minero, etc.).
-
----
-
-## Caótico — 4 roles
-
-No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta el límite de días (ver `WIN_CONDITIONS.md`).
-
----
+Sin victoria de **equipo** caótico. Cada rol compite por condición solitaria o desempate tardío (`chaotic_stalemate_break`).
 
 ### Troll
-
-| | |
-|---|---|
-| **Equipo** | Caótico |
-| **Descripción** | Actor de desinformación; gana si la mesa cae en su provocación. |
-| **Noche** | **`troll_provoke`** — deja un mensaje anónimo en el feed público del amanecer (elige entre frases predefinidas). |
-| **Día** | Debate y votación. |
-| **Pasiva** | — |
-| **Victoria** | **Solitaria** — ser **expulsado por votación** diurna (`reason: troll_banned`). No gana por quedar único en pie. |
-
----
+`troll_provoke`: mensaje anónimo en feed. **Gana solo si te expulsan por votación.**
 
 ### Gusano
-
-| | |
-|---|---|
-| **Equipo** | Caótico |
-| **Descripción** | Malware autónomo de propagación lenta. |
-| **Noche** | **`worm_infect`** / **`worm_kill`** — infectas a un jugador vivo (alias equivalentes). |
-| **Día** | Debate y votación. |
-| **Pasiva** | **Inmunidad:** la primera eliminación directa nocturna contra ti falla (se consume). **Infección:** el nodo cae tras **2 noches sin cura** (`cure` del Antivirus; `protect` no basta). Infección madura ignora escudos del Minero. |
-| **Victoria** | **Solitaria** — ser el **único jugador vivo** (`reason: worm_last_standing`). Prioridad alta en desempate caótico tardío. |
-
----
+`worm_infect`: infección (2 noches sin cure). Primera kill directa contra ti falla (inmunidad consumible). **Gana si eres el único vivo.**
 
 ### Minero de Cripto
-
-| | |
-|---|---|
-| **Equipo** | Caótico |
-| **Descripción** | Cryptojacking activo con economía de escudos. |
-| **Noche** | **`mine_crypto`** (minar un nodo vivo → +1 escudo, máx. **3** acumulables; la víctima no recibe aviso) **o** **`crypto_bribe`** (gasta **1 escudo** → kill directo; falla si tienes 0 escudos). Una acción por noche. |
-| **Día** | Debate y votación. |
-| **Pasiva** | **Escudos iniciales:** **2** en mesas ≤7 jugadores, **3** en mesas 8+. Bloquean kills **directos** (consenso, Pentester, soborno ajeno, etc.). Las **infecciones maduras** sí te eliminan. |
-| **Victoria** | **Solitaria** — ser el **único jugador vivo** (`reason: miner_survived`). Puede perder si un bando gana antes con otros vivos en mesa. |
-
----
+`mine_crypto` (+1 escudo, máx. 3) o `crypto_bribe` (gasta 1 escudo → kill). Escudos iniciales 2 (≤7p) o 3 (8+). **Gana si eres el único vivo.**
 
 ### Zero-Day
+`zero_day_assume` **1×/partida**: asumes rol de jugador eliminado. Ganas con el bando del rol asumido o solitario si aplica.
 
-| | |
-|---|---|
-| **Equipo** | Caótico *(cambia al asumir)* |
-| **Descripción** | Exploit crítico de un solo uso que copia un rol eliminado. |
-| **Noche** | **`zero_day_assume`** — **una vez por partida**, asumes el rol de un jugador **ya eliminado**. Heredas equipo, habilidades y metadata del rol (usos Pentester, escudos Minero, etc.). |
-| **Día** | Debate y votación. |
-| **Pasiva** | Tras asumir, los escaneos SOC reflejan tu **rol asumido**. Sin win solitario propio mientras sigues siendo Zero-Day puro. |
-| **Victoria** | **Heredada:** gana con **System** o **Black Hat** según el rol asumido. Si asumes Gusano/Minero y quedas solo, aplica su victoria solitaria. Si solo quedan caóticos tras límite de días, puede ganar por `chaotic_stalemate_break` (prioridad 4ª). |
+### Filtrador
+`data_leak`: filtra el **equipo** de un jugador al feed público (anónimo).
+
+### Sombra
+`shadow_mask`: un nodo aparece SEGURO en scan SOC esta noche.
+
+### Bomba Lógica
+`logic_bomb`: si el objetivo actúa la noche siguiente, muere antes de resolver su acción.
+
+### Envenenador DNS
+`dns_spoof`: en la próxima votación, el voto del objetivo se desvía al azar a otro nodo. Tú apareces SEGURO en scan esa noche.
+
+### Nota de Rescate
+`ransom_note`: silencia + mensaje anónimo en feed.
+
+### Dropper
+`rigged_payload`: la próxima noche el objetivo ignora protect, cure y respaldo. Escudos caóticos (máx. 2).
+
+### Saboteador
+`jam_hacker`: inmune a consenso hacker esta noche, SEGURO en scan, sobrevive un linchamiento al día siguiente.
+
+### Ruido Blanco
+`noise_burst`: mensaje anónimo de ruido (sin victoria solitaria).
+
+### Espejismo
+`mirage_cloak`: te enmascaras — scan SOC te ve SEGURO esta noche.
+
+### Router del Caos
+`chaos_route`: ataques al origen impactan al colateral (unidireccional, distinto de BGP).
 
 ---
 
-## Resumen de acciones nocturnas por tipo
+## Acciones nocturnas — índice completo
 
-| Tipo | Rol(es) | Efecto |
-|------|---------|--------|
-| `scan` | Analista SOC | Clasifica objetivo: safe / suspicious / malicious |
-| `protect` | Antivirus | Bloquea kill directo sobre objetivo |
-| `cure` | Antivirus | Elimina infección activa |
-| `pentester_kill` | Pentester | Kill directo (usos limitados) |
-| `honeypot_drag` | Honeypot | Marca nodo para arrastre al morir |
-| `freeze` | Deep Freeze | Anula acciones nocturnas del objetivo |
-| `bgp_swap` | Enrutador BGP | Intercambia destino de dos nodos |
-| `hacker_vote` | DDoS, Rootkit | Voto consenso hacker (DDoS ×2) |
-| `ransomware` | Ransomware | Silencia objetivo hasta día siguiente |
-| `spy` | Spyware | Revela visitantes y actividades al objetivo |
-| `phisher_redirect` | Phisher | Redirige voto diurno de A → B |
-| `worm_infect` | Gusano | Aplica infección (2 noches hasta kill) |
-| `zero_day_assume` | Zero-Day | Copia rol de jugador muerto (1×/partida) |
-| `troll_provoke` | Troll | Mensaje anónimo en feed público |
-| `mine_crypto` | Minero de Cripto | +1 escudo (máx. 3); objetivo no recibe aviso |
-| `crypto_bribe` | Minero de Cripto | Gasta 1 escudo → kill directo |
+| Tipo | Rol(es) |
+|------|---------|
+| `scan` | Analista SOC |
+| `protect` / `cure` | Antivirus |
+| `pentester_kill` | Pentester |
+| `honeypot_drag` | Honeypot |
+| `freeze` | Deep Freeze |
+| `bgp_swap` | Enrutador BGP |
+| `ids_watch` | Detector IDS |
+| `patch_harden` | Parcheador |
+| `forensic_trace` | Analista Forense |
+| `backup_mark` | Nodo de Respaldo |
+| `threat_hunt` | Cazador de Amenazas |
+| `incident_clear` | Respondedor de Incidentes |
+| `waf_block` | Cortafuegos WAF |
+| `intel_pulse` | Intel de Amenazas |
+| `ally_verify` | Monitor de Integridad |
+| `hacker_vote` | DDoS, Rootkit |
+| `ransomware` | Ransomware |
+| `spy` | Spyware |
+| `phisher_redirect` | Phisher |
+| `brute_force` | Fuerza Bruta |
+| `team_probe` | Sniffer |
+| `exploit_strip` | Kit de Exploits |
+| `backdoor_plant` | Implante Backdoor |
+| `lateral_probe` | Movimiento Lateral |
+| `vote_trace` | Keylogger |
+| `vuln_scan` | Escáner de Vulnerabilidades |
+| `cred_probe` | Robador de Credenciales |
+| `mitm_hijack` | Proxy MitM |
+| `worm_infect` | Gusano |
+| `zero_day_assume` | Zero-Day |
+| `troll_provoke` | Troll |
+| `mine_crypto` / `crypto_bribe` | Minero de Cripto |
+| `data_leak` | Filtrador |
+| `shadow_mask` | Sombra |
+| `logic_bomb` | Bomba Lógica |
+| `dns_spoof` | Envenenador DNS |
+| `ransom_note` | Nota de Rescate |
+| `rigged_payload` | Dropper |
+| `jam_hacker` | Saboteador |
+| `noise_burst` | Ruido Blanco |
+| `mirage_cloak` | Espejismo |
+| `chaos_route` | Router del Caos |
 
 ---
 
@@ -316,12 +295,11 @@ No comparten victoria de bando. Pueden **bloquear** empates hacker/system hasta 
 |-----------|----------|----------|
 | Usos Pentester | 1 | 2 |
 | Escudos Minero (inicio) | 2 | 3 |
-| Escudos Minero (tope acumulable) | 3 | 3 |
-| Cooldown Ransomware (≤9 / 10+) | 2 noches | 1 noche (solo 10+) |
-| Hackers (ratio) | 1 cada 4 jugadores | 1 cada 3 (desde 9p) |
+| Escudos Minero (tope) | 3 | 3 |
+| Cooldown Ransomware | 2 noches (≤9p) | 1 noche (10+p) |
+| Hackers | 1 cada 4 jugadores | 1 cada 3 (desde 9p) |
+| Caóticos | 1 cada 5 jugadores | igual |
 | Límite días (desempate) | 8 | 10 |
-
-Detalle en `backend-server/src/game/balance.ts`.
 
 ---
 
@@ -329,13 +307,14 @@ Detalle en `backend-server/src/game/balance.ts`.
 
 | Archivo | Contenido |
 |---------|-----------|
-| `backend-server/src/types/roles.types.ts` | Catálogo y `playerGuide` |
-| `backend-server/src/types/player-metadata.types.ts` | Mapa acción ↔ rol |
-| `backend-server/src/game/roleInfo.ts` | Textos enviados al móvil |
+| `backend-server/src/types/roles.types.ts` | Catálogo 44 roles y `playerGuide` |
+| `backend-server/src/types/player-metadata.types.ts` | `ROLE_NIGHT_ACTIONS` |
+| `backend-server/src/game/roleInfo.ts` | Textos al móvil (`role_assigned`) |
 | `backend-server/src/game/RuleEngine.ts` | Resolución de habilidades |
-| `backend-server/src/game/VictoryChecker.ts` | Condiciones de victoria |
-| `WIN_CONDITIONS.md` | Matriz completa win/lose y casos QA |
+| `backend-server/src/game/VictoryChecker.ts` | Victorias |
+| `backend-server/src/game/balance.ts` | Reparto y ratios |
+| `WIN_CONDITIONS.md` | Matriz win/lose |
 
 ---
 
-*16 roles · 3 equipos · sincronizado con backend Firewall Protocol.*
+*44 roles · 3 equipos · catálogo ampliado GDD — sincronizado con backend Firewall Protocol.*

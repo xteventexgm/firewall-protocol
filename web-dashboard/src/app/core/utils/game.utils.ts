@@ -36,6 +36,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
     roomId: (raw?.roomId ?? '').toUpperCase(),
     phase: (raw?.phase ?? 'LOBBY') as GamePhase,
     phaseStartedAt: raw?.phaseStartedAt ?? Date.now(),
+    gameStartedAt: raw?.gameStartedAt,
     phaseEndsAt: raw?.phaseEndsAt ?? null,
     players,
     dayNumber: raw?.dayNumber ?? 0,

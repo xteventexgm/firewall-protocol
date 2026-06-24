@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
-import { AuthService, UserProfileBundle } from '../../services/auth/auth.service';
+import { AuthService, GameParticipation, UserProfileBundle } from '../../services/auth/auth.service';
 import {
   PASSWORD_HINT,
   passwordIssueMessage,
@@ -10,7 +10,7 @@ import {
 } from '../../core/utils/password-policy.utils';
 
 type PanelView = 'auth' | 'profile';
-type ProfileSubView = 'overview' | 'edit';
+type ProfileSubView = 'overview' | 'edit' | 'history' | 'history-detail';
 
 @Component({
   selector: 'app-account-panel',
@@ -50,6 +50,8 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   currentPassword = '';
   newPassword = '';
   newPasswordConfirm = '';
+  selectedParticipation: GameParticipation | null = null;
+  readonly historyLimit = 10;
 
   constructor(private authService: AuthService) {}
 
@@ -68,7 +70,22 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
 
   get sheetTitle(): string {
     if (this.view === 'auth') return 'Cuenta';
-    return this.profileSubView === 'edit' ? 'Editar perfil' : 'Mi perfil';
+    if (this.profileSubView === 'edit') return 'Editar perfil';
+    if (this.profileSubView === 'history') return 'Historial de partidas';
+    if (this.profileSubView === 'history-detail') return 'Detalle de partida';
+    return 'Mi perfil';
+  }
+
+  get lastParticipation(): GameParticipation | null {
+    return this.profile?.participations[0] ?? null;
+  }
+
+  get historyGames(): GameParticipation[] {
+    return (this.profile?.participations ?? []).slice(0, this.historyLimit);
+  }
+
+  get totalParticipations(): number {
+    return this.profile?.participations.length ?? 0;
   }
 
   get displayAvatarUrl(): string | null {
@@ -85,6 +102,34 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   dismiss(): void {
     this.revokePreview();
     this.closed.emit();
+  }
+
+  openHistory(): void {
+    this.profileSubView = 'history';
+    this.selectedParticipation = null;
+  }
+
+  openHistoryDetail(game: GameParticipation): void {
+    this.selectedParticipation = game;
+    this.profileSubView = 'history-detail';
+  }
+
+  backFromHistory(): void {
+    this.profileSubView = 'overview';
+    this.selectedParticipation = null;
+  }
+
+  backFromHistoryDetail(): void {
+    this.profileSubView = 'history';
+  }
+
+  formatTeam(team?: string): string {
+    const labels: Record<string, string> = {
+      system: 'Sistema',
+      black_hat: 'Black Hat',
+      chaotic: 'Caótico',
+    };
+    return team ? (labels[team] ?? team) : '—';
   }
 
   openEditProfile(): void {
@@ -174,6 +219,7 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
 
   async loadProfile(): Promise<void> {
     if (!this.isLoggedIn) return;
+    await this.authService.ensureSessionFresh();
     this.profileLoading = true;
     this.profileError = '';
     try {

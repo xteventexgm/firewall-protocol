@@ -68,6 +68,7 @@ import {
   PendingNightAction,
 } from '../../core/utils/night-result.utils';
 import { getPlayerNodeBadge } from '../../core/utils/player-visibility.utils';
+import { formatRoleCopy } from '../../core/utils/role-copy.utils';
 import {
   buildNodeDeathAlert,
   NodeDeathAlertData,
@@ -137,6 +138,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   myTeam: string | undefined;
   hackerTeamMemberIds: string[] = [];
   showRoleBriefing = false;
+  showRoleGuide = false;
   showThreatBriefing = false;
   roleRevealTeam = '';
   roleVictoryHint = '';
@@ -319,7 +321,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.team) this.myTeam = player.team;
         this.syncChatForPhase();
-        if (player.roleDescription) this.roleDescription = player.roleDescription;
+        if (player.roleDescription) this.roleDescription = formatRoleCopy(player.roleDescription);
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
           this.gamePhase = 'ELIMINATED';
@@ -358,11 +360,11 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (payload.type === 'role_assigned') {
           this.setStatus(`Rol asignado: ${payload.displayName ?? payload.role}`, 'success');
-          if (payload.description) this.roleDescription = payload.description;
-          if (payload.nightActionHint) this.nightActionHint = payload.nightActionHint;
+          if (payload.description) this.roleDescription = formatRoleCopy(payload.description);
+          if (payload.nightActionHint) this.nightActionHint = formatRoleCopy(payload.nightActionHint);
           if (payload.teamLabel) this.playerTeamLabel = payload.teamLabel;
           if (payload.displayName) this.playerRole = payload.displayName;
-          this.roleVictoryHint = payload.victoryHint ?? '';
+          this.roleVictoryHint = formatRoleCopy(payload.victoryHint ?? '');
           const roleKey = payload.role ?? '';
           this.selectedNightActionType = '';
           this.canActAtNight = !!getNightActionType(roleKey);
@@ -805,6 +807,14 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.showLobbyClosedOverlay = false;
     this.lobbyClosedAlertOpen = false;
     void this.router.navigate(['/login']);
+  }
+
+  openRoleGuide(): void {
+    this.showRoleGuide = true;
+  }
+
+  closeRoleGuide(): void {
+    this.showRoleGuide = false;
   }
 
   private openRoleBriefing(team: string): void {
