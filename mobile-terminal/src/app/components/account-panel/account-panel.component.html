@@ -156,7 +156,7 @@
           <h4>Foto de perfil</h4>
           <p class="muted small">Solo visible aquí — no aparece en la partida.</p>
           <div class="edit-avatar-preview">
-            <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" />
+            <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
             <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
           </div>
           <label class="upload-btn">

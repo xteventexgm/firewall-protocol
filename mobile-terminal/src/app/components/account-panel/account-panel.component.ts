@@ -2,7 +2,8 @@ import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
-import { AuthService, GameParticipation, UserProfileBundle } from '../../services/auth/auth.service';
+import { Subscription } from 'rxjs';
+import { AuthService, AuthUser, GameParticipation, UserProfileBundle } from '../../services/auth/auth.service';
 import {
   PASSWORD_HINT,
   passwordIssueMessage,
@@ -52,8 +53,25 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   newPasswordConfirm = '';
   selectedParticipation: GameParticipation | null = null;
   readonly historyLimit = 10;
+  private subs = new Subscription();
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) {
+    this.subs.add(
+      this.authService.profileUpdated$.subscribe((user) => {
+        this.applyUserToProfile(user);
+      }),
+    );
+    this.subs.add(
+      this.authService.avatarBlobChanged$.subscribe((blob) => {
+        if (blob) {
+          this.avatarDisplayUrl = blob;
+          this.avatarBroken = false;
+        } else if (!this.avatarPreviewUrl) {
+          this.avatarDisplayUrl = null;
+        }
+      }),
+    );
+  }
 
   ngOnInit(): void {
     this.view = this.authService.isLoggedIn() ? 'profile' : this.initialView;
@@ -61,6 +79,7 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.subs.unsubscribe();
     this.revokePreview();
   }
 
@@ -91,6 +110,9 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   get displayAvatarUrl(): string | null {
     if (this.avatarPreviewUrl) return this.avatarPreviewUrl;
     if (this.avatarBroken || this.removeAvatarFlag) return null;
+    // Priorizar blob canónico del servicio (evita URLs revocadas tras recargas).
+    const serviceBlob = this.authService.getAvatarBlobUrl();
+    if (serviceBlob) return serviceBlob;
     return this.avatarDisplayUrl;
   }
 
@@ -136,7 +158,14 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
     this.profileError = '';
     this.profileSuccess = '';
     this.resetEditFormFromProfile();
+    this.avatarBroken = false;
     this.profileSubView = 'edit';
+    const blob = this.authService.getAvatarBlobUrl();
+    if (blob) {
+      this.avatarDisplayUrl = blob;
+    } else if (this.profile?.user.avatarUrl) {
+      void this.syncAvatarDisplayFromAuth();
+    }
   }
 
   cancelEdit(): void {
@@ -226,7 +255,7 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
       this.profile = await this.authService.fetchProfile();
       this.resetEditFormFromProfile();
       this.avatarBroken = false;
-      await this.refreshAvatarDisplay();
+      await this.syncAvatarDisplayFromAuth();
     } catch (err: unknown) {
       const code = err instanceof Error ? err.message : 'profile_fetch_failed';
       if (code === 'session_expired') {
@@ -253,11 +282,20 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
     try {
       if (this.removeAvatarFlag) {
         await this.authService.deleteAvatar();
+        this.authChanged.emit();
       } else if (this.pendingAvatarFile) {
-        await this.authService.uploadAvatar(this.pendingAvatarFile);
+        const user = await this.authService.uploadAvatar(this.pendingAvatarFile);
         this.pendingAvatarFile = null;
+        this.applyUserToProfile(user);
+        this.avatarBroken = false;
+        await this.syncAvatarDisplayFromAuth();
+        if (this.avatarDisplayUrl) this.revokePreview();
+        this.authChanged.emit();
       } else if (this.avatarUrlInput.trim()) {
-        await this.authService.updateAvatarUrl(this.avatarUrlInput.trim());
+        const user = await this.authService.updateAvatarUrl(this.avatarUrlInput.trim());
+        this.applyUserToProfile(user);
+        await this.syncAvatarDisplayFromAuth();
+        this.authChanged.emit();
       }
 
       const savedUsername = this.profile?.user.username ?? '';
@@ -331,7 +369,16 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   }
 
   onAvatarImgError(): void {
+    const serviceBlob = this.authService.getAvatarBlobUrl();
+    if (serviceBlob && this.avatarDisplayUrl !== serviceBlob) {
+      this.avatarDisplayUrl = serviceBlob;
+      this.avatarBroken = false;
+      return;
+    }
     this.avatarBroken = true;
+    if (this.profile?.user.avatarUrl && !this.avatarPreviewUrl) {
+      void this.syncAvatarDisplayFromAuth();
+    }
   }
 
   logout(): void {
@@ -391,8 +438,45 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
       this.avatarDisplayUrl = null;
       return;
     }
-    this.avatarDisplayUrl = await this.authService.loadAvatarBlobUrl(url);
-    if (!this.avatarDisplayUrl) this.avatarBroken = true;
+    this.avatarBroken = false;
+    const prev = this.avatarDisplayUrl ?? this.authService.getAvatarBlobUrl();
+    const blobUrl = await this.authService.loadAvatarBlobUrl(url);
+    if (blobUrl) {
+      this.avatarDisplayUrl = blobUrl;
+      return;
+    }
+    if (prev) {
+      this.avatarDisplayUrl = prev;
+      return;
+    }
+    this.avatarBroken = true;
+  }
+
+  private applyUserToProfile(user: AuthUser): void {
+    if (!this.profile) return;
+    this.profile = { ...this.profile, user: { ...this.profile.user, ...user } };
+  }
+
+  private async syncAvatarDisplayFromAuth(): Promise<void> {
+    const url = this.profile?.user.avatarUrl;
+    if (!url || this.removeAvatarFlag) {
+      this.avatarDisplayUrl = null;
+      this.avatarBroken = false;
+      return;
+    }
+    this.avatarBroken = false;
+    const fresh = await this.authService.loadAvatarBlobUrl(url);
+    if (fresh) {
+      this.avatarDisplayUrl = fresh;
+      return;
+    }
+    const fallback = this.authService.getAvatarBlobUrl();
+    if (fallback) {
+      this.avatarDisplayUrl = fallback;
+      return;
+    }
+    this.avatarDisplayUrl = null;
+    this.avatarBroken = true;
   }
 
   private externalAvatarUrl(url?: string): string {

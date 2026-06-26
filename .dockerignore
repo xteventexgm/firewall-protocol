@@ -1,0 +1,7 @@
+# Contexto de build game-realtime (raíz del repo)
+**/node_modules
+**/.git
+**/.env
+mobile-terminal/
+web-dashboard/
+backend-server/data/
