@@ -166,7 +166,10 @@ export class Room extends EventEmitter {
   requestMinigame(playerId: string) {
     const player = this.state.getPlayer(playerId);
     if (!player?.role || this.sm.getPhase() !== GamePhase.NOCHE) return null;
-    const challenge = createChallenge(player.role as RoleName, playerId);
+    const challenge = createChallenge(player.role as RoleName, playerId, {
+      roomId: this.id,
+      nightNumber: this.state.nightNumber ?? 0,
+    });
     this.emit('minigameChallenge', {
       roomId: this.id,
       playerId,

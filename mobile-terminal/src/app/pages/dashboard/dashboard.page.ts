@@ -35,6 +35,7 @@ import { ActionProgressComponent } from '../../components/action-progress/action
 import { TextChallengeComponent } from '../../components/text-challenge/text-challenge.component';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
+import { NodePickerComponent } from '../../components/node-picker/node-picker.component';
 import {
   ChatMessage,
   MinigameChallenge,
@@ -82,7 +83,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, ActionProgressComponent, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent],
+  imports: [IonicModule, FormsModule, CommonModule, ActionProgressComponent, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent, NodePickerComponent],
 })
 export class DashboardPage implements OnInit, OnDestroy {
   readonly minPlayers = MIN_PLAYERS_TO_START;
@@ -214,6 +215,8 @@ export class DashboardPage implements OnInit, OnDestroy {
       return;
     }
 
+    this.socketService.ensureConnection();
+
     this.gameSound.setMuted(this.soundMuted);
     void this.gameSound.unlockAudio();
 
@@ -267,13 +270,27 @@ export class DashboardPage implements OnInit, OnDestroy {
           isConnected: p.isConnected,
         }));
 
-        this.aliveTargets = this.players
-          .filter((p) => p.isAlive && p.id !== this.myPlayerId)
-          .map((p) => ({ id: p.id, name: p.name, isAlive: true, isConnected: p.isConnected }));
+        this.aliveTargets = this.syncTargetList(
+          this.aliveTargets,
+          this.players
+            .filter((p) => p.isAlive && p.id !== this.myPlayerId)
+            .map((p) => ({ id: p.id, name: p.name, isAlive: true, isConnected: p.isConnected })),
+        );
 
-        this.deadTargets = this.players
-          .filter((p) => !p.isAlive)
-          .map((p) => ({ id: p.id, name: p.name, isAlive: false }));
+        this.deadTargets = this.syncTargetList(
+          this.deadTargets,
+          this.players
+            .filter((p) => !p.isAlive)
+            .map((p) => ({ id: p.id, name: p.name, isAlive: false, isConnected: p.isConnected })),
+        );
+
+        if (
+          this.selectedTarget &&
+          !this.aliveTargets.some((t) => t.id === this.selectedTarget) &&
+          !this.deadTargets.some((t) => t.id === this.selectedTarget)
+        ) {
+          this.selectedTarget = '';
+        }
 
         this.syncInfectionFromState(me);
         this.syncRoleMeta(me);
@@ -414,6 +431,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.phaseTransition$.subscribe((t) => {
+        this.gamePhase = t.to;
         this.triggerPhaseFlash(t.to);
         void this.runPhaseHaptic(t.to);
         this.phaseBulletin = phaseBulletin(t.to);
@@ -991,6 +1009,26 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   get phaseLabelText(): string {
     return phaseLabel(this.gamePhase);
+  }
+
+  trackByPlayerId(_: number, player: RoomPlayer): string {
+    return player.id;
+  }
+
+  /** Actualiza targets sin recrear el array si los IDs no cambiaron (evita parpadeo del picker). */
+  private syncTargetList(current: TargetOption[], next: TargetOption[]): TargetOption[] {
+    if (
+      current.length === next.length &&
+      current.every((item, i) => item.id === next[i]?.id)
+    ) {
+      for (let i = 0; i < next.length; i++) {
+        current[i].name = next[i].name;
+        current[i].isConnected = next[i].isConnected;
+        current[i].isAlive = next[i].isAlive;
+      }
+      return current;
+    }
+    return next;
   }
 
   get targetOptions(): TargetOption[] {

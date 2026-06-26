@@ -26,6 +26,7 @@ import {
   incidentsFromServerReport,
   sanitizeGameState,
 } from '../utils/game.utils';
+import { socketReconnectOptions } from '../utils/socket-reconnect.utils';
 import {
   formatServerErrorForToast,
   inferJoinErrorCode,
@@ -56,6 +57,7 @@ export class GameSocketService implements OnDestroy {
   readonly error$ = new Subject<string>();
   readonly incidents$ = new Subject<{ incidents: IncidentDisplay[]; nightNumber: number }>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
+  readonly reconnecting$ = new BehaviorSubject<boolean>(false);
   readonly publicLog$ = new Subject<PublicLogEntry>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly nightProgress$ = new Subject<NightProgress>();
@@ -67,20 +69,20 @@ export class GameSocketService implements OnDestroy {
     return this.roomId;
   }
 
+  private reconnectWatchdog?: ReturnType<typeof setInterval>;
+
   connect(): void {
     if (this.socket?.connected) return;
 
     if (this.socket && !this.socket.connected) {
       this.socket.connect();
+      this.startReconnectWatchdog();
       return;
     }
 
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 15000,
+      ...socketReconnectOptions(),
     };
 
     const extraHeaders = this.buildTunnelHeaders();
@@ -95,17 +97,55 @@ export class GameSocketService implements OnDestroy {
 
     this.socket.on('connect', () => {
       this.connected$.next(true);
+      this.reconnecting$.next(false);
       if (this.roomId) {
         this.socket?.emit('joinDashboard', this.roomId);
       }
     });
-    this.socket.on('disconnect', () => this.connected$.next(false));
+    this.socket.on('disconnect', () => {
+      this.connected$.next(false);
+      if (this.roomId) this.reconnecting$.next(true);
+    });
     this.socket.on('connect_error', (err: Error) => {
       this.connected$.next(false);
+      if (this.roomId) this.reconnecting$.next(true);
       this.error$.next(`No se pudo conectar al servidor: ${err.message}`);
     });
 
+    this.socket.io.on('reconnect_attempt', () => {
+      if (this.roomId) this.reconnecting$.next(true);
+    });
+
+    this.socket.io.on('reconnect_failed', () => {
+      this.socket?.connect();
+    });
+
     this.attachListeners();
+    this.startReconnectWatchdog();
+  }
+
+  ensureConnection(): void {
+    if (!this.roomId) return;
+    if (!this.socket) {
+      this.connect();
+      return;
+    }
+    if (!this.socket.connected) {
+      this.reconnecting$.next(true);
+      this.socket.connect();
+    }
+  }
+
+  private startReconnectWatchdog(): void {
+    if (this.reconnectWatchdog) return;
+    this.reconnectWatchdog = setInterval(() => {
+      if (!this.roomId) return;
+      if (this.socket?.connected) {
+        if (this.reconnecting$.value) this.reconnecting$.next(false);
+        return;
+      }
+      this.ensureConnection();
+    }, 5_000);
   }
 
   createLobby(maxPlayers: number): string {
@@ -132,6 +172,8 @@ export class GameSocketService implements OnDestroy {
     this.roomId = code;
     this.gameEnded = false;
     this.joinPending = true;
+    this.reconnecting$.next(true);
+    this.ensureConnection();
     this.roomState$.next(null);
     this.socket?.emit('joinDashboard', code);
   }
@@ -251,6 +293,7 @@ export class GameSocketService implements OnDestroy {
       if (sanitized.phase === 'FIN') {
         this.gameEnded = true;
       }
+      this.reconnecting$.next(false);
       this.roomState$.next(sanitized);
       if (this.joinPending) {
         this.joinPending = false;

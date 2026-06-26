@@ -18,8 +18,11 @@ import {
 import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
 import { countSkipVotes, roleTeamHint } from '../../core/utils/game.utils';
 import {
+  allPrimaryCentralsFallen,
+  applyArmFailover,
   computeExtendedStarLayoutFromSlots,
   computeExtendedStarSlotLayout,
+  getArmSlotChain,
   hubPoint,
   linkEndpoints,
   NodePosition,
@@ -72,6 +75,16 @@ interface BootSpoke {
   delay: number;
 }
 
+interface MeshSegment {
+  id: string;
+  slotA: number;
+  slotB: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 @Component({
   selector: 'app-topology',
   standalone: true,
@@ -114,6 +127,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   starSlots: SlotPosition[] = [];
   returningGhostSlots = new Set<number>();
   spokeGuides: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  ringMeshLinks: HubLink[] = [];
   slotGuides: BootSpoke[] = [];
   phaseTransition = false;
   networkBooting = false;
@@ -130,6 +144,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   private static readonly SPAWN_BUILD_MS = 1200;
   /** Parpadeos de confirmación al terminar la construcción. */
   private static readonly CONNECT_BLINK_MS = 780;
+  private static readonly FAILOVER_PROMOTE_MS = 950;
   private static readonly NETWORK_BOOT_MS = 8300;
   private static readonly NETWORK_BOOT_FADE_MS = 2400;
   private static readonly LEAVE_MS = 1100;
@@ -150,16 +165,39 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   private lastPacketTickMs: number | null = null;
   private particlePhase: GamePhase = 'LOBBY';
   private bootRoomKey: string | null = null;
+  private currentRoomId: string | null = null;
+  private meshLinksInitialized = false;
+  private prevMeshLinkActive = new Set<string>();
+  private prevConnectedIds = new Set<string>();
+  private prevArmAnchor = new Map<number, string | null>();
+  private failoverDisplay = new Map<string, { x: number; y: number }>();
+  private failoverPromotingIds = new Set<string>();
 
   ngAfterViewInit(): void {
     this.viewReady = true;
     this.particlePhase = this.phase;
     this.updateLayout(true);
+    this.syncFromState();
     this.initParticles();
     this.animateParticles();
     this.resizeLinkPacketsCanvas();
     this.startLinkPacketLoop();
     this.tryStartNetworkBootForCurrentRoom();
+    this.cdr.markForCheck();
+  }
+
+  /** Sincroniza enlaces y jugadores cuando ya hay estado (p. ej. re-entrada a sala). */
+  private syncFromState(): void {
+    if (!this.state) return;
+
+    if (this.state.roomId) {
+      this.currentRoomId = this.state.roomId;
+    }
+
+    this.detectPlayerChanges();
+    this.detectAliveChanges();
+    this.detectConnectionChanges();
+    this.refreshHubLinks();
   }
 
   ngOnDestroy(): void {
@@ -191,10 +229,23 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
     if (this.viewReady && (changes['state'] || changes['phase'])) {
       if (changes['state']) {
+        if (this.state?.roomId && this.state.roomId !== this.currentRoomId) {
+          this.currentRoomId = this.state.roomId;
+          this.meshLinksInitialized = false;
+          this.prevMeshLinkActive.clear();
+          this.prevConnectedIds.clear();
+          this.layoutReady = false;
+          this.prevPlayerIds.clear();
+          this.prevAliveIds.clear();
+          this.prevArmAnchor.clear();
+        }
+        const prevPositions = new Map(
+          this.nodes.map((n) => [n.id, { x: this.nodeX(n), y: this.nodeY(n) }]),
+        );
+        const prevAnchors = new Map(this.prevArmAnchor);
         this.updateLayout(false);
-        this.detectPlayerChanges();
-        this.detectAliveChanges();
-        this.refreshHubLinks();
+        this.detectArmFailoverPromotions(prevPositions, prevAnchors);
+        this.syncFromState();
         this.tryStartNetworkBootForCurrentRoom();
       } else {
         this.updateLayout(false);
@@ -270,6 +321,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.bootStatusText = '';
       for (const g of this.slotGuides) this.bootGuideLit.add(g.id);
       for (const s of this.starSlots) this.bootSlotLit.add(s.index);
+      this.rebuildMeshLinks();
       this.cdr.markForCheck();
     }, TopologyComponent.NETWORK_BOOT_MS);
     this.spawnTimers.push(t1, t2, t3, tFade, tDone);
@@ -420,6 +472,41 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
     }, handshakeMs + TopologyComponent.SPAWN_BUILD_MS + TopologyComponent.CONNECT_BLINK_MS);
     this.spawnTimers.push(tDone);
+  }
+
+  private detectConnectionChanges(): void {
+    const players = this.state?.players ?? [];
+    const connectedNow = new Set(
+      players.filter((p) => p.isAlive && p.isConnected).map((p) => p.id),
+    );
+
+    if (!this.layoutReady) {
+      this.prevConnectedIds = connectedNow;
+      return;
+    }
+
+    let changed = connectedNow.size !== this.prevConnectedIds.size;
+    if (!changed) {
+      for (const id of connectedNow) {
+        if (!this.prevConnectedIds.has(id)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) {
+      for (const id of this.prevConnectedIds) {
+        if (!connectedNow.has(id)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    this.prevConnectedIds = connectedNow;
+    if (changed) {
+      this.rebuildMeshLinks();
+    }
   }
 
   private computeLinkHandshakeMs(node: NodePosition): number {
@@ -596,6 +683,114 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     return this.banAnimationIds.has(id);
   }
 
+  isFailoverPromoting(id: string): boolean {
+    return this.failoverPromotingIds.has(id);
+  }
+
+  nodeX(node: NodePosition): number {
+    return this.failoverDisplay.get(node.id)?.x ?? node.x;
+  }
+
+  nodeY(node: NodePosition): number {
+    return this.failoverDisplay.get(node.id)?.y ?? node.y;
+  }
+
+  private detectArmFailoverPromotions(
+    prevPositions: Map<string, { x: number; y: number }>,
+    prevAnchors: Map<number, string | null>,
+  ): void {
+    if (!this.starSlots.some((s) => s.tier === 1)) return;
+    if (!allPrimaryCentralsFallen(this.nodes, this.starSlots)) {
+      for (let arm = 0; arm < 4; arm++) {
+        this.prevArmAnchor.set(arm, this.getArmAnchorPlayerId(arm));
+      }
+      return;
+    }
+
+    const newHubAnchors = new Set<string>();
+
+    for (let arm = 0; arm < 4; arm++) {
+      const anchorId = this.getArmAnchorPlayerId(arm);
+      const prevAnchor = prevAnchors.get(arm);
+      this.prevArmAnchor.set(arm, anchorId);
+      if (anchorId && prevAnchor !== anchorId && this.layoutReady) {
+        const node = this.nodes.find((n) => n.id === anchorId);
+        if (node?.player.isAlive) newHubAnchors.add(anchorId);
+      }
+    }
+
+    if (!this.layoutReady) return;
+
+    for (const node of this.nodes) {
+      const from = prevPositions.get(node.id);
+      if (!from) continue;
+      const dist = Math.hypot(from.x - node.x, from.y - node.y);
+      if (dist < 4) continue;
+      this.scheduleFailoverPromotion(
+        node.id,
+        from.x,
+        from.y,
+        node.x,
+        node.y,
+        newHubAnchors.has(node.id),
+      );
+    }
+  }
+
+  private getArmAnchorPlayerId(arm: number): string | null {
+    const chain = getArmSlotChain(this.starSlots, arm, this.hub.x, this.hub.y);
+    const frontSlot = chain[0]?.index;
+    if (frontSlot === undefined) return null;
+    const node = this.nodes.find((n) => (n.effectiveSlotIndex ?? n.slotIndex) === frontSlot);
+    if (!node?.player.isAlive) return null;
+    return node.id;
+  }
+
+  private scheduleFailoverPromotion(
+    id: string,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    connectHub = false,
+  ): void {
+    if (this.failoverPromotingIds.has(id)) return;
+    this.failoverPromotingIds.add(id);
+    const started = performance.now();
+    const ms = TopologyComponent.FAILOVER_PROMOTE_MS;
+
+    const tick = () => {
+      const t = Math.min(1, (performance.now() - started) / ms);
+      const p = this.easeOutCubic(t);
+      this.failoverDisplay.set(id, {
+        x: fromX + (toX - fromX) * p,
+        y: fromY + (toY - fromY) * p,
+      });
+      this.refreshHubLinks();
+      this.cdr.markForCheck();
+
+      if (t < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        this.failoverDisplay.delete(id);
+        this.failoverPromotingIds.delete(id);
+        const node = this.nodes.find((n) => n.id === id);
+        if (connectHub && node?.player.isConnected && node.player.isAlive) {
+          this.scheduleNodeArrival(id);
+        } else {
+          this.refreshHubLinks();
+          this.rebuildMeshLinks();
+          this.cdr.markForCheck();
+        }
+      }
+    };
+
+    requestAnimationFrame(tick);
+    if (connectHub) {
+      this.triggerParticleBurst('join', toX, toY);
+    }
+  }
+
   private scheduleNodeDeparture(id: string): void {
     const slotIdx = this.playerSlotIndex.get(id);
     let ghost = this.nodes.find((n) => n.id === id);
@@ -755,6 +950,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     const activeCount = this.hubLinks.filter(
       (l) => l.active && !this.linkPulseIds.has(l.id),
     ).length;
+    const meshCount = this.ringMeshLinks.filter((l) => l.active).length;
     for (const link of this.hubLinks) {
       if (!link.active || this.linkPulseIds.has(link.id)) continue;
       const phase = this.flowPhaseByLink.get(link.id)!;
@@ -764,8 +960,23 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       phase.in = (phase.in + dt / durIn) % 1;
     }
 
+    for (const link of this.ringMeshLinks) {
+      if (!link.active) continue;
+      if (!this.flowPhaseByLink.has(link.id)) {
+        this.flowPhaseByLink.set(link.id, { out: Math.random(), in: Math.random() * 0.5 });
+      }
+      const phase = this.flowPhaseByLink.get(link.id)!;
+      const durOut = parseFloat(this.linkPacketDuration(activeCount + meshCount));
+      const durIn = parseFloat(this.linkPacketDuration(activeCount + meshCount + 0.6));
+      phase.out = (phase.out + dt / durOut) % 1;
+      phase.in = (phase.in + dt / durIn) % 1;
+    }
+
     const activeIds = new Set(
-      this.hubLinks.filter((l) => l.active && !this.linkPulseIds.has(l.id)).map((l) => l.id),
+      [
+        ...this.hubLinks.filter((l) => l.active && !this.linkPulseIds.has(l.id)).map((l) => l.id),
+        ...this.ringMeshLinks.filter((l) => l.active).map((l) => l.id),
+      ],
     );
     for (const id of this.flowPhaseByLink.keys()) {
       if (!activeIds.has(id)) this.flowPhaseByLink.delete(id);
@@ -822,6 +1033,45 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
         2.5,
         '#ff5ec4',
         8,
+      );
+    }
+
+    for (const link of this.ringMeshLinks) {
+      if (this.linkPulseIds.has(link.id)) {
+        const started = this.pulseStartedAt.get(link.id) ?? now;
+        const ms = this.linkHandshakeMsById.get(link.id) ?? TopologyComponent.LINK_HANDSHAKE_MS;
+        const t = Math.min(1, (now - started) / ms);
+        const p = this.easeOutCubic(t);
+        const tipX = link.x1 + (link.x2 - link.x1) * p;
+        const tipY = link.y1 + (link.y2 - link.y1) * p;
+
+        if (this.cableExtendingIds.has(link.id)) {
+          this.paintExtendCable(ctx, link.x1, link.y1, tipX, tipY);
+          if (t < 1) {
+            this.paintPacket(ctx, tipX, tipY, 4.5, '#ffc832', 12);
+          }
+        }
+        continue;
+      }
+
+      if (!link.active) continue;
+      const phase = this.flowPhaseByLink.get(link.id);
+      if (!phase) continue;
+      this.paintPacket(
+        ctx,
+        link.x1 + (link.x2 - link.x1) * phase.out,
+        link.y1 + (link.y2 - link.y1) * phase.out,
+        3,
+        '#ffc832',
+        9,
+      );
+      this.paintPacket(
+        ctx,
+        link.x2 + (link.x1 - link.x2) * phase.in,
+        link.y2 + (link.y1 - link.y2) * phase.in,
+        2.2,
+        '#ff5ec4',
+        7,
       );
     }
   }
@@ -890,6 +1140,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   isPendingConnection(id: string): boolean {
     return (
+      this.failoverPromotingIds.has(id) ||
       this.cableExtendingIds.has(id) ||
       this.spawningIds.has(id) ||
       this.connectedBlinkIds.has(id)
@@ -956,7 +1207,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.closeKickMenu();
       return;
     }
-    this.kickMenu = { player: node.player, x: node.x, y: node.y };
+    this.kickMenu = { player: node.player, x: this.nodeX(node), y: this.nodeY(node) };
     this.cdr.markForCheck();
   }
 
@@ -1094,11 +1345,158 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.spokeGuides = [];
   }
 
+  private getOccupantAtSlot(slotIndex: number): NodePosition | null {
+    return (
+      this.nodes.find((n) => (n.effectiveSlotIndex ?? n.slotIndex) === slotIndex) ?? null
+    );
+  }
+
+  /** Jugador presente, conectado y con handshake de llegada completado. */
+  private isSlotDataReady(slotIndex: number): boolean {
+    const node = this.getOccupantAtSlot(slotIndex);
+    if (!node) return false;
+    if (this.leavingNodes.some((n) => n.slotIndex === slotIndex)) return false;
+    if (this.isPendingConnection(node.id)) return false;
+    return node.player.isAlive && node.player.isConnected;
+  }
+
+  private isSlotEntryAnimating(slotIndex: number): boolean {
+    const node = this.getOccupantAtSlot(slotIndex);
+    if (!node) return false;
+    return this.isPendingConnection(node.id);
+  }
+
+  /**
+   * Líneas de datos solo entre nodos exteriores **adyacentes en el perímetro**:
+   * - Estrella extendida: anillo angular entre hojas tier-1 (sin diagonales ni diamante central).
+   * - Estrella clásica (≤6): anillo entre nodos del único anillo.
+   */
+  private collectMeshSegments(): MeshSegment[] {
+    const segments: MeshSegment[] = [];
+    const inset = this.nodeMetrics.linkInset;
+    const hasLeaves = this.starSlots.some((s) => s.tier === 1);
+
+    const ring = hasLeaves
+      ? this.starSlots.filter((s) => s.tier === 1)
+      : this.starSlots.filter((s) => s.tier === 0);
+
+    if (ring.length < 2) return segments;
+
+    const sorted = [...ring].sort((a, b) => {
+      const angA = Math.atan2(a.y - this.hub.y, a.x - this.hub.x);
+      const angB = Math.atan2(b.y - this.hub.y, b.x - this.hub.x);
+      return angA - angB;
+    });
+
+    for (let i = 0; i < sorted.length; i++) {
+      const a = sorted[i];
+      const b = sorted[(i + 1) % sorted.length];
+      const ep = linkEndpoints(a.x, a.y, b.x, b.y, inset, inset);
+      segments.push({
+        id: `mesh-perim-${a.index}-${b.index}`,
+        slotA: a.index,
+        slotB: b.index,
+        ...ep,
+      });
+    }
+
+    return segments;
+  }
+
+  private buildMeshHubLink(seg: MeshSegment): HubLink {
+    const readyA = this.isSlotDataReady(seg.slotA);
+    const readyB = this.isSlotDataReady(seg.slotB);
+    const bothReady = readyA && readyB;
+    const pulsing = this.linkPulseIds.has(seg.id);
+
+    return {
+      id: seg.id,
+      x1: seg.x1,
+      y1: seg.y1,
+      x2: seg.x2,
+      y2: seg.y2,
+      visible: bothReady || pulsing,
+      active: bothReady && !pulsing && !this.networkBooting,
+      pulsing,
+      isBranch: true,
+      handshakeSec: this.linkHandshakeSec(seg.id),
+    };
+  }
+
+  private scheduleMeshLinkArrival(seg: MeshSegment): void {
+    this.cableExtendingIds.add(seg.id);
+    this.linkPulseIds.add(seg.id);
+    this.pulseStartedAt.set(seg.id, performance.now());
+
+    const dist = Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
+    const ms = Math.round(Math.min(950, Math.max(520, dist * 4.5)));
+    this.linkHandshakeMsById.set(seg.id, ms);
+    this.rebuildMeshLinks();
+    this.cdr.markForCheck();
+
+    const tDone = setTimeout(() => {
+      this.cableExtendingIds.delete(seg.id);
+      this.linkPulseIds.delete(seg.id);
+      this.linkHandshakeMsById.delete(seg.id);
+      this.pulseStartedAt.delete(seg.id);
+      this.prevMeshLinkActive.add(seg.id);
+      if (!this.flowPhaseByLink.has(seg.id)) {
+        this.flowPhaseByLink.set(seg.id, { out: Math.random(), in: Math.random() * 0.5 });
+      }
+      this.rebuildMeshLinks();
+      this.cdr.markForCheck();
+    }, ms);
+    this.spawnTimers.push(tDone);
+  }
+
+  /** Líneas de datos entre nodos adyacentes (solo si ambos están conectados). */
+  private rebuildMeshLinks(): void {
+    if (!this.starSlots.length) {
+      this.ringMeshLinks = [];
+      return;
+    }
+
+    const segments = this.collectMeshSegments();
+    const prev = this.prevMeshLinkActive;
+    const nextActive = new Set<string>();
+
+    this.ringMeshLinks = segments.map((seg) => {
+      const link = this.buildMeshHubLink(seg);
+      if (link.active) nextActive.add(seg.id);
+      return link;
+    });
+
+    if (!this.meshLinksInitialized) {
+      this.prevMeshLinkActive = nextActive;
+      this.meshLinksInitialized = true;
+      return;
+    }
+
+    if (!this.networkBooting && this.layoutReady) {
+      for (const seg of segments) {
+        const ready = this.isSlotDataReady(seg.slotA) && this.isSlotDataReady(seg.slotB);
+        if (!ready || prev.has(seg.id) || this.linkPulseIds.has(seg.id)) continue;
+        if (this.isSlotEntryAnimating(seg.slotA) || this.isSlotEntryAnimating(seg.slotB)) continue;
+        this.scheduleMeshLinkArrival(seg);
+      }
+    }
+
+    for (const id of [...this.prevMeshLinkActive]) {
+      if (!nextActive.has(id) && !this.linkPulseIds.has(id)) {
+        this.prevMeshLinkActive.delete(id);
+        this.flowPhaseByLink.delete(id);
+      }
+    }
+  }
+
   private resolveLinkOrigin(node: NodePosition): { x: number; y: number; inset: number; isBranch: boolean } {
     if (node.parentSlotIndex != null) {
       const parent = this.starSlots[node.parentSlotIndex];
       if (parent) {
-        return { x: parent.x, y: parent.y, inset: this.nodeMetrics.primaryInset, isBranch: true };
+        const parentNode = this.getOccupantAtSlot(node.parentSlotIndex);
+        const px = parentNode ? this.nodeX(parentNode) : parent.x;
+        const py = parentNode ? this.nodeY(parentNode) : parent.y;
+        return { x: px, y: py, inset: this.nodeMetrics.primaryInset, isBranch: true };
       }
     }
     return { x: this.hub.x, y: this.hub.y, inset: this.nodeMetrics.hubPortRadius, isBranch: false };
@@ -1158,11 +1556,14 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.ghostSlots = this.starSlots.filter((s) => !usedSlots.has(s.index));
   }
 
-  private refreshHubLinks(): void {
+  private refreshHubLinks(includeMesh = true): void {
     this.hubLinks = [
       ...this.nodes.map((node) => this.buildHubLink(node)),
       ...this.leavingNodes.map((node) => this.buildHubLink(node)),
     ];
+    if (includeMesh) {
+      this.rebuildMeshLinks();
+    }
     this.updateHubPorts();
   }
 
@@ -1190,11 +1591,13 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private buildHubLink(node: NodePosition): HubLink {
     const origin = this.resolveLinkOrigin(node);
+    const nx = this.nodeX(node);
+    const ny = this.nodeY(node);
     const endpoints = linkEndpoints(
       origin.x,
       origin.y,
-      node.x,
-      node.y,
+      nx,
+      ny,
       origin.inset,
       this.nodeMetrics.linkInset,
     );
@@ -1232,14 +1635,25 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       slotIndex: this.assignPlayerSlot(player.id, maxSlots),
     }));
 
-    this.nodes = computeExtendedStarLayoutFromSlots(assignments, this.starSlots);
+    this.nodes = applyArmFailover(
+      computeExtendedStarLayoutFromSlots(assignments, this.starSlots),
+      this.starSlots,
+      this.hub.x,
+      this.hub.y,
+    );
+
+    if (!this.layoutReady) {
+      for (let arm = 0; arm < 4; arm++) {
+        this.prevArmAnchor.set(arm, this.getArmAnchorPlayerId(arm));
+      }
+    }
 
     this.leavingNodes = this.leavingNodes.map((ln) => {
       const slot = this.starSlots[ln.slotIndex];
       return slot ? { ...ln, x: slot.x, y: slot.y } : ln;
     });
 
-    this.refreshHubLinks();
+    this.refreshHubLinks(false);
     this.updateGhostSlots();
     this.buildSlotGuides();
     this.resizeParticlesCanvas();

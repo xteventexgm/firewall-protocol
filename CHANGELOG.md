@@ -30,7 +30,7 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 - **Auth:** JWT, colecciones `users`, `auth_sessions`, `game_participations`; rutas `/api/auth/*`.
 - **Scripts:** `npm run db:setup`, `db:seed`, `db:migrate` (JSON → Mongo).
 - **Docker:** `backend-server/docker-compose.yml` (Mongo 7 + backend con `db:setup` automático).
-- Documentación: [`DATABASE.md`](DATABASE.md), [`MICROSERVICES.md`](MICROSERVICES.md).
+- Documentación: [`DATABASE.md`](DATABASE.md).
 
 ### Avatares y perfil (móvil)
 
@@ -50,7 +50,7 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 ### Documentación y roles
 
 - README y [`ROLES.md`](../ROLES.md) actualizados: **44 roles** (16 System · 14 Black Hat · 14 Caótico), jugadores 5–16, stack Mongo/MinIO.
-- [`DATABASE.md`](DATABASE.md) §11 avatares; [`MICROSERVICES.md`](MICROSERVICES.md) §10 blobs; enlaces en [`README.md`](README.md).
+- [`DATABASE.md`](DATABASE.md) §11 avatares; enlaces en [`README.md`](README.md).
 
 ### Archivos principales
 
@@ -59,7 +59,7 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 | Mongo / auth | `MongoDBAdapter.ts`, `UserService.ts`, `auth.routes.ts`, `mongoConnection.ts` |
 | Avatares | `AvatarService.ts`, `minioClient.ts`, `data/avatars/` o bucket MinIO |
 | Móvil cuenta | `account-panel/`, `auth.service.ts`, `api-base.utils.ts` |
-| Docs | `STORAGE_AND_AVATARS.md`, `DATABASE.md`, `MICROSERVICES.md` |
+| Docs | `STORAGE_AND_AVATARS.md`, `DATABASE.md` |
 
 ---
 

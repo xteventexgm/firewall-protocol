@@ -152,7 +152,6 @@ Bots QA y partida automática: [`TESTING.md`](TESTING.md).
 | [`SOCKET_CONTRACT.md`](SOCKET_CONTRACT.md) | Eventos Socket.io (`/game` y `/dashboard`) |
 | [`DATABASE.md`](DATABASE.md) | MongoDB, auth, colecciones, scripts `db:*` |
 | [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) | Avatares MinIO / disco |
-| [`MICROSERVICES.md`](MICROSERVICES.md) | Roadmap monolito → Redis → servicios |
 | [`TESTING.md`](TESTING.md) | QA manual y bots |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de cambios |
 | README por app | [`backend-server/`](backend-server/README.md) · [`web-dashboard/`](web-dashboard/README.md) · [`mobile-terminal/`](mobile-terminal/README.md) |

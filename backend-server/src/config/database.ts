@@ -1,7 +1,8 @@
 /**
  * Adaptador de persistencia de partidas.
  *
- * Selecciona automáticamente MongoDB (`MONGO_URI`) o JSON en disco (`dbSyncService`).
+ * Selecciona automáticamente MongoDB (`MONGO_URI` vía `mongoConnection`) o JSON en disco.
+ * Los adaptadores MongoDB deben usar `getDb()` / `getMongoClient()` después de `connectMongo()`.
  * Ver DATABASE.md y `services/MongoDBAdapter.ts`.
  */
 import { createJsonAdapter } from '../services/JsonAdapter';

@@ -33,6 +33,7 @@ export class LobbyComponent implements OnChanges {
   @Input() roomCode = '';
   @Input() state: PublicGameState | null = null;
   @Input() connected = false;
+  @Input() reconnecting = false;
   @Input() savedRooms: SavedRoom[] = [];
   @Input() savedRoomConnected: Record<string, number> = {};
   @Input() gameOverActive = false;

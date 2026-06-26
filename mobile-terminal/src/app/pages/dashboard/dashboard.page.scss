@@ -1187,6 +1187,37 @@
   }
 }
 
+.hex-node-row {
+  gap: 0.65rem;
+}
+
+.node-hex-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%);
+  background: rgba(0, 255, 65, 0.08);
+  border: 1px solid #00ff4188;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #00ff41;
+  box-shadow: 0 0 6px rgba(0, 255, 65, 0.15);
+
+  .dead & {
+    border-color: #ef444488;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+  }
+
+  .self & {
+    border-color: #00f0ff;
+    color: #00f0ff;
+    background: rgba(0, 240, 255, 0.1);
+  }
+}
+
 .node-status {
   width: 6px;
   height: 6px;

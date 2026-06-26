@@ -1,0 +1,20 @@
+<div class="node-picker" [class.disabled]="disabled">
+  <p *ngIf="!options.length" class="node-picker-empty">{{ placeholder }}</p>
+  <div class="node-picker-grid">
+    <button
+      type="button"
+      class="hex-node"
+      *ngFor="let player of options; trackBy: trackById"
+      [class.selected]="selectedId === player.id"
+      [class.offline]="player.isConnected === false"
+      (click)="select(player.id)"
+      [attr.aria-pressed]="selectedId === player.id"
+      [attr.aria-label]="player.name"
+    >
+      <span class="hex-shape" aria-hidden="true">
+        <span class="hex-inner">{{ initial(player.name) }}</span>
+      </span>
+      <span class="hex-label">{{ player.name }}</span>
+    </button>
+  </div>
+</div>

@@ -8,8 +8,14 @@ import database, { getPersistenceMode } from './config/database';
 import authRoutes from './routes/auth.routes';
 import { isMongoConnected, isMongoEnabled, getMongoLastError } from './services/mongoConnection';
 import { getAvatarStorageMode } from './services/AvatarService';
-import { isMinioAvatarStorage, isMinioConnected, getMinioLastError } from './services/minioClient';
-import { MINIO_BUCKET, MINIO_ENDPOINT, MINIO_PORT } from './config/env';
+import {
+	ensureObjectStorageBucket,
+	getObjectStorageLastError,
+	getObjectStorageProvider,
+	isObjectStorageConnected,
+	isObjectStorageEnabled,
+} from './services/objectStorageClient';
+import { S3_BUCKET, S3_ENDPOINT } from './config/env';
 import { isValidRoomCode, normalizeRoomCode } from './utils/socketErrors';
 
 const app = express();
@@ -49,13 +55,14 @@ app.get('/health', (_req, res) => {
 		},
 		avatars: {
 			storage: getAvatarStorageMode(),
-			minio: isMinioAvatarStorage()
+			objectStorage: isObjectStorageEnabled()
 				? {
+						provider: getObjectStorageProvider(),
 						configured: true,
-						connected: isMinioConnected(),
-						endpoint: `${MINIO_ENDPOINT}:${MINIO_PORT}`,
-						bucket: MINIO_BUCKET,
-						error: !isMinioConnected() ? getMinioLastError() : null,
+						connected: isObjectStorageConnected(),
+						endpoint: S3_ENDPOINT,
+						bucket: S3_BUCKET,
+						error: !isObjectStorageConnected() ? getObjectStorageLastError() : null,
 					}
 				: { configured: false },
 		},
