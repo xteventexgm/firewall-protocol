@@ -23,6 +23,8 @@ export type UserDocument = {
   createdAt: Date;
   lastLoginAt?: Date;
   isActive: boolean;
+  /** false hasta verificar correo; undefined = cuenta legacy (tratada como verificada) */
+  emailVerified?: boolean;
 };
 
 export type PublicUser = {
@@ -37,6 +39,7 @@ export type PublicUser = {
   createdAt: string;
   lastLoginAt?: string;
   isActive: boolean;
+  emailVerified: boolean;
 };
 
 function toPublicUser(doc: UserDocument): PublicUser {
@@ -52,6 +55,7 @@ function toPublicUser(doc: UserDocument): PublicUser {
     createdAt: doc.createdAt.toISOString(),
     lastLoginAt: doc.lastLoginAt?.toISOString(),
     isActive: doc.isActive,
+    emailVerified: doc.emailVerified !== false,
   };
 }
 
@@ -90,6 +94,7 @@ export async function registerUser(input: {
     linkedGuestIds: [],
     createdAt: now,
     isActive: true,
+    emailVerified: false,
   };
   await users().insertOne(doc);
   return toPublicUser(doc);
@@ -109,6 +114,31 @@ export async function loginUser(login: string, password: string): Promise<UserDo
   await users().updateOne({ _id: doc._id }, { $set: { lastLoginAt: new Date() } });
   doc.lastLoginAt = new Date();
   return doc;
+}
+
+export async function findUserByEmail(email: string): Promise<UserDocument | null> {
+  const key = email.trim().toLowerCase();
+  if (!key) return null;
+  return users().findOne({ email: key, isActive: true });
+}
+
+export async function markEmailVerified(userId: string): Promise<void> {
+  if (!ObjectId.isValid(userId)) throw new Error('invalid_user');
+  await users().updateOne({ _id: new ObjectId(userId) }, { $set: { emailVerified: true } });
+}
+
+export async function resetUserPassword(userId: string, newPassword: string): Promise<void> {
+  const pwdErr = validatePassword(newPassword);
+  if (pwdErr) throw new Error(pwdErr);
+  if (!ObjectId.isValid(userId)) throw new Error('invalid_user');
+  await users().updateOne(
+    { _id: new ObjectId(userId), isActive: true },
+    { $set: { passwordHash: hashPassword(newPassword) } },
+  );
+}
+
+export function isEmailVerified(doc: UserDocument): boolean {
+  return doc.emailVerified !== false;
 }
 
 export async function findUserById(userId: string): Promise<UserDocument | null> {
@@ -172,6 +202,19 @@ export async function updateUserAvatarUrl(userId: string, avatarUrl: string | nu
     { _id: new ObjectId(userId) },
     avatarUrl ? { $set: { avatarUrl } } : { $unset: { avatarUrl: '' } },
   );
+}
+
+export async function verifyUserPassword(userId: string, password: string): Promise<boolean> {
+  if (!ObjectId.isValid(userId)) return false;
+  const doc = await users().findOne({ _id: new ObjectId(userId), isActive: true });
+  if (!doc?.passwordHash) return false;
+  return verifyPassword(password, doc.passwordHash);
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  if (!ObjectId.isValid(userId)) throw new Error('invalid_user');
+  const result = await users().deleteOne({ _id: new ObjectId(userId), isActive: true });
+  if (result.deletedCount === 0) throw new Error('user_not_found');
 }
 
 export { toPublicUser };

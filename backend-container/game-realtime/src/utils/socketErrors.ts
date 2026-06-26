@@ -20,7 +20,8 @@ export type SocketErrorCode =
   | 'bots_disabled'
   | 'bots_need_humans'
   | 'player_not_found'
-  | 'kick_not_allowed';
+  | 'kick_not_allowed'
+  | 'email_not_verified';
 
 export function formatSocketError(message: string, code: SocketErrorCode): string {
   return `${message} (${code})`;

@@ -1,64 +1,81 @@
 # Servicio de identidad (`@firewall/identity-service`)
 
-Registro, login, JWT, sesiones, perfil e historial de participaciones.
+Registro, login, JWT, sesiones, perfil, historial de partidas y correos transaccionales.
+
+## Puerto
+
+- **3002** (red interna Docker)
+- Público vía gateway: `http://localhost:3000/api/auth/*`
 
 ## Arranque local
 
 ```bash
 cd backend-container/identity
 cp .env.example .env
-# Edita JWT_SECRET y MONGO_URI (mismos valores que backend-server durante la migración)
 npm install
-npm start
+PORT=3002 npm start
 ```
 
-El servicio escucha en **http://localhost:3001**.
+## Docker
+
+Desde la raíz del repo:
+
+```bash
+docker compose up -d --build identity
+docker compose logs -f identity
+```
 
 ## Endpoints principales
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/health` | Estado del servicio |
-| GET | `/api/auth/status` | Auth habilitado |
+| GET | `/api/auth/status` | Auth habilitado, flags |
 | POST | `/api/auth/register` | Alta de cuenta |
-| POST | `/api/auth/login` | Login (campo `login`: email o username) |
+| POST | `/api/auth/login` | Login (`login`: correo o username) |
 | POST | `/api/auth/refresh` | Renovar access token |
+| POST | `/api/auth/logout` | Cerrar sesión (refresh) |
 | GET | `/api/auth/me` | Usuario actual |
 | GET | `/api/auth/profile` | Perfil + participaciones |
-| GET | `/api/auth/verify` | Validar Bearer token (otros servicios) |
+| GET | `/api/auth/verify` | Validar Bearer (otros servicios) |
+| POST | `/api/auth/forgot-password` | Código de recuperación |
+| POST | `/api/auth/reset-password` | Nueva contraseña con código |
+| GET/POST | `/api/auth/verify-email` | Verificar correo (web o API) |
+| POST | `/api/auth/resend-verification` | Reenviar correo (Bearer) |
+| POST | `/api/auth/request-delete-account` | Enviar código eliminar cuenta |
+| POST | `/api/auth/confirm-delete-account` | Confirmar borrado (código + password) |
+| POST | `/api/auth/change-password` | Cambiar contraseña |
+| PATCH | `/api/auth/username` | Cambiar username |
+| POST | `/api/auth/link-guest` | Vincular id invitado |
+| GET | `/api/auth/brand/icon.png` | Logo (favicon páginas web) |
+| GET | `/api/auth/participations` | Historial de partidas |
 
-**Avatares** (upload/serve) siguen en el monolito (`backend-server`) hasta el servicio `media`.
+**Avatares:** upload/serve en servicio [`media`](../media/README.md); rutas legacy `/api/auth/avatars/*` en el gateway.
 
-## Docker
+## Variables clave (`.env`)
 
-### Opción A — Docker Desktop (recomendado)
+| Variable | Descripción |
+|----------|-------------|
+| `MONGO_URI` | MongoDB Atlas |
+| `JWT_SECRET` | Firma JWT |
+| `SMTP_*` | Envío de correos |
+| `APP_PUBLIC_URL` | URL pública del gateway (enlaces en correos) |
+| `REQUIRE_EMAIL_VERIFICATION` | Bloquea join sin verificar (game-realtime) |
+| `MEDIA_URL` | `http://media:3003` — borrar avatar al eliminar cuenta |
+| `INTERNAL_SERVICE_KEY` | Auth entre servicios |
 
-1. Asegúrate de tener `.env` en esta carpeta (`cp .env.example .env` y edítalo).
-2. **Detén** cualquier `npm start` local en el puerto 3001 (solo uno puede usar ese puerto).
-3. En Docker Desktop: **Containers** → **Create** no hace falta; usa Compose:
-   - Abre una terminal en `backend-container/identity/`
-   - Ejecuta:
+## Paquete npm
 
-```bash
-docker compose up -d --build
-```
-
-4. En Docker Desktop verás el proyecto **`identity`** con el contenedor `firewall-protocol-identity`.
-5. Para pararlo: `docker compose down` o el botón **Stop** en la UI.
-
-### Opción B — imagen manual
-
-```bash
-docker build -t firewall-identity .
-docker run --rm -p 3001:3001 --env-file .env firewall-identity
-```
-
-## Consumo desde el monolito
-
-`backend-server` importa utilidades compartidas vía dependencia local:
+Exporta utilidades para `game-realtime`:
 
 ```json
-"@firewall/identity-service": "file:../backend-container/identity"
+"@firewall/identity-service": "file:../identity"
 ```
 
-Tras cambios en identity, ejecuta `npm install` en `backend-server/`.
+Tras cambios: `npm install` en `game-realtime/` y rebuild Docker.
+
+## Consumo desde otros servicios
+
+- **game-realtime:** `verifyAccessToken`, `findUserById`, `isEmailVerified` en `joinRoom`
+- **media:** PATCH avatar URL vía HTTP interno
+- **gateway:** proxy directo

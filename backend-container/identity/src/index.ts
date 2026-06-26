@@ -23,6 +23,7 @@ export {
   changeUserPassword,
   updateUserAvatarUrl,
   toPublicUser,
+  isEmailVerified,
   type PublicUser,
   type UserDocument,
 } from './services/UserService';

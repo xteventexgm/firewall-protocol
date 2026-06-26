@@ -29,6 +29,9 @@ if (MONGO_URI.startsWith('mongodb+srv://')) {
 export const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'firewall_protocol';
 export const IDENTITY_URL = (process.env.IDENTITY_URL || 'http://localhost:3002').replace(/\/$/, '');
 
+export const REQUIRE_EMAIL_VERIFICATION =
+  process.env.REQUIRE_EMAIL_VERIFICATION === 'true' || process.env.REQUIRE_EMAIL_VERIFICATION === '1';
+
 export const NIGHT_DURATION_MS = Number(process.env.NIGHT_DURATION_MS || 60_000);
 export const DAY_DURATION_MS = Number(process.env.DAY_DURATION_MS || 60_000);
 export const AUTO_ADVANCE = process.env.AUTO_ADVANCE === 'true' || process.env.AUTO_ADVANCE === '1';

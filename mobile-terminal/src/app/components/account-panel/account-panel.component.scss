@@ -128,6 +128,22 @@
   color: #f0a0a0;
 }
 
+.profile-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+
+  .primary-btn,
+  .danger-btn {
+    flex: 0 1 auto;
+    margin-top: 0;
+    min-width: 0;
+    white-space: nowrap;
+  }
+}
+
 .msg {
   margin: 0;
   font-size: 0.72rem;
@@ -209,6 +225,26 @@
   color: #9ad4b0;
   border-color: rgba(34, 197, 94, 0.35);
   background: rgba(20, 60, 40, 0.25);
+}
+
+.msg.warn {
+  color: #e8c96a;
+  border: 1px solid rgba(232, 201, 106, 0.35);
+  background: rgba(80, 60, 20, 0.25);
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+}
+
+.verify-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.link-btn {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
 }
 
 .alias-readonly {
@@ -455,5 +491,41 @@
 
   span {
     color: #5a7a88;
+  }
+}
+
+.danger-zone {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(220, 100, 100, 0.25);
+
+  h4 {
+    color: #f0a0a0;
+  }
+}
+
+.delete-account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px dashed rgba(220, 100, 100, 0.35);
+  background: rgba(80, 20, 20, 0.12);
+}
+
+.delete-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: #b0c8d4;
+  cursor: pointer;
+
+  input {
+    margin-top: 0.15rem;
+    flex-shrink: 0;
   }
 }

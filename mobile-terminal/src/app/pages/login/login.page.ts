@@ -5,7 +5,7 @@ import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
 import { QrScannerService } from '../../services/qr-scanner.service';
-import { formatServerErrorForToast } from '../../core/utils/error.utils';
+import { formatServerErrorForToast, parseServerErrorMessage } from '../../core/utils/error.utils';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import { AccountPanelComponent } from '../../components/account-panel/account-panel.component';
@@ -46,6 +46,7 @@ export class LoginPage implements OnInit, OnDestroy {
   validatingRoom = false;
   showLobbyClosedOverlay = false;
   showAccountPanel = false;
+  accountPanelAuthMode: 'verify' | null = null;
   accountAvatarUrl: string | null = null;
   showServerConfig = false;
   serverUrlInput = '';
@@ -167,11 +168,32 @@ export class LoginPage implements OnInit, OnDestroy {
   }
 
   openAccountPanel(): void {
+    this.accountPanelAuthMode = null;
     this.showAccountPanel = true;
   }
 
   onAccountPanelClosed(): void {
     this.showAccountPanel = false;
+    this.accountPanelAuthMode = null;
+  }
+
+  private openEmailVerificationPanel(): void {
+    this.accountPanelAuthMode = 'verify';
+    this.showAccountPanel = true;
+  }
+
+  /** Cuentas registradas sin correo verificado no pueden unirse a salas. */
+  private async guardEmailVerifiedForPlay(): Promise<boolean> {
+    if (!this.authService.isLoggedIn()) return true;
+    try {
+      await this.authService.refreshUser();
+    } catch {
+      // Usar datos en caché si falla la red
+    }
+    if (this.authService.canPlay()) return true;
+    this.errorMessage = '';
+    this.openEmailVerificationPanel();
+    return false;
   }
 
   onAuthChanged(): void {
@@ -217,6 +239,7 @@ export class LoginPage implements OnInit, OnDestroy {
         if (this.needsAliasStep) {
           this.step = 'alias';
         } else {
+          if (!(await this.guardEmailVerifiedForPlay())) return;
           void this.joinNetworkAsync();
         }
         return;
@@ -239,6 +262,7 @@ export class LoginPage implements OnInit, OnDestroy {
       if (this.needsAliasStep) {
         this.step = 'alias';
       } else {
+        if (!(await this.guardEmailVerifiedForPlay())) return;
         void this.joinNetworkAsync();
       }
     } finally {
@@ -290,7 +314,12 @@ export class LoginPage implements OnInit, OnDestroy {
 
   reconnectToActiveGame(): void {
     if (!this.pendingReconnect) return;
-    this.roomCode = this.pendingReconnect.roomId;
+    void this.reconnectToActiveGameAsync();
+  }
+
+  private async reconnectToActiveGameAsync(): Promise<void> {
+    if (!(await this.guardEmailVerifiedForPlay())) return;
+    this.roomCode = this.pendingReconnect!.roomId;
     this.syncPlayerNameFromAccount();
     if (this.needsAliasStep) {
       this.step = 'alias';
@@ -309,6 +338,11 @@ export class LoginPage implements OnInit, OnDestroy {
     if (!displayName) {
       this.connecting = false;
       this.errorMessage = 'Inicia sesión o ingresa un alias de invitado.';
+      return;
+    }
+
+    if (!(await this.guardEmailVerifiedForPlay())) {
+      this.connecting = false;
       return;
     }
 
@@ -390,7 +424,13 @@ export class LoginPage implements OnInit, OnDestroy {
           .pipe(take(1), timeout(6000))
           .subscribe((msg) => {
             this.connecting = false;
-            this.errorMessage = formatServerErrorForToast(msg);
+            const { code } = parseServerErrorMessage(msg);
+            if (code === 'email_not_verified') {
+              this.errorMessage = '';
+              this.openEmailVerificationPanel();
+            } else {
+              this.errorMessage = formatServerErrorForToast(msg);
+            }
           });
 
         this.subs.add(stateSub);

@@ -15,6 +15,7 @@
   <app-account-panel
     *ngIf="showAccountPanel"
     [initialView]="isLoggedIn ? 'profile' : 'auth'"
+    [initialAuthMode]="accountPanelAuthMode"
     (closed)="onAccountPanelClosed()"
     (authChanged)="onAuthChanged()"
   />

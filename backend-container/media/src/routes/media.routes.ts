@@ -11,6 +11,7 @@ import {
   serveAvatarFile,
 } from '../services/AvatarService';
 import { patchUserAvatarUrl, verifyBearerToken, type IdentityPublicUser } from '../services/identityClient';
+import { INTERNAL_SERVICE_KEY } from '../config/env';
 import multer from 'multer';
 
 const router = Router();
@@ -30,6 +31,14 @@ const avatarUpload = multer({
 function getAuthorization(req: Request): string | null {
   const header = req.headers.authorization;
   return header?.startsWith('Bearer ') ? header : null;
+}
+
+function isInternalIdentityRequest(req: Request): boolean {
+  return (
+    Boolean(INTERNAL_SERVICE_KEY) &&
+    req.headers['x-internal-service'] === 'identity' &&
+    req.headers['x-internal-service-key'] === INTERNAL_SERVICE_KEY
+  );
 }
 
 async function resolveUserId(req: Request): Promise<string | null> {
@@ -118,6 +127,26 @@ router.get('/avatars/:userId', async (req, res) => {
   }
   const served = await serveAvatarFile(userId, res);
   if (!served) res.status(404).end();
+});
+
+/** Llamado por identity al eliminar cuenta — borra archivos en disco / R2. */
+router.delete('/internal/avatars/:userId', async (req, res) => {
+  if (!isInternalIdentityRequest(req)) {
+    res.status(403).json({ error: 'Forbidden', code: 'forbidden' });
+    return;
+  }
+  const userId = String(req.params.userId ?? '');
+  if (!OBJECT_ID_RE.test(userId)) {
+    res.status(400).json({ error: 'userId inválido', code: 'invalid_user' });
+    return;
+  }
+  try {
+    await deleteAvatarFiles(userId);
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const code = err instanceof Error ? err.message : 'avatar_delete_failed';
+    res.status(500).json({ error: code, code });
+  }
 });
 
 export default router;

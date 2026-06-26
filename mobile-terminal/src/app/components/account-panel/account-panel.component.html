@@ -6,13 +6,33 @@
     </header>
 
     <!-- Login / Registro -->
-    <section *ngIf="view === 'auth'" class="sheet-body">
-      <p class="sheet-hint">Inicia sesión con tu correo para guardar estadísticas. También puedes jugar como invitado.</p>
+    <section *ngIf="view === 'auth' && (authMode === 'login' || authMode === 'register')" class="sheet-body">
+      <p class="sheet-hint" *ngIf="authMode === 'login'">
+        Inicia sesión con <strong>correo o usuario</strong>. También puedes jugar como invitado.
+      </p>
+      <p class="sheet-hint" *ngIf="authMode === 'register'">
+        Crea una cuenta con correo único. Te enviaremos un enlace para verificarlo.
+      </p>
       <div class="auth-tabs">
         <button type="button" [class.active]="authMode === 'login'" (click)="authMode = 'login'">Entrar</button>
         <button type="button" [class.active]="authMode === 'register'" (click)="authMode = 'register'">Registro</button>
       </div>
-      <input type="email" class="terminal-input" [(ngModel)]="authEmail" placeholder="Correo electrónico" autocomplete="email" />
+      <input
+        *ngIf="authMode === 'login'"
+        type="text"
+        class="terminal-input"
+        [(ngModel)]="authLoginId"
+        placeholder="Correo o nombre de usuario"
+        autocomplete="username"
+      />
+      <input
+        *ngIf="authMode === 'register'"
+        type="email"
+        class="terminal-input"
+        [(ngModel)]="authEmail"
+        placeholder="Correo electrónico"
+        autocomplete="email"
+      />
       <input *ngIf="authMode === 'register'" type="text" class="terminal-input" [(ngModel)]="authUsername" placeholder="Nombre de usuario (en partidas)" />
       <input type="password" class="terminal-input" [(ngModel)]="authPassword" placeholder="Contraseña" autocomplete="current-password" />
       <input *ngIf="authMode === 'register'" type="password" class="terminal-input" [(ngModel)]="authPasswordConfirm" placeholder="Confirmar contraseña" />
@@ -20,7 +40,57 @@
       <button type="button" class="primary-btn" (click)="submitAuth()" [disabled]="authBusy">
         {{ authBusy ? 'Procesando…' : (authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta') }}
       </button>
+      <button *ngIf="authMode === 'login'" type="button" class="ghost-btn link-btn" (click)="openForgotPassword()">
+        ¿Olvidaste tu contraseña?
+      </button>
       <p *ngIf="authMessage" class="msg error">{{ authMessage }}</p>
+      <p *ngIf="authSuccess" class="msg success">{{ authSuccess }}</p>
+    </section>
+
+    <!-- Recuperar contraseña -->
+    <section *ngIf="view === 'auth' && authMode === 'forgot'" class="sheet-body">
+      <p class="sheet-hint">Te enviaremos un código a tu correo registrado.</p>
+      <input type="email" class="terminal-input" [(ngModel)]="authEmail" placeholder="Correo electrónico" autocomplete="email" />
+      <button type="button" class="primary-btn" (click)="submitForgotPassword()" [disabled]="authBusy">
+        {{ authBusy ? 'Enviando…' : 'Enviar código' }}
+      </button>
+      <button type="button" class="ghost-btn" (click)="backToLogin()">← Volver a entrar</button>
+      <p *ngIf="authMessage" class="msg error">{{ authMessage }}</p>
+      <p *ngIf="authSuccess" class="msg success">{{ authSuccess }}</p>
+    </section>
+
+    <!-- Nueva contraseña (código del correo) -->
+    <section *ngIf="view === 'auth' && authMode === 'reset'" class="sheet-body">
+      <p class="sheet-hint">Pega el código del correo y elige una contraseña nueva.</p>
+      <input type="text" class="terminal-input" [(ngModel)]="resetToken" placeholder="Código del correo" autocomplete="one-time-code" />
+      <input type="password" class="terminal-input" [(ngModel)]="authPassword" placeholder="Nueva contraseña" />
+      <input type="password" class="terminal-input" [(ngModel)]="authPasswordConfirm" placeholder="Confirmar contraseña" />
+      <p class="muted small">{{ passwordHint }}</p>
+      <button type="button" class="primary-btn" (click)="submitResetPassword()" [disabled]="authBusy">
+        {{ authBusy ? 'Guardando…' : 'Restablecer contraseña' }}
+      </button>
+      <button type="button" class="ghost-btn" (click)="backToLogin()">← Volver a entrar</button>
+      <p *ngIf="authMessage" class="msg error">{{ authMessage }}</p>
+      <p *ngIf="authSuccess" class="msg success">{{ authSuccess }}</p>
+    </section>
+
+    <!-- Verificar correo -->
+    <section *ngIf="view === 'auth' && authMode === 'verify'" class="sheet-body">
+      <div class="msg warn verify-gate-banner">
+        <p><strong>Verificación requerida para jugar</strong></p>
+        <p>Con cuenta registrada debes confirmar tu correo antes de unirte a una sala. Los invitados pueden jugar sin verificar.</p>
+      </div>
+      <p class="sheet-hint">Abre el enlace del correo o pega el código aquí.</p>
+      <input type="text" class="terminal-input" [(ngModel)]="verifyToken" placeholder="Código de verificación" autocomplete="one-time-code" />
+      <button type="button" class="primary-btn" (click)="submitVerifyEmail()" [disabled]="authBusy">
+        {{ authBusy ? 'Verificando…' : 'Verificar correo' }}
+      </button>
+      <button type="button" class="ghost-btn" (click)="resendVerification()" [disabled]="authBusy">
+        Reenviar correo
+      </button>
+      <button type="button" class="ghost-btn" (click)="view = 'profile'; authMode = 'login'">← Volver al perfil</button>
+      <p *ngIf="authMessage" class="msg error">{{ authMessage }}</p>
+      <p *ngIf="authSuccess" class="msg success">{{ authSuccess }}</p>
     </section>
 
     <!-- Perfil: vista general -->
@@ -29,7 +99,13 @@
       <div *ngIf="profileError" class="msg error">{{ profileError }}</div>
       <div *ngIf="profileSuccess" class="msg success">{{ profileSuccess }}</div>
 
-      <ng-container *ngIf="profile as bundle">
+      <div *ngIf="profile as bundle">
+        <div *ngIf="bundle.user.emailVerified === false" class="msg warn verify-banner">
+          <p>Tu correo no está verificado — no puedes unirte a partidas hasta confirmarlo.</p>
+          <button type="button" class="ghost-btn" (click)="openVerifyEmail()">Verificar ahora</button>
+          <button type="button" class="ghost-btn" (click)="resendVerification()" [disabled]="authBusy">Reenviar correo</button>
+        </div>
+
         <div class="profile-hero">
           <div class="avatar-wrap">
             <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
@@ -100,9 +176,11 @@
           <p><span>Último acceso</span> {{ formatDate(bundle.user.lastLoginAt) }}</p>
         </div>
 
-        <button type="button" class="primary-btn" (click)="openEditProfile()">Editar perfil</button>
-        <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
-      </ng-container>
+        <div class="profile-footer-actions">
+          <button type="button" class="primary-btn" (click)="openEditProfile()">Editar perfil</button>
+          <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
+        </div>
+      </div>
     </section>
 
     <!-- Historial de partidas -->
@@ -190,6 +268,72 @@
           {{ saving ? 'Guardando…' : 'Guardar cambios' }}
         </button>
         <button type="button" class="ghost-btn" (click)="cancelEdit()" [disabled]="saving">Cancelar</button>
+
+        <div *ngIf="bundle.user.authProvider === 'local'" class="profile-block danger-zone">
+          <h4>Zona peligrosa</h4>
+          <p class="muted small">
+            Eliminar la cuenta borra perfil, historial de partidas y avatar (incluido almacenamiento en la nube).
+            Es permanente e irreversible.
+          </p>
+
+          <button
+            *ngIf="!showDeleteAccount"
+            type="button"
+            class="ghost-btn danger-text"
+            (click)="startDeleteAccount()"
+            [disabled]="saving"
+          >
+            Eliminar cuenta…
+          </button>
+
+          <div *ngIf="showDeleteAccount" class="delete-account-panel">
+            <p class="muted small">
+              Te enviaremos un código a <strong>{{ bundle.user.email }}</strong>. Pégalo aquí con tu contraseña.
+            </p>
+            <button
+              type="button"
+              class="ghost-btn"
+              (click)="requestDeleteAccountCode()"
+              [disabled]="deleteAccountBusy || saving"
+            >
+              {{ deleteAccountBusy ? 'Enviando…' : 'Enviar código al correo' }}
+            </button>
+            <input
+              type="text"
+              class="terminal-input"
+              [(ngModel)]="deleteAccountToken"
+              placeholder="Código del correo"
+              autocomplete="one-time-code"
+              [disabled]="deleteAccountBusy"
+            />
+            <input
+              type="password"
+              class="terminal-input"
+              [(ngModel)]="deleteAccountPassword"
+              placeholder="Contraseña actual"
+              autocomplete="current-password"
+              [disabled]="deleteAccountBusy"
+            />
+            <label class="delete-ack">
+              <input type="checkbox" [(ngModel)]="deleteAccountAck" [disabled]="deleteAccountBusy" />
+              Entiendo que se borrarán mis datos y no podré recuperarlos.
+            </label>
+            <button
+              type="button"
+              class="danger-btn"
+              (click)="confirmDeleteAccount()"
+              [disabled]="deleteAccountBusy || saving"
+            >
+              {{ deleteAccountBusy ? 'Eliminando…' : 'Eliminar cuenta permanentemente' }}
+            </button>
+            <button type="button" class="ghost-btn" (click)="cancelDeleteAccount()" [disabled]="deleteAccountBusy">
+              Cancelar
+            </button>
+            <p *ngIf="deleteAccountMessage" class="msg error">{{ deleteAccountMessage }}</p>
+            <p *ngIf="deleteAccountSuccess" class="msg success">{{ deleteAccountSuccess }}</p>
+          </div>
+        </div>
+
         <button type="button" class="danger-btn" (click)="logout()">Cerrar sesión</button>
       </ng-container>
     </section>

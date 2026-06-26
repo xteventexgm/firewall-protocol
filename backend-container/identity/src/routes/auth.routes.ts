@@ -15,15 +15,38 @@ import { isMongoEnabled } from '../services/mongoConnection';
 import {
   changeUserPassword,
   changeUsername,
+  findUserByEmail,
   findUserById,
   getPublicUser,
+  isEmailVerified,
   linkGuestToUser,
   loginUser,
+  markEmailVerified,
   registerUser,
+  resetUserPassword,
   toPublicUser,
   updateUserAvatarUrl,
+  type PublicUser,
 } from '../services/UserService';
-import { MEDIA_PUBLIC_URL, INTERNAL_SERVICE_KEY } from '../config/env';
+import { createEmailToken, consumeEmailToken } from '../services/EmailTokenService';
+import {
+  isEmailConfigured,
+  sendDeleteAccountEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from '../services/EmailService';
+import { confirmAccountDeletion } from '../services/AccountDeletionService';
+import {
+  getPublicAppBaseUrl,
+  MEDIA_PUBLIC_URL,
+  INTERNAL_SERVICE_KEY,
+  REQUIRE_EMAIL_VERIFICATION,
+} from '../config/env';
+import {
+  buildVerifyErrorPageHtml,
+  buildVerifySuccessPageHtml,
+} from '../emails/emailTemplates';
+import { resolveBrandIconPath } from '../utils/brandAssets';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -46,6 +69,8 @@ router.get('/status', (_req, res) => {
     requiresMongo: true,
     requiresJwtSecret: true,
     guestPlayAllowed: true,
+    emailConfigured: isEmailConfigured(),
+    requireEmailVerification: REQUIRE_EMAIL_VERIFICATION,
     service: 'identity',
   });
 });
@@ -57,6 +82,16 @@ router.post('/register', async (req, res) => {
     const user = await registerUser({ email, username, password, preferredLocale });
     const session = await createAuthSession(user.id, req.body?.deviceId);
     const accessToken = signAccessToken({ sub: user.id, username: user.username, email: user.email });
+
+    void (async () => {
+      try {
+        const { rawToken } = await createEmailToken(user.id, 'verify_email');
+        if (user.email) await sendVerificationEmail(user.email, user.username, rawToken);
+      } catch (err) {
+        logger.error('verification email failed', err);
+      }
+    })();
+
     res.status(201).json({
       user: enrichAvatarUrl(user),
       accessToken,
@@ -278,6 +313,126 @@ router.post('/change-username', async (req, res) => {
   }
 });
 
+router.post('/forgot-password', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const email = String(req.body?.email ?? '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'Correo inválido', code: 'email_required' });
+    return;
+  }
+  const doc = await findUserByEmail(email);
+  if (doc?.email && doc.passwordHash) {
+    try {
+      const { rawToken } = await createEmailToken(doc._id.toHexString(), 'reset_password');
+      await sendPasswordResetEmail(doc.email, doc.username, rawToken);
+    } catch (err) {
+      logger.error('password reset email failed', err);
+    }
+  }
+  res.json({
+    ok: true,
+    message: 'Si el correo está registrado, recibirás instrucciones para restablecer la contraseña.',
+  });
+});
+
+router.post('/reset-password', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const token = String(req.body?.token ?? '').trim();
+  const newPassword = String(req.body?.newPassword ?? '');
+  if (!token || !newPassword) {
+    res.status(400).json({ error: 'Token y contraseña requeridos', code: 'reset_required' });
+    return;
+  }
+  try {
+    const userId = await consumeEmailToken(token, 'reset_password');
+    if (!userId) {
+      res.status(400).json({ error: 'Código inválido o expirado', code: 'invalid_reset_token' });
+      return;
+    }
+    await resetUserPassword(userId, newPassword);
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const code = err instanceof Error ? err.message : 'password_reset_failed';
+    res.status(400).json({ error: code, code });
+  }
+});
+
+async function verifyEmailToken(rawToken: string): Promise<PublicUser | null> {
+  const userId = await consumeEmailToken(rawToken, 'verify_email');
+  if (!userId) return null;
+  await markEmailVerified(userId);
+  return getPublicUser(userId);
+}
+
+const publicBase = () => getPublicAppBaseUrl();
+
+router.get('/brand/icon.png', (_req, res) => {
+  const iconPath = resolveBrandIconPath();
+  if (!iconPath) {
+    res.status(404).end();
+    return;
+  }
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.type('png').sendFile(iconPath);
+});
+
+router.get('/verify-email', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const base = publicBase();
+  const token = String(req.query.token ?? '').trim();
+  if (!token) {
+    res.status(400).type('html').send(buildVerifyErrorPageHtml('Enlace inválido.', base));
+    return;
+  }
+  const user = await verifyEmailToken(token);
+  if (!user) {
+    res.status(400).type('html').send(buildVerifyErrorPageHtml('Enlace inválido o expirado.', base));
+    return;
+  }
+  res.type('html').send(buildVerifySuccessPageHtml(user.username, base));
+});
+
+router.post('/verify-email', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const token = String(req.body?.token ?? '').trim();
+  if (!token) {
+    res.status(400).json({ error: 'Código requerido', code: 'token_required' });
+    return;
+  }
+  const user = await verifyEmailToken(token);
+  if (!user) {
+    res.status(400).json({ error: 'Código inválido o expirado', code: 'invalid_verify_token' });
+    return;
+  }
+  res.json({ ok: true, user: enrichAvatarUrl(user) });
+});
+
+router.post('/resend-verification', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const userId = bearerUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: 'Token inválido', code: 'unauthorized' });
+    return;
+  }
+  const doc = await findUserById(userId);
+  if (!doc?.email) {
+    res.status(400).json({ error: 'Sin correo en la cuenta', code: 'email_missing' });
+    return;
+  }
+  if (isEmailVerified(doc)) {
+    res.json({ ok: true, alreadyVerified: true });
+    return;
+  }
+  try {
+    const { rawToken } = await createEmailToken(userId, 'verify_email');
+    await sendVerificationEmail(doc.email, doc.username, rawToken);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('resend verification failed', err);
+    res.status(500).json({ error: 'No se pudo enviar el correo', code: 'email_send_failed' });
+  }
+});
+
 router.post('/change-password', async (req, res) => {
   if (authUnavailable(res)) return;
   const userId = bearerUserId(req);
@@ -297,6 +452,60 @@ router.post('/change-password', async (req, res) => {
   } catch (err: unknown) {
     const code = err instanceof Error ? err.message : 'password_change_failed';
     const status = code === 'invalid_current_password' ? 401 : 400;
+    res.status(status).json({ error: code, code });
+  }
+});
+
+router.post('/request-delete-account', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const userId = bearerUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: 'Token inválido', code: 'unauthorized' });
+    return;
+  }
+  const doc = await findUserById(userId);
+  if (!doc?.email) {
+    res.status(400).json({ error: 'Sin correo en la cuenta', code: 'email_missing' });
+    return;
+  }
+  if (doc.authProvider !== 'local' || !doc.passwordHash) {
+    res.status(400).json({ error: 'Tipo de cuenta no compatible', code: 'delete_not_supported' });
+    return;
+  }
+  try {
+    const { rawToken } = await createEmailToken(userId, 'delete_account');
+    await sendDeleteAccountEmail(doc.email, doc.username, rawToken);
+    res.json({ ok: true, message: 'Código enviado a tu correo.' });
+  } catch (err) {
+    logger.error('delete account email failed', err);
+    res.status(500).json({ error: 'No se pudo enviar el correo', code: 'email_send_failed' });
+  }
+});
+
+router.post('/confirm-delete-account', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const userId = bearerUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: 'Token inválido', code: 'unauthorized' });
+    return;
+  }
+  const token = String(req.body?.token ?? '').trim();
+  const password = String(req.body?.password ?? '');
+  if (!token || !password) {
+    res.status(400).json({ error: 'Código y contraseña requeridos', code: 'delete_confirm_required' });
+    return;
+  }
+  try {
+    await confirmAccountDeletion(userId, password, token);
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const code = err instanceof Error ? err.message : 'delete_account_failed';
+    const status =
+      code === 'invalid_current_password'
+        ? 401
+        : code === 'invalid_delete_token'
+          ? 400
+          : 400;
     res.status(status).json({ error: code, code });
   }
 });

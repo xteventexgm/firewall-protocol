@@ -55,3 +55,8 @@ export async function rotateAuthSession(
 export async function revokeAuthSession(refreshToken: string): Promise<void> {
   await sessions().deleteOne({ refreshTokenHash: hashToken(refreshToken) });
 }
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  if (!ObjectId.isValid(userId)) return;
+  await sessions().deleteMany({ userId: new ObjectId(userId) });
+}

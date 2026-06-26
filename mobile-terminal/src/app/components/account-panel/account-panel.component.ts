@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -12,6 +12,7 @@ import {
 
 type PanelView = 'auth' | 'profile';
 type ProfileSubView = 'overview' | 'edit' | 'history' | 'history-detail';
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
 @Component({
   selector: 'app-account-panel',
@@ -20,8 +21,9 @@ type ProfileSubView = 'overview' | 'edit' | 'history' | 'history-detail';
   templateUrl: './account-panel.component.html',
   styleUrls: ['./account-panel.component.scss'],
 })
-export class AccountPanelComponent implements OnInit, OnDestroy {
+export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Input() initialView: PanelView = 'auth';
+  @Input() initialAuthMode: AuthMode | null = null;
   @Output() closed = new EventEmitter<void>();
   @Output() authChanged = new EventEmitter<void>();
 
@@ -29,11 +31,15 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
 
   view: PanelView = 'auth';
   profileSubView: ProfileSubView = 'overview';
-  authMode: 'login' | 'register' = 'login';
+  authMode: AuthMode = 'login';
+  authLoginId = '';
   authEmail = '';
   authUsername = '';
   authPassword = '';
   authPasswordConfirm = '';
+  resetToken = '';
+  verifyToken = '';
+  authSuccess = '';
   authBusy = false;
   authMessage = '';
   profileLoading = false;
@@ -53,6 +59,13 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   newPasswordConfirm = '';
   selectedParticipation: GameParticipation | null = null;
   readonly historyLimit = 10;
+  showDeleteAccount = false;
+  deleteAccountToken = '';
+  deleteAccountPassword = '';
+  deleteAccountAck = false;
+  deleteAccountBusy = false;
+  deleteAccountMessage = '';
+  deleteAccountSuccess = '';
   private subs = new Subscription();
 
   constructor(private authService: AuthService) {
@@ -75,7 +88,20 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.view = this.authService.isLoggedIn() ? 'profile' : this.initialView;
+    if (this.initialAuthMode) {
+      this.view = 'auth';
+      this.authMode = this.initialAuthMode;
+    }
     if (this.view === 'profile') void this.loadProfile();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const mode = changes['initialAuthMode']?.currentValue as AuthMode | null | undefined;
+    if (mode) {
+      this.view = 'auth';
+      this.authMode = mode;
+      this.authMessage = '';
+    }
   }
 
   ngOnDestroy(): void {
@@ -88,7 +114,12 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
   }
 
   get sheetTitle(): string {
-    if (this.view === 'auth') return 'Cuenta';
+    if (this.view === 'auth') {
+      if (this.authMode === 'forgot') return 'Recuperar contraseña';
+      if (this.authMode === 'reset') return 'Nueva contraseña';
+      if (this.authMode === 'verify') return 'Verificar correo';
+      return 'Cuenta';
+    }
     if (this.profileSubView === 'edit') return 'Editar perfil';
     if (this.profileSubView === 'history') return 'Historial de partidas';
     if (this.profileSubView === 'history-detail') return 'Detalle de partida';
@@ -174,11 +205,212 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
     this.pendingAvatarFile = null;
     this.removeAvatarFlag = false;
     this.profileError = '';
+    this.resetDeleteAccountForm();
     this.resetEditFormFromProfile();
     this.profileSubView = 'overview';
     this.avatarBroken = false;
     if (avatarWasTouched) {
       void this.refreshAvatarDisplay();
+    }
+  }
+
+  openVerifyEmail(): void {
+    this.authMode = 'verify';
+    this.verifyToken = '';
+    this.authMessage = '';
+    this.authSuccess = '';
+    this.view = 'auth';
+  }
+
+  startDeleteAccount(): void {
+    this.showDeleteAccount = true;
+    this.deleteAccountMessage = '';
+    this.deleteAccountSuccess = '';
+  }
+
+  cancelDeleteAccount(): void {
+    this.resetDeleteAccountForm();
+  }
+
+  private resetDeleteAccountForm(): void {
+    this.showDeleteAccount = false;
+    this.deleteAccountToken = '';
+    this.deleteAccountPassword = '';
+    this.deleteAccountAck = false;
+    this.deleteAccountMessage = '';
+    this.deleteAccountSuccess = '';
+  }
+
+  async requestDeleteAccountCode(): Promise<void> {
+    this.deleteAccountBusy = true;
+    this.deleteAccountMessage = '';
+    this.deleteAccountSuccess = '';
+    try {
+      await this.authService.requestDeleteAccount();
+      this.deleteAccountSuccess = 'Código enviado a tu correo. Revisa la bandeja (y spam).';
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'email_send_failed';
+      const messages: Record<string, string> = {
+        email_send_failed: 'No se pudo enviar el correo. Revisa SMTP del servidor.',
+        email_missing: 'Tu cuenta no tiene correo registrado.',
+        delete_not_supported: 'Este tipo de cuenta no se puede eliminar desde la app.',
+        unauthorized: 'Sesión expirada. Inicia sesión de nuevo.',
+        network_error: this.authService.mapError('network_error'),
+      };
+      this.deleteAccountMessage = messages[code] ?? code;
+    } finally {
+      this.deleteAccountBusy = false;
+    }
+  }
+
+  async confirmDeleteAccount(): Promise<void> {
+    if (!this.deleteAccountToken.trim()) {
+      this.deleteAccountMessage = 'Pega el código del correo.';
+      return;
+    }
+    if (!this.deleteAccountPassword) {
+      this.deleteAccountMessage = 'Ingresa tu contraseña actual.';
+      return;
+    }
+    if (!this.deleteAccountAck) {
+      this.deleteAccountMessage = 'Confirma que entiendes que la acción es irreversible.';
+      return;
+    }
+    this.deleteAccountBusy = true;
+    this.deleteAccountMessage = '';
+    try {
+      await this.authService.confirmDeleteAccount(
+        this.deleteAccountToken.trim(),
+        this.deleteAccountPassword,
+      );
+      this.profile = null;
+      this.revokePreview();
+      this.avatarDisplayUrl = null;
+      this.resetDeleteAccountForm();
+      this.profileSubView = 'overview';
+      this.view = 'auth';
+      this.authChanged.emit();
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'delete_account_failed';
+      const messages: Record<string, string> = {
+        invalid_delete_token: 'Código inválido o expirado.',
+        invalid_current_password: 'Contraseña incorrecta.',
+        delete_confirm_required: 'Código y contraseña requeridos.',
+        unauthorized: 'Sesión expirada. Inicia sesión de nuevo.',
+        network_error: this.authService.mapError('network_error'),
+      };
+      this.deleteAccountMessage = messages[code] ?? code;
+    } finally {
+      this.deleteAccountBusy = false;
+    }
+  }
+
+  openForgotPassword(): void {
+    this.authMode = 'forgot';
+    this.authMessage = '';
+    this.authSuccess = '';
+    if (!this.authEmail && this.authLoginId.includes('@')) {
+      this.authEmail = this.authLoginId;
+    }
+  }
+
+  backToLogin(): void {
+    this.authMode = 'login';
+    this.authMessage = '';
+    this.authSuccess = '';
+    this.resetToken = '';
+  }
+
+  async submitForgotPassword(): Promise<void> {
+    if (!this.authEmail.trim() || !this.authEmail.includes('@')) {
+      this.authMessage = 'Ingresa un correo válido.';
+      return;
+    }
+    this.authBusy = true;
+    this.authMessage = '';
+    try {
+      await this.authService.forgotPassword(this.authEmail.trim());
+      this.authSuccess = 'Si el correo está registrado, recibirás un código en unos minutos.';
+      this.authMode = 'reset';
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'forgot_password_failed';
+      this.authMessage = this.authService.mapError(code);
+    } finally {
+      this.authBusy = false;
+    }
+  }
+
+  async submitResetPassword(): Promise<void> {
+    const issue = validatePassword(this.authPassword);
+    if (issue) {
+      this.authMessage = passwordIssueMessage(issue);
+      return;
+    }
+    if (this.authPassword !== this.authPasswordConfirm) {
+      this.authMessage = passwordIssueMessage('password_mismatch');
+      return;
+    }
+    if (!this.resetToken.trim()) {
+      this.authMessage = 'Pega el código del correo.';
+      return;
+    }
+    this.authBusy = true;
+    this.authMessage = '';
+    try {
+      await this.authService.resetPassword(this.resetToken.trim(), this.authPassword);
+      this.authSuccess = 'Contraseña actualizada. Ya puedes iniciar sesión.';
+      this.authMode = 'login';
+      this.authPassword = '';
+      this.authPasswordConfirm = '';
+      this.resetToken = '';
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'invalid_reset_token';
+      this.authMessage =
+        code === 'invalid_reset_token'
+          ? 'Código inválido o expirado.'
+          : passwordIssueMessage(code) || this.authService.mapError(code);
+    } finally {
+      this.authBusy = false;
+    }
+  }
+
+  async submitVerifyEmail(): Promise<void> {
+    if (!this.verifyToken.trim()) {
+      this.authMessage = 'Pega el código o abre el enlace del correo.';
+      return;
+    }
+    this.authBusy = true;
+    this.authMessage = '';
+    try {
+      await this.authService.verifyEmail(this.verifyToken.trim());
+      this.authSuccess = 'Correo verificado.';
+      this.view = 'profile';
+      this.authMode = 'login';
+      await this.loadProfile();
+      this.authChanged.emit();
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'invalid_verify_token';
+      this.authMessage = code === 'invalid_verify_token' ? 'Código inválido o expirado.' : code;
+    } finally {
+      this.authBusy = false;
+    }
+  }
+
+  async resendVerification(): Promise<void> {
+    this.authBusy = true;
+    this.authMessage = '';
+    this.authSuccess = '';
+    try {
+      await this.authService.resendVerificationEmail();
+      this.authSuccess = 'Correo de verificación reenviado.';
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : 'email_send_failed';
+      this.authMessage =
+        code === 'email_send_failed'
+          ? 'No se pudo enviar el correo. Revisa la configuración SMTP del servidor.'
+          : code;
+    } finally {
+      this.authBusy = false;
     }
   }
 
@@ -210,18 +442,32 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
           this.authPassword,
         );
       } else {
-        if (!this.authEmail.trim()) {
-          this.authMessage = 'Ingresa tu correo electrónico.';
+        if (!this.authLoginId.trim()) {
+          this.authMessage = 'Ingresa tu correo o nombre de usuario.';
           return;
         }
-        await this.authService.login(this.authEmail.trim(), this.authPassword);
+        await this.authService.login(this.authLoginId.trim(), this.authPassword);
       }
+      const wasRegister = this.authMode === 'register';
       this.authChanged.emit();
+      await this.loadProfile();
+      if (this.profile?.user.emailVerified === false) {
+        this.authMode = 'verify';
+        this.view = 'auth';
+        this.authMessage = '';
+        this.authSuccess = wasRegister
+          ? 'Cuenta creada. Verifica tu correo para unirte a partidas.'
+          : 'Sesión iniciada. Verifica tu correo para unirte a partidas.';
+        this.profileSuccess = '';
+        return;
+      }
       this.view = 'profile';
       this.profileSubView = 'overview';
       this.profileError = '';
       this.authMessage = '';
-      await this.loadProfile();
+      if (wasRegister) {
+        this.profileSuccess = 'Cuenta creada correctamente.';
+      }
     } catch (err: unknown) {
       const code = err instanceof Error ? err.message : 'auth_failed';
       const messages: Record<string, string> = {
@@ -392,6 +638,7 @@ export class AccountPanelComponent implements OnInit, OnDestroy {
     this.authChanged.emit();
     this.view = 'auth';
     this.authEmail = '';
+    this.authLoginId = '';
     this.authUsername = '';
     this.authPassword = '';
   }

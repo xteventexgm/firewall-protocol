@@ -1,10 +1,30 @@
 # Almacenamiento de archivos y avatares — Firewall Protocol
 
-Guía sobre **dónde viven los datos**, por qué los avatares están en disco hoy, **alternativas** (MongoDB, nube) y **cuándo** tiene sentido microservicios para esto.
+Guía sobre **dónde viven los datos**, avatares en **Cloudflare R2** / disco, y el servicio **`media`** del stack Docker.
 
-**Relacionado:** [`DATABASE.md`](DATABASE.md) · [`CHANGELOG.md`](CHANGELOG.md)
+**Relacionado:** [`DATABASE.md`](DATABASE.md) · [`backend-container/media/README.md`](backend-container/media/README.md) · [`CHANGELOG.md`](CHANGELOG.md)
 
 **Última revisión:** junio 2026
+
+---
+
+## 0. Stack actual (microservicios)
+
+En producción/despliegue académico el backend activo es **`backend-container/`**:
+
+| Componente | Rol en avatares |
+|------------|-----------------|
+| **media** (`:3003`) | Dueño de los bytes (R2, S3 o disco) |
+| **identity** (`:3002`) | Guarda `users.avatarUrl` (ruta API) |
+| **gateway** (`:3000`) | Expone `/api/auth/avatars/*` al móvil |
+
+El móvil **nunca** habla con R2 directamente: siempre `GET /api/auth/avatars/:userId` vía gateway → media.
+
+Al **eliminar cuenta**, identity invoca `DELETE /api/media/internal/avatars/:userId` y borra objetos en R2.
+
+Variables en `backend-container/.env`: `AVATAR_STORAGE=r2`, `R2_*` o `S3_*`. Ver [`backend-container/media/README.md`](backend-container/media/README.md).
+
+El monolito [`backend-server/`](backend-server/) usaba MinIO/disco integrado — **legacy**.
 
 ---
 
@@ -14,7 +34,7 @@ Guía sobre **dónde viven los datos**, por qué los avatares están en disco ho
 |--------------|----------------|--------------|
 | Partidas activas/archivadas | Colección `games` | Sí |
 | Usuarios, sesiones, historial | `users`, `auth_sessions`, `game_participations` | Sí |
-| **Archivos de avatar (PNG/JPG/WebP)** | **MinIO** (bucket `avatars`) o **disco** `data/avatars/` según `AVATAR_STORAGE` | **No** (solo la ruta en `users.avatarUrl`) |
+| **Archivos de avatar (PNG/JPG/WebP)** | Servicio **media** → **R2** o disco | **No** (solo la ruta en `users.avatarUrl`) |
 | Partidas sin Mongo (`MONGO_URI` vacío) | JSON `data/games/*.json` | No |
 
 **Los avatares en disco no es un requisito de diseño permanente** — es la opción más simple para la fase actual del proyecto (monolito, LAN, pocos usuarios). Se puede migrar a MongoDB GridFS o a almacenamiento en nube **sin** dividir en microservicios.
