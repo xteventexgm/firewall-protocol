@@ -104,6 +104,21 @@
       />
     }
 
+    @for (mesh of ringMeshLinks; track mesh.id) {
+      @if (mesh.visible || mesh.pulsing) {
+        <line
+          class="hub-link hub-link-branch hub-link-mesh"
+          [class.hub-link-active]="mesh.active"
+          [class.hub-link-connecting]="mesh.pulsing && !isCableExtending(mesh.id)"
+          [class.hub-link-canvas-extend]="isCableExtending(mesh.id)"
+          [attr.x1]="mesh.x1"
+          [attr.y1]="mesh.y1"
+          [attr.x2]="mesh.x2"
+          [attr.y2]="mesh.y2"
+        />
+      }
+    }
+
     @for (link of hubLinks; track link.id) {
       @if (link.visible || link.pulsing) {
         <line
@@ -217,8 +232,9 @@
           [class.node-banning]="isBanAnimating(node.id)"
           [class.node-spawn]="isSpawning(node.id)"
           [class.node-connected-blink]="isConnectedBlink(node.id)"
+          [class.node-failover-promote]="isFailoverPromoting(node.id)"
           [class.node-kickable]="kickEnabled"
-          [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+          [attr.transform]="'translate(' + nodeX(node) + ',' + nodeY(node) + ')'"
           [attr.filter]="isSpawning(node.id) || isConnectedBlink(node.id) ? 'url(#node-glow-strong)' : 'url(#node-glow)'"
         >
           @if (kickEnabled) {

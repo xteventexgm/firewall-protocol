@@ -9,7 +9,8 @@
 		"db:setup": "node -r ts-node/register scripts/setup-mongodb.ts",
 		"db:seed": "node -r ts-node/register scripts/seed-roles.ts",
 		"db:migrate": "node -r ts-node/register scripts/migrate-json-to-mongodb.ts",
-		"avatars:migrate-to-minio": "node -r ts-node/register scripts/migrate-avatars-to-minio.ts",
+		"avatars:migrate-to-s3": "node -r ts-node/register scripts/migrate-avatars-to-s3.ts",
+		"avatars:migrate-to-minio": "npm run avatars:migrate-to-s3",
 		"test:votes": "node -r ts-node/register src/game/voteResolution.test.ts",
 		"test:victory": "node -r ts-node/register src/game/victoryChecker.test.ts",
 		"test:join": "node -r ts-node/register src/game/roomJoin.test.ts",
@@ -19,12 +20,13 @@
 		"qa:bot-match": "node -r ts-node/register scripts/run-bot-qa.ts"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1075.0",
 		"body-parser": "^1.20.2",
 		"dotenv": "^16.4.7",
 		"express": "^4.18.2",
-		"minio": "^8.0.7",
-		"mongodb": "^6.12.0",
+		"mongodb": "^6.21.0",
 		"multer": "^1.4.5-lts.1",
+		"nodemon": "^3.1.14",
 		"socket.io": "^4.7.2",
 		"uuid": "^14.0.1"
 	},

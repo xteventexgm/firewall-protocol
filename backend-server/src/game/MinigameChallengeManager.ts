@@ -37,6 +37,13 @@ const LOG_OPTIONS = [
   { text: 'Heartbeat de monitorización dentro de SLA', malicious: false },
   { text: 'Login SSH exitoso desde geolocalización atípica (3 intentos previos fallidos)', malicious: true },
   { text: 'Rotación de certificado TLS programada', malicious: false },
+  { text: 'PowerShell -enc ejecutado desde cuenta de servicio', malicious: true },
+  { text: 'Sincronización NTP con stratum 1 corporativo', malicious: false },
+  { text: 'Credenciales admin usadas desde TOR exit node', malicious: true },
+  { text: 'Escaneo de vulnerabilidades programado (Qualys)', malicious: false },
+  { text: 'Proceso hijo de winword.exe lanza rundll32 sin firma', malicious: true },
+  { text: 'Replicación DFS completada sin conflictos', malicious: false },
+  { text: 'Beacon HTTP jitter 47s hacia dominio recién registrado', malicious: true },
 ];
 
 const PAIRS = [
@@ -44,6 +51,11 @@ const PAIRS = [
   { sig: 'CVE-2024-1234 (RCE)', threat: 'Exploit', decoy: 'Ingeniería social' },
   { sig: 'Phish.Email.CredentialHarvest', threat: 'Ingeniería social', decoy: 'Cifrado' },
   { sig: 'Ransom.LockBit.Variant', threat: 'Cifrado', decoy: 'Malware' },
+  { sig: 'Backdoor.CobaltStrike.Beacon', threat: 'Malware', decoy: 'DDoS' },
+  { sig: 'Exploit.Log4Shell.JNDI', threat: 'Exploit', decoy: 'Cifrado' },
+  { sig: 'Spyware.Pegasus.Mobile', threat: 'Malware', decoy: 'Ingeniería social' },
+  { sig: 'DDoS.Mirai.Botnet', threat: 'DDoS', decoy: 'Exploit' },
+  { sig: 'Social.Engineering.Vishing', threat: 'Ingeniería social', decoy: 'Malware' },
 ];
 
 const TIMING_SEQUENCES = [
@@ -56,6 +68,21 @@ const TIMING_SEQUENCES = [
     zones: ['AMARILLO', 'VERDE', 'ROJO', 'ROJO'],
     answer: 1,
     context: 'Solo la ventana VERDE permite inyectar el exploit sin alerta.',
+  },
+  {
+    zones: ['ROJO', 'AMARILLO', 'VERDE', 'AMARILLO'],
+    answer: 2,
+    context: 'El exploit requiere la tercera ventana VERDE del ciclo.',
+  },
+  {
+    zones: ['VERDE', 'ROJO', 'ROJO', 'AMARILLO'],
+    answer: 0,
+    context: 'La primera ventana VERDE es la única sin IDS activo.',
+  },
+  {
+    zones: ['ROJO', 'ROJO', 'AMARILLO', 'VERDE'],
+    answer: 3,
+    context: 'Espera la última ventana VERDE antes de explotar.',
   },
 ];
 
@@ -77,6 +104,30 @@ const SEQUENCE_CHALLENGES = [
     options: ['DONE', 'RESET', 'SYNC', 'IGNORE'],
     answer: 'DONE',
     prompt: 'Cierra el pipeline SOC cuando el analista confirma el incidente:',
+  },
+  {
+    context: 'PROBE → ENUM → EXPLOIT → ?',
+    options: ['EXFIL', 'PERSIST', 'PATCH', 'LOGOUT'],
+    answer: 'PERSIST',
+    prompt: 'Tras explotar, ¿qué paso mantiene acceso en pentesting ético documentado?',
+  },
+  {
+    context: 'DETECT → TRIAGE → CONTAIN → ?',
+    options: ['ERADICATE', 'IGNORE', 'DEPLOY', 'BACKUP'],
+    answer: 'ERADICATE',
+    prompt: 'Después de contener, ¿cuál es el siguiente paso del IR playbook?',
+  },
+  {
+    context: 'INGEST → NORMALIZE → CORRELATE → ?',
+    options: ['ALERT', 'DELETE', 'BYPASS', 'SLEEP'],
+    answer: 'ALERT',
+    prompt: 'En el pipeline SIEM, ¿qué genera el analista tras correlacionar eventos?',
+  },
+  {
+    context: 'HASH → QUARANTINE → ANALYZE → ?',
+    options: ['REPORT', 'EXECUTE', 'FORWARD', 'SPOOF'],
+    answer: 'REPORT',
+    prompt: 'Tras analizar malware en sandbox, ¿qué acción cierra el flujo EDR?',
   },
 ];
 
@@ -116,6 +167,53 @@ const TRIVIA_CHALLENGES = [
     successHint: 'Correcto: subdominios aleatorios + TXT voluminosos = túnel DNS.',
     failHint: 'Incorrecto: el tunneling DNS usa consultas anómalas, no tráfico CDN normal.',
   },
+  {
+    objective: 'Identifica el indicador de movimiento lateral',
+    prompt: '¿Qué evento sugiere lateral movement en Active Directory?',
+    options: [
+      'Pass-the-hash entre workstations del mismo segmento',
+      'Login fallido único desde IP externa',
+      'Backup nocturno de SQL Server',
+      'Actualización de GPO de escritorio',
+    ],
+    answer: 'Pass-the-hash entre workstations del mismo segmento',
+    successHint: 'Correcto: PtH entre hosts internos es lateral movement clásico.',
+    failHint: 'Incorrecto: el movimiento lateral usa credenciales robadas entre hosts internos.',
+  },
+  {
+    objective: 'Evalúa un intento de phishing',
+    prompt: 'Correo urgente del "CEO" pidiendo transferencia. ¿Vector más probable?',
+    options: ['BEC (Business Email Compromise)', 'DDoS', 'SQL injection', 'ARP spoofing'],
+    answer: 'BEC (Business Email Compromise)',
+    successHint: 'Correcto: suplantación ejecutiva para fraude financiero.',
+    failHint: 'Incorrecto: el escenario describe BEC, no ataque de red.',
+  },
+  {
+    objective: 'Prioriza hardening',
+    prompt: 'Servidor expuesto con RDP abierto a Internet. ¿Mitigación prioritaria?',
+    options: [
+      'VPN + MFA antes de acceso RDP',
+      'Cambiar el wallpaper corporativo',
+      'Aumentar RAM del servidor',
+      'Desactivar antivirus para rendimiento',
+    ],
+    answer: 'VPN + MFA antes de acceso RDP',
+    successHint: 'Correcto: reducir superficie y exigir MFA.',
+    failHint: 'Incorrecto: RDP público requiere VPN y MFA, no cambios cosméticos.',
+  },
+  {
+    objective: 'Detecta rootkit en endpoint',
+    prompt: '¿Señal más fiable de posible rootkit?',
+    options: [
+      'Discrepancia entre procesos visibles en userland vs kernel hook',
+      'Un solo pico de CPU al mediodía',
+      'Usuario cambió contraseña voluntariamente',
+      'Disco al 80% de capacidad',
+    ],
+    answer: 'Discrepancia entre procesos visibles en userland vs kernel hook',
+    successHint: 'Correcto: hooks de kernel ocultan procesos del listado normal.',
+    failHint: 'Incorrecto: rootkits manipulan la visibilidad a nivel kernel.',
+  },
 ];
 
 function randomToken(): string {
@@ -136,8 +234,60 @@ function challengeKey(playerId: string, token: string): string {
   return `${playerId}:${token}`;
 }
 
-/** Genera un desafío según rol. */
-export function createChallenge(role: RoleName, playerId: string): MinigameChallenge {
+export interface MinigameContext {
+  roomId: string;
+  nightNumber: number;
+}
+
+interface UsageState {
+  night: number;
+  used: Set<string>;
+  last: string | null;
+}
+
+const usageByPlayer = new Map<string, UsageState>();
+
+function usageKey(roomId: string, playerId: string): string {
+  return `${roomId}:${playerId}`;
+}
+
+/** Evita repetir el mismo reto en la noche y consecutivamente entre noches. */
+function pickFromPool<T>(
+  pool: T[],
+  getId: (item: T) => string,
+  ctx: MinigameContext,
+  playerId: string,
+): T {
+  const key = usageKey(ctx.roomId, playerId);
+  let usage = usageByPlayer.get(key);
+  if (!usage || usage.night !== ctx.nightNumber) {
+    usage = { night: ctx.nightNumber, used: new Set(), last: usage?.last ?? null };
+    usageByPlayer.set(key, usage);
+  }
+
+  let candidates = pool.filter((item) => !usage!.used.has(getId(item)));
+  if (candidates.length === 0) {
+    candidates = [...pool];
+    usage.used.clear();
+  }
+  if (usage.last && candidates.length > 1) {
+    const filtered = candidates.filter((item) => getId(item) !== usage!.last);
+    if (filtered.length > 0) candidates = filtered;
+  }
+
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const id = getId(pick);
+  usage.used.add(id);
+  usage.last = id;
+  return pick;
+}
+
+/** Genera un desafío según rol (sin repetir en la misma noche). */
+export function createChallenge(
+  role: RoleName,
+  playerId: string,
+  ctx: MinigameContext,
+): MinigameChallenge {
   const token = randomToken();
   const expiresAt = Date.now() + 75_000;
 
@@ -145,7 +295,7 @@ export function createChallenge(role: RoleName, playerId: string): MinigameChall
 
   if (role === RoleName.SOC_ANALYST) {
     const malicious = LOG_OPTIONS.filter((l) => l.malicious);
-    const correct = malicious[Math.floor(Math.random() * malicious.length)];
+    const correct = pickFromPool(malicious, (l) => l.text, ctx, playerId);
     const allTexts = LOG_OPTIONS.map((l) => l.text);
     challenge = {
       token,
@@ -161,7 +311,7 @@ export function createChallenge(role: RoleName, playerId: string): MinigameChall
       expiresAt,
     };
   } else if (role === RoleName.ANTIVIRUS) {
-    const pair = PAIRS[Math.floor(Math.random() * PAIRS.length)];
+    const pair = pickFromPool(PAIRS, (p) => p.sig, ctx, playerId);
     const wrongThreats = [...new Set(PAIRS.map((p) => p.threat).filter((t) => t !== pair.threat))];
     const options = pickOptions(pair.threat, [...wrongThreats, pair.decoy, 'DDoS']);
     challenge = {
@@ -178,7 +328,7 @@ export function createChallenge(role: RoleName, playerId: string): MinigameChall
       expiresAt,
     };
   } else if (role === RoleName.PENTESTER) {
-    const seq = TIMING_SEQUENCES[Math.floor(Math.random() * TIMING_SEQUENCES.length)];
+    const seq = pickFromPool(TIMING_SEQUENCES, (s) => s.zones.join('|'), ctx, playerId);
     challenge = {
       token,
       role,
@@ -199,7 +349,7 @@ export function createChallenge(role: RoleName, playerId: string): MinigameChall
     role === RoleName.SPYWARE ||
     role === RoleName.PHISHER
   ) {
-    const trivia = TRIVIA_CHALLENGES[Math.floor(Math.random() * TRIVIA_CHALLENGES.length)];
+    const trivia = pickFromPool(TRIVIA_CHALLENGES, (t) => t.prompt, ctx, playerId);
     challenge = {
       token,
       role,
@@ -214,7 +364,7 @@ export function createChallenge(role: RoleName, playerId: string): MinigameChall
       expiresAt,
     };
   } else {
-    const seq = SEQUENCE_CHALLENGES[Math.floor(Math.random() * SEQUENCE_CHALLENGES.length)];
+    const seq = pickFromPool(SEQUENCE_CHALLENGES, (s) => s.prompt, ctx, playerId);
     challenge = {
       token,
       role,

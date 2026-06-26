@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { resolveApiBase, apiTunnelHeaders } from '../../core/utils/api-base.utils';
+import { socketReconnectOptions } from '../../core/utils/socket-reconnect.utils';
 import { environment } from '../../../environments/environment';
 import { getNightActionType } from '../../core/role-actions';
 import {
@@ -83,20 +84,21 @@ export class SocketService {
   readonly publicLog$ = new Subject<PublicLogEntry>();
   readonly gameStats$ = new Subject<GameStatsEntry[]>();
 
+  private reconnectWatchdog?: ReturnType<typeof setInterval>;
+  private lastGameState: (PlayerRoomState & { roomId: string }) | null = null;
+
   connect(): void {
     if (this.socket?.connected) return;
 
     if (this.socket && !this.socket.connected) {
       this.socket.connect();
+      this.startReconnectWatchdog();
       return;
     }
 
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      timeout: 15000,
+      ...socketReconnectOptions(),
     };
 
     const extraHeaders = this.buildTunnelHeaders();
@@ -111,6 +113,7 @@ export class SocketService {
 
     this.socket.on('connect', () => {
       this.connected$.next(true);
+      this.reconnecting$.next(false);
       if (this.pendingAutoRejoin && !this.manualJoinInFlight) {
         this.autoRejoinFromStorage();
         this.pendingAutoRejoin = false;
@@ -125,12 +128,53 @@ export class SocketService {
       }
     });
 
-    this.socket.on('connect_error', (err: Error) => {
+    this.socket.on('connect_error', () => {
       this.connected$.next(false);
-      this.error$.next(`No se pudo conectar al backend: ${err.message}`);
+      if (localStorage.getItem('roomCode')) {
+        this.reconnecting$.next(true);
+        this.pendingAutoRejoin = true;
+      }
+    });
+
+    this.socket.io.on('reconnect_attempt', () => {
+      if (localStorage.getItem('roomCode')) {
+        this.reconnecting$.next(true);
+      }
+    });
+
+    this.socket.io.on('reconnect_failed', () => {
+      this.socket?.connect();
     });
 
     this.attachListeners();
+    this.startReconnectWatchdog();
+  }
+
+  /** Mantiene intentos de conexión si hay sesión guardada y el socket quedó inactivo. */
+  ensureConnection(): void {
+    if (localStorage.getItem('roomCode')) {
+      this.pendingAutoRejoin = true;
+      if (!this.socket) {
+        this.connect();
+        return;
+      }
+      if (!this.socket.connected) {
+        this.reconnecting$.next(true);
+        this.socket.connect();
+      }
+    }
+  }
+
+  private startReconnectWatchdog(): void {
+    if (this.reconnectWatchdog) return;
+    this.reconnectWatchdog = setInterval(() => {
+      if (!localStorage.getItem('roomCode')) return;
+      if (this.socket?.connected) {
+        if (this.reconnecting$.value) this.reconnecting$.next(false);
+        return;
+      }
+      this.ensureConnection();
+    }, 5_000);
   }
 
   /** Fuerza nueva conexión (p. ej. tras cambiar URL del backend/ngrok). */
@@ -276,6 +320,7 @@ export class SocketService {
     this.cancelGameOverRedirect();
     this.pendingAutoRejoin = false;
     this.manualJoinInFlight = false;
+    this.lastGameState = null;
     this.leaveRoom();
     localStorage.removeItem('roomCode');
     localStorage.removeItem('playerName');
@@ -381,6 +426,25 @@ export class SocketService {
     this.gameOver$.next({ roomId, winner, soloWinner });
   }
 
+  private patchGameState(patch: Partial<PlayerRoomState>): void {
+    if (!this.lastGameState) return;
+    const storedRoom = localStorage.getItem('roomCode');
+    if (storedRoom && this.lastGameState.roomId !== storedRoom) return;
+    this.lastGameState = { ...this.lastGameState, ...patch };
+    this.gameState$.next(this.lastGameState);
+  }
+
+  private patchPlayerField(
+    playerId: string,
+    patch: Partial<RoomPlayer>,
+  ): void {
+    if (!this.lastGameState?.players?.length) return;
+    const players = this.lastGameState.players.map((p) =>
+      p.id === playerId ? { ...p, ...patch } : p,
+    );
+    this.patchGameState({ players });
+  }
+
   private attachListeners(): void {
     if (!this.socket || this.listenersAttached) return;
     this.listenersAttached = true;
@@ -392,6 +456,7 @@ export class SocketService {
       this.manualJoinInFlight = false;
       this.reconnecting$.next(false);
       const sanitized = sanitizeRoomState({ ...state, roomId });
+      this.lastGameState = sanitized;
       this.gameState$.next(sanitized);
 
       const myPlayerId = localStorage.getItem('myPlayerId');
@@ -432,10 +497,15 @@ export class SocketService {
     });
 
     this.socket.on('phaseChanged', (roomId: string, phase: GamePhase) => {
+      this.patchGameState({ phase });
       this.phaseChanged$.next({ roomId, phase });
     });
 
     this.socket.on('phaseTransition', (transition: PhaseTransition) => {
+      this.patchGameState({
+        phase: transition.to,
+        ...(transition.at ? { phaseStartedAt: transition.at, phaseEndsAt: null } : {}),
+      });
       this.phaseTransition$.next(transition);
     });
 
@@ -459,10 +529,12 @@ export class SocketService {
     });
 
     this.socket.on('playerReconnected', (roomId: string, playerId: string, playerName?: string) => {
+      this.patchPlayerField(playerId, { isConnected: true });
       this.playerReconnected$.next({ roomId, playerId, playerName });
     });
 
     this.socket.on('playerConnected', (roomId: string, playerId: string, playerName?: string) => {
+      this.patchPlayerField(playerId, { isConnected: true });
       this.playerConnected$.next({ roomId, playerId, playerName });
     });
 
@@ -475,6 +547,7 @@ export class SocketService {
     });
 
     this.socket.on('playerDisconnected', (roomId: string, playerId: string, playerName?: string) => {
+      this.patchPlayerField(playerId, { isConnected: false });
       this.playerDisconnected$.next({ roomId, playerId, playerName });
     });
 
@@ -499,10 +572,15 @@ export class SocketService {
     });
 
     this.socket.on('nightProgress', (_roomId: string, progress: NightProgress) => {
+      this.patchGameState({ nightProgress: progress });
       this.nightProgress$.next(progress);
     });
 
     this.socket.on('chatMessage', (_roomId: string, message: ChatMessage) => {
+      if (this.lastGameState) {
+        const chatMessages = [...(this.lastGameState.chatMessages ?? []), message].slice(-50);
+        this.patchGameState({ chatMessages });
+      }
       this.chatMessage$.next(message);
     });
 
@@ -511,6 +589,7 @@ export class SocketService {
     });
 
     this.socket.on('gameStats', (_roomId: string, stats: GameStatsEntry[]) => {
+      this.patchGameState({ gameStats: stats });
       this.gameStats$.next(stats);
     });
 

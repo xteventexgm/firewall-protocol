@@ -6,12 +6,27 @@ import * as http from 'http';
 import app from './app';
 import initSockets from './sockets';
 import { warmDatabaseCache } from './config/database';
-import { MONGO_URI } from './config/env';
+import { MONGO_URI, PORT, assertRequiredRuntimeEnv } from './config/env';
 import { connectMongo, isMongoEnabled } from './services/mongoConnection';
-import { ensureMinioBucket, isMinioAvatarStorage } from './services/minioClient';
+import { ensureObjectStorageBucket, isObjectStorageEnabled } from './services/objectStorageClient';
 import { getAvatarStorageMode } from './services/AvatarService';
 import { logger } from './utils/logger';
-import { PORT } from './config/env';
+
+function printEnvFailure(error: unknown): void {
+	const msg = error instanceof Error ? error.message : String(error);
+	const banner = [
+		'',
+		'════════════════════════════════════════════════════════════',
+		'  ERROR: CONFIGURACIÓN DE ENTORNO INCOMPLETA',
+		'════════════════════════════════════════════════════════════',
+		'',
+		msg,
+		'',
+		'════════════════════════════════════════════════════════════',
+		'',
+	].join('\n');
+	console.error(banner);
+}
 
 function printMongoFailure(error: unknown): void {
 	const msg = error instanceof Error ? error.message : String(error);
@@ -42,19 +57,20 @@ function printJsonModeNotice(): void {
 	);
 }
 
-function printMinioFailure(error: unknown): void {
+function printObjectStorageFailure(error: unknown): void {
 	const msg = error instanceof Error ? error.message : String(error);
 	const banner = [
 		'',
 		'════════════════════════════════════════════════════════════',
-		'  ERROR: NO SE PUDO CONECTAR A MINIO (avatares)',
+		'  ERROR: NO SE PUDO CONECTAR AL OBJECT STORAGE (avatares)',
 		'════════════════════════════════════════════════════════════',
 		'',
 		msg,
 		'',
 		'Opciones:',
-		'  1. Inicia MinIO: docker compose up minio -d',
-		'  2. O usa AVATAR_STORAGE=disk en .env',
+		'  1. Verifica S3_ENDPOINT, S3_ACCESS_KEY y S3_SECRET_KEY (R2 API token)',
+		'  2. Crea el bucket en Cloudflare R2',
+		'  3. O usa AVATAR_STORAGE=disk en .env',
 		'',
 		'════════════════════════════════════════════════════════════',
 		'',
@@ -63,6 +79,13 @@ function printMinioFailure(error: unknown): void {
 }
 
 async function bootstrap(): Promise<void> {
+	try {
+		assertRequiredRuntimeEnv();
+	} catch (err) {
+		printEnvFailure(err);
+		process.exit(1);
+	}
+
 	if (isMongoEnabled()) {
 		try {
 			await connectMongo();
@@ -75,11 +98,11 @@ async function bootstrap(): Promise<void> {
 		printJsonModeNotice();
 	}
 
-	if (isMinioAvatarStorage()) {
+	if (isObjectStorageEnabled()) {
 		try {
-			await ensureMinioBucket();
+			await ensureObjectStorageBucket();
 		} catch (err) {
-			printMinioFailure(err);
+			printObjectStorageFailure(err);
 			process.exit(1);
 		}
 	}
@@ -97,6 +120,6 @@ async function bootstrap(): Promise<void> {
 }
 
 void bootstrap().catch((err: unknown) => {
-	printMongoFailure(err);
+	printEnvFailure(err);
 	process.exit(1);
 });

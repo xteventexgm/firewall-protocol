@@ -244,21 +244,19 @@
         </ng-container>
 
         <label class="field-label">Objetivo principal</label>
-        <select [(ngModel)]="selectedTarget" class="terminal-select">
-          <option value="" disabled>-- Seleccionar nodo --</option>
-          <option *ngFor="let player of targetOptions" [value]="player.id">
-            {{ player.name }}
-          </option>
-        </select>
+        <app-node-picker
+          [options]="targetOptions"
+          [(selectedId)]="selectedTarget"
+          placeholder="-- Seleccionar nodo --"
+        ></app-node-picker>
 
         <ng-container *ngIf="needsSecondary">
           <label class="field-label">{{ secondaryLabel }}</label>
-          <select [(ngModel)]="selectedSecondary" class="terminal-select">
-            <option value="" disabled>-- Segundo nodo --</option>
-            <option *ngFor="let player of secondaryOptions" [value]="player.id">
-              {{ player.name }}
-            </option>
-          </select>
+          <app-node-picker
+            [options]="secondaryOptions"
+            [(selectedId)]="selectedSecondary"
+            placeholder="-- Segundo nodo --"
+          ></app-node-picker>
         </ng-container>
 
         <button
@@ -289,12 +287,11 @@
         <p class="panel-sub">Selecciona el nodo sospechoso para expulsar de la red.</p>
 
         <label class="field-label">Objetivo</label>
-        <select [(ngModel)]="selectedTarget" class="terminal-select">
-          <option value="" disabled>-- Seleccionar sospechoso --</option>
-          <option *ngFor="let player of aliveTargets" [value]="player.id">
-            {{ player.name }}
-          </option>
-        </select>
+        <app-node-picker
+          [options]="aliveTargets"
+          [(selectedId)]="selectedTarget"
+          placeholder="-- Seleccionar sospechoso --"
+        ></app-node-picker>
 
         <button
           (click)="executeVote()"
@@ -316,10 +313,12 @@
           <hr class="section-divider" />
           <h4 class="sub-action-title">Parche de emergencia (1×/partida)</h4>
           <p class="panel-sub">Anula el voto de un jugador esta ronda.</p>
-          <select [(ngModel)]="selectedTarget" class="terminal-select">
-            <option value="" disabled>-- Jugador a anular --</option>
-            <option *ngFor="let player of aliveTargets" [value]="player.id">{{ player.name }}</option>
-          </select>
+          <label class="field-label">Jugador a anular</label>
+          <app-node-picker
+            [options]="aliveTargets"
+            [(selectedId)]="selectedTarget"
+            placeholder="-- Jugador a anular --"
+          ></app-node-picker>
           <button (click)="executeEmergencyPatch()" [disabled]="!selectedTarget" class="terminal-btn warn">
             Aplicar parche
           </button>
@@ -421,7 +420,8 @@
           <span class="panel-tag">Topología · {{ players.length }} nodos</span>
         </div>
         <ul class="node-list node-list-open">
-          <li *ngFor="let p of players" class="node-item" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
+          <li *ngFor="let p of players; trackBy: trackByPlayerId" class="node-item hex-node-row" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
+            <span class="node-hex-icon" aria-hidden="true">{{ p.name.charAt(0).toUpperCase() }}</span>
             <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
             <span class="node-name">{{ p.name }}</span>
             <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
@@ -472,7 +472,8 @@
         <span class="toggle-icon">{{ topologyOpen ? '▾' : '▸' }}</span>
       </button>
       <ul class="node-list" *ngIf="topologyOpen">
-        <li *ngFor="let p of players" class="node-item" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
+        <li *ngFor="let p of players; trackBy: trackByPlayerId" class="node-item hex-node-row" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
+          <span class="node-hex-icon" aria-hidden="true">{{ p.name.charAt(0).toUpperCase() }}</span>
           <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
           <span class="node-name">{{ p.name }}</span>
           <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>

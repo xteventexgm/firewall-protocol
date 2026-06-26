@@ -75,6 +75,7 @@ export class App implements OnInit, OnDestroy {
   savedRoomConnected: Record<string, number> = {};
   state: PublicGameState | null = null;
   connected = false;
+  reconnecting = false;
   incidents: IncidentDisplay[] = [];
   glitchPlayerIds: string[] = [];
   showIncidentReport = false;
@@ -138,6 +139,7 @@ export class App implements OnInit, OnDestroy {
 
     this.subs.push(
       this.gameSocket.connected$.subscribe((c) => (this.connected = c)),
+      this.gameSocket.reconnecting$.subscribe((r) => (this.reconnecting = r)),
       this.gameSocket.roomState$.subscribe((s) => {
         this.state = s;
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;

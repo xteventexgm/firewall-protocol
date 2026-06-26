@@ -478,6 +478,11 @@
   pointer-events: none;
 }
 
+.hub-link-mesh {
+  stroke-dasharray: 5 6;
+  opacity: 0.75;
+}
+
 .ghost-branch-guide {
   stroke: #00f0ff30;
   stroke-width: 1;
@@ -1070,6 +1075,13 @@
 
   &.glitch {
     animation: glitch 0.35s ease-in-out infinite;
+  }
+
+  &.node-failover-promote {
+    .node-hex-outer {
+      stroke: #ffcc44;
+      filter: drop-shadow(0 0 10px rgba(255, 200, 60, 0.55));
+    }
   }
 
   &.node-banning {

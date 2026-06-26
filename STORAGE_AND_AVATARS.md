@@ -2,7 +2,7 @@
 
 Guía sobre **dónde viven los datos**, por qué los avatares están en disco hoy, **alternativas** (MongoDB, nube) y **cuándo** tiene sentido microservicios para esto.
 
-**Relacionado:** [`DATABASE.md`](DATABASE.md) · [`MICROSERVICES.md`](MICROSERVICES.md) · [`CHANGELOG.md`](CHANGELOG.md)
+**Relacionado:** [`DATABASE.md`](DATABASE.md) · [`CHANGELOG.md`](CHANGELOG.md)
 
 **Última revisión:** junio 2026
 
@@ -64,7 +64,7 @@ AVATAR_STORAGE=minio npm run avatars:migrate-to-minio
 
 **Health:** `GET /health` incluye `avatars.storage` y estado MinIO.
 
-Un **Media microservicio** separado solo tendría sentido con mucho tráfico de uploads, CDN propia o equipo que despliegue auth/assets aparte del juego ([`MICROSERVICES.md`](MICROSERVICES.md) Fase 2–3).
+Un **Media microservicio** separado solo tendría sentido con mucho tráfico de uploads, CDN propia o equipo que despliegue auth/assets aparte del juego.
 
 ---
 
@@ -183,7 +183,7 @@ Los microservicios entran cuando el **dominio** o la **operación** justifican d
 | Persistir usuarios y partidas | MongoDB en monolito | No |
 | Avatares en varias instancias | GridFS, S3 o volumen compartido | No |
 | Auth JWT + registro | Rutas `/api/auth/*` en monolito (ya hecho) | Opcional más adelante |
-| Muchas salas en tiempo real | Redis + sticky sessions ([`MICROSERVICES.md`](MICROSERVICES.md) Fase 1) | No (aún monolito) |
+| Muchas salas en tiempo real | Monolito con estado en memoria + persistencia MongoDB | No (suficiente para grado) |
 | Equipo separado despliega auth sin tocar juego | **Auth Service** (Fase 2) | Sí |
 | Tráfico masivo de uploads/CDN | **Media / Assets Service** o S3 directo | A veces |
 
@@ -196,19 +196,18 @@ Considerar un servicio dedicado solo si:
 - Políticas de retención y CDN distintas al API de juego.
 - Varios productos (web, móvil, admin) consumen los mismos assets.
 
-Para **Firewall Protocol** (fotos de perfil opcionales, no en partida): **GridFS o S3 en el monolito es suficiente** hasta Fase 2–3 de [`MICROSERVICES.md`](MICROSERVICES.md).
+Para **Firewall Protocol** (fotos de perfil opcionales, no en partida): **GridFS o S3 en el monolito es suficiente** para el alcance actual del proyecto.
 
-### 5.3 Orden sugerido (alineado con MICROSERVICES.md)
+### 5.3 Orden sugerido
 
 ```text
 1. MongoDB para games + users          ← hecho
 2. Avatares: GridFS o S3 en monolito   ← siguiente mejora de storage
-3. Redis multi-instancia (salas)       ← antes que microservicios
-4. Extraer Auth Service (opcional)
-5. Media Service o CDN                 ← solo si hace falta
+3. Extraer Auth Service (opcional)
+4. Media Service o CDN                 ← solo si hace falta
 ```
 
-Ver diagramas y fases completas en [`MICROSERVICES.md`](MICROSERVICES.md).
+Ver también [ROADMAP_BACKEND.md](docs/ROADMAP_BACKEND.md) § P2 para evolución del backend.
 
 ---
 
@@ -277,7 +276,7 @@ Implementación: `backend-server/src/routes/auth.routes.ts`, `AvatarService.ts`.
 | `backend-server/docker-compose.yml` | Mongo + volumen `mongo_data` |
 | `backend-server/scripts/setup-mongodb.ts` | Colecciones e índices (no incluye GridFS aún) |
 | [`DATABASE.md`](DATABASE.md) | Esquema `users.avatarUrl` |
-| [`MICROSERVICES.md`](MICROSERVICES.md) | Fases Auth / Game / Analytics |
+| [`docs/ROADMAP_BACKEND.md`](docs/ROADMAP_BACKEND.md) | Evolución monolito → microservicios |
 
 ---
 

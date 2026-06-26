@@ -2,9 +2,9 @@
   <div class="home-shell">
     <header class="home-hero">
       <div class="home-hero-top">
-        <div class="home-status-pill" [class.online]="connected">
-          <span class="status-dot" [class.online]="connected" [class.offline]="!connected"></span>
-          <span>{{ connected ? 'Servidor en línea' : 'Conectando…' }}</span>
+        <div class="home-status-pill" [class.online]="connected && !reconnecting" [class.reconnecting]="reconnecting">
+          <span class="status-dot" [class.online]="connected && !reconnecting" [class.offline]="!connected && !reconnecting" [class.reconnecting]="reconnecting"></span>
+          <span>{{ reconnecting ? 'Reconectando…' : (connected ? 'Servidor en línea' : 'Conectando…') }}</span>
         </div>
         <button
           type="button"
@@ -151,9 +151,10 @@
       </div>
       <span
         class="status-dot"
-        [class.online]="connected"
-        [class.offline]="!connected"
-        [title]="connected ? 'Conectado al servidor' : 'Desconectado'"
+        [class.online]="connected && !reconnecting"
+        [class.offline]="!connected && !reconnecting"
+        [class.reconnecting]="reconnecting"
+        [title]="reconnecting ? 'Reconectando al servidor' : (connected ? 'Conectado al servidor' : 'Desconectado')"
       ></span>
       <button type="button" class="sound-btn" (click)="onToggleSound()" [title]="soundMuted ? 'Activar sonido' : 'Silenciar'">
         {{ soundMuted ? '🔇' : '🔊' }}

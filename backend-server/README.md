@@ -471,7 +471,6 @@ npm run db:seed
 
 - [ ] Autenticación JWT en conexión socket
 - [ ] Tests unitarios (`RuleEngine`, `VictoryChecker`, `Matchmaking`)
-- [ ] Redis pub/sub para multi-instancia (opcional)
 - [ ] Métricas y logging estructurado
 
 ---

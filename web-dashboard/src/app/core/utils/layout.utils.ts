@@ -9,6 +9,10 @@ export interface NodePosition {
   tier: number;
   slotIndex: number;
   parentSlotIndex?: number;
+  /** Slot de asignación original (sin promoción). */
+  homeSlotIndex?: number;
+  /** Slot efectivo tras failover de brazo. */
+  effectiveSlotIndex?: number;
 }
 
 export interface SlotPosition {
@@ -37,7 +41,6 @@ const SAFE_TOP = 68;
 const SAFE_BOTTOM = 72;
 const SAFE_LEFT = 40;
 const SAFE_RIGHT = 40;
-
 
 /** Anillo único: N nodos repartidos a ángulos iguales (topología estrella clásica). */
 function computeClassicStarSlotLayout(
@@ -165,6 +168,15 @@ export function computeExtendedStarSlotLayout(
   const selected = selectExtendedSlots(full, slotCount);
   const { cx, cy } = layoutCenter(width, height);
   return fitSlotsToViewport(selected, width, height, cx, cy);
+}
+
+/** @deprecated Alias de estrella extendida. */
+export function computeLegacyExtendedStarSlotLayout(
+  slotCount: number,
+  width: number,
+  height: number,
+): SlotPosition[] {
+  return computeExtendedStarSlotLayout(slotCount, width, height);
 }
 
 function buildExtendedStarRaw(
@@ -331,6 +343,68 @@ export function linkEndpoints(
   };
 }
 
+/** Vértice del hexágono (punta plana) más alineado hacia otro punto. */
+export function hexVertexToward(
+  cx: number,
+  cy: number,
+  targetX: number,
+  targetY: number,
+  radius: number,
+): { x: number; y: number } {
+  const angleToTarget = Math.atan2(targetY - cy, targetX - cx);
+  let bestX = cx;
+  let bestY = cy;
+  let bestDiff = Infinity;
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    const vx = cx + radius * Math.cos(a);
+    const vy = cy + radius * Math.sin(a);
+    const va = Math.atan2(vy - cy, vx - cx);
+    const diff = Math.abs(Math.atan2(Math.sin(va - angleToTarget), Math.cos(va - angleToTarget)));
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestX = vx;
+      bestY = vy;
+    }
+  }
+  return { x: bestX, y: bestY };
+}
+
+/** Enlace nodo↔nodo: de esquina a esquina del hexágono. */
+export function nodeLinkEndpoints(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  fromRadius: number,
+  toRadius: number,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const p1 = hexVertexToward(fromX, fromY, toX, toY, fromRadius);
+  const p2 = hexVertexToward(toX, toY, fromX, fromY, toRadius);
+  return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+}
+
+/** Enlace hub circular → vértice del hexágono del nodo. */
+export function hubToNodeEndpoints(
+  hubX: number,
+  hubY: number,
+  nodeX: number,
+  nodeY: number,
+  hubPortRadius: number,
+  nodeHexRadius: number,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const vtx = hexVertexToward(nodeX, nodeY, hubX, hubY, nodeHexRadius);
+  const dx = vtx.x - hubX;
+  const dy = vtx.y - hubY;
+  const len = Math.hypot(dx, dy) || 1;
+  return {
+    x1: hubX + (dx / len) * hubPortRadius,
+    y1: hubY + (dy / len) * hubPortRadius,
+    x2: vtx.x,
+    y2: vtx.y,
+  };
+}
+
 export function outerOrbitRadius(
   slots: SlotPosition[],
   hubX: number,
@@ -339,4 +413,117 @@ export function outerOrbitRadius(
 ): number {
   if (!slots.length) return 120;
   return Math.max(...slots.map((s) => Math.hypot(s.x - hubX, s.y - hubY))) + extra;
+}
+
+function slotDistanceFromHub(
+  slot: SlotPosition,
+  hubX: number,
+  hubY: number,
+): number {
+  return Math.hypot(slot.x - hubX, slot.y - hubY);
+}
+
+/** Cadena de slots de un brazo: primario + hojas, del hub hacia afuera. */
+export function getArmSlotChain(
+  slots: SlotPosition[],
+  arm: number,
+  hubX: number,
+  hubY: number,
+): SlotPosition[] {
+  return slots
+    .filter(
+      (s) => (s.tier === 0 && s.index === arm) || (s.tier === 1 && s.parentIndex === arm),
+    )
+    .sort((a, b) => slotDistanceFromHub(a, hubX, hubY) - slotDistanceFromHub(b, hubX, hubY));
+}
+
+/** True si los 4 primarios (tier 0) tienen ocupante y todos están muertos. */
+export function allPrimaryCentralsFallen(
+  nodes: NodePosition[],
+  slots: SlotPosition[],
+): boolean {
+  if (!slots.some((s) => s.tier === 1)) return false;
+
+  let armed = 0;
+  let fallen = 0;
+  for (let arm = 0; arm < 4; arm++) {
+    const primary = slots.find((s) => s.tier === 0 && s.index === arm);
+    if (!primary) continue;
+    const occ = nodes.find((n) => n.slotIndex === primary.index);
+    if (!occ) return false;
+    armed++;
+    if (!occ.player.isAlive) fallen++;
+  }
+  return armed === 4 && fallen === 4;
+}
+
+/**
+ * Failover global: solo si los 4 centrales cayeron, cada brazo promueve
+ * vivos hacia el hub y deja muertos en la retaguardia.
+ * Si solo cae un central, la topología no cambia (el mesh perimetral redirige datos).
+ */
+export function applyArmFailover(
+  nodes: NodePosition[],
+  slots: SlotPosition[],
+  hubX: number,
+  hubY: number,
+): NodePosition[] {
+  if (!slots.some((s) => s.tier === 1) || !nodes.length) {
+    return nodes.map((n) => ({
+      ...n,
+      homeSlotIndex: n.slotIndex,
+      effectiveSlotIndex: n.slotIndex,
+    }));
+  }
+
+  const result = new Map(
+    nodes.map((n) => [
+      n.id,
+      { ...n, homeSlotIndex: n.slotIndex, effectiveSlotIndex: n.slotIndex },
+    ]),
+  );
+
+  if (!allPrimaryCentralsFallen(nodes, slots)) {
+    return [...result.values()];
+  }
+
+  for (let arm = 0; arm < 4; arm++) {
+    const armSlots = getArmSlotChain(slots, arm, hubX, hubY);
+    if (!armSlots.length) continue;
+
+    const occupants = nodes.filter((n) => armSlots.some((s) => s.index === n.slotIndex));
+    if (!occupants.length) continue;
+
+    const primarySlot = armSlots[0];
+    const primaryOcc = occupants.find((o) => o.slotIndex === primarySlot.index);
+    const needsArmReorder =
+      occupants.some((o) => o.player.isAlive) &&
+      (!primaryOcc?.player.isAlive || primaryOcc === undefined);
+
+    if (!needsArmReorder) continue;
+
+    const byProximity = [...occupants].sort(
+      (a, b) =>
+        slotDistanceFromHub(slots[a.slotIndex], hubX, hubY) -
+        slotDistanceFromHub(slots[b.slotIndex], hubX, hubY),
+    );
+    const alive = byProximity.filter((o) => o.player.isAlive);
+    const dead = byProximity.filter((o) => !o.player.isAlive);
+    const reordered = [...alive, ...dead];
+
+    for (let i = 0; i < reordered.length; i++) {
+      const target = armSlots[i];
+      if (!target) break;
+      const o = reordered[i];
+      const n = result.get(o.id)!;
+      n.x = target.x;
+      n.y = target.y;
+      n.angle = target.angle;
+      n.effectiveSlotIndex = target.index;
+      n.tier = i === 0 ? 0 : 1;
+      n.parentSlotIndex = i === 0 ? undefined : armSlots[i - 1].index;
+    }
+  }
+
+  return [...result.values()];
 }
