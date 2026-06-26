@@ -1,64 +1,64 @@
 # API Gateway — único punto de entrada (puerto 3000)
 
-Enruta peticiones a los microservicios internos:
+Enruta HTTP y WebSocket a los microservicios internos. Los clientes (**móvil**, **dashboard**) solo conocen el host del gateway.
 
-| Ruta | Destino |
-|------|---------|
+## Rutas
+
+| Ruta pública | Destino interno |
+|--------------|-----------------|
 | `/api/auth/*` | **identity** `:3002` |
-| `/api/auth/avatar`, `/api/auth/avatars/*` | **game-realtime** `:3001` (temporal) |
-| `/game`, `/dashboard` (WebSocket) | **game-realtime** `:3001` |
-| Resto (`/api/games`, `/health` del backend, etc.) | **game-realtime** `:3001` |
-| `/health` (propio) | Respuesta del gateway |
+| `/api/auth/avatar`, `/api/auth/avatars/*` | **media** `:3003` (compatibilidad móvil) |
+| `/api/media/*` | **media** `:3003` |
+| `/game`, `/dashboard`, `/socket.io/*` | **game-realtime** `:3001` (WebSocket) |
+| `/api/games`, `/api/roles`, `/health` del juego, etc. | **game-realtime** `:3001` |
+| `/health` | Respuesta del propio gateway |
+
+## Docker (recomendado)
+
+Desde la **raíz del repo**:
+
+```bash
+docker compose up -d --build gateway
+# o todo el stack:
+docker compose up -d --build
+```
+
+Solo el puerto **3000** se publica. Túnel: `ngrok http 3000`.
 
 ## Desarrollo local (sin Docker)
 
 ```bash
-# Terminal 1 — identity en 3002
+# Terminal 1 — identity
 cd backend-container/identity
 PORT=3002 npm start
 
-# Terminal 2 — backend (game-realtime) en 3001
-cd backend-server
+# Terminal 2 — media
+cd backend-container/media
+PORT=3003 npm start
+
+# Terminal 3 — game-realtime
+cd backend-container/game-realtime
 PORT=3001 npm start
 
-# Terminal 3 — gateway en 3000
+# Terminal 4 — gateway
 cd backend-container/gateway
 cp .env.example .env
 npm install
 npm start
 ```
 
-## Verificar que `/api/auth/status` pasa por identity
+## Verificación
 
 ```powershell
-# 1. Respuesta vía gateway (puerto 3000)
-Invoke-RestMethod http://localhost:3000/api/auth/status
-
-# Debe incluir: "service": "identity", "enabled": true
-```
-
-```powershell
-# 2. Comparar con identity directo (solo red interna / debug)
-Invoke-RestMethod http://localhost:3002/api/auth/status
-```
-
-Ambas respuestas deben ser equivalentes (mismo JSON). Si el gateway funciona, la primera petición nunca toca el código de identity en el cliente: el gateway la reenvía a `http://identity:3002`.
-
-```powershell
-# 3. Health del gateway (confirma rutas configuradas)
 Invoke-RestMethod http://localhost:3000/health
+Invoke-RestMethod http://localhost:3000/api/auth/status
+# Debe incluir: "service": "identity"
 ```
 
 ```powershell
-# 4. Logs (Docker)
 docker compose logs -f gateway identity
-# Al llamar /api/auth/status verás actividad en identity
 ```
 
-## Docker Compose (raíz del repo)
+## Comportamiento JWT
 
-```bash
-docker compose up -d --build
-```
-
-Solo **3000** queda expuesto. Ngrok: `ngrok http 3000`.
+Para rutas que no son Socket.IO ni `GET /api/auth/avatars/*`, el gateway puede validar el Bearer contra identity y reenviar `X-User-Id` a servicios internos.

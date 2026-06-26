@@ -18,13 +18,15 @@ import {
   isValidRoomCode,
   normalizeRoomCode,
 } from '../utils/socketErrors';
-import { verifyAccessToken } from '@firewall/identity-service';
+import { verifyAccessToken, findUserById, isEmailVerified } from '@firewall/identity-service';
+import { REQUIRE_EMAIL_VERIFICATION } from '../config/env';
 
 /** Registra handlers de lobby/conexión en namespace `/game`. */
 export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, dashboardNs: Namespace) {
   logClient('mobile', 'connected', socket.id);
 
   socket.on('joinRoom', (roomId: string, playerId: string, name?: string, opts?: { autoReconnect?: boolean; accessToken?: string }) => {
+    void (async () => {
     try {
       const code = normalizeRoomCode(roomId);
       const autoReconnect = opts?.autoReconnect === true;
@@ -32,6 +34,20 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       if (opts?.accessToken) {
         const payload = verifyAccessToken(opts.accessToken);
         linkedUserId = payload?.sub;
+        if (linkedUserId && REQUIRE_EMAIL_VERIFICATION) {
+          const doc = await findUserById(linkedUserId);
+          if (doc && !isEmailVerified(doc)) {
+            logger.warn('[mobile] joinRoom — correo no verificado', { roomId: code, playerId, linkedUserId });
+            socket.emit(
+              'error',
+              formatSocketError(
+                'Debes verificar tu correo antes de unirte a una sala.',
+                'email_not_verified',
+              ),
+            );
+            return;
+          }
+        }
       }
       logClient('mobile', 'joinRoom', socket.id, { roomId: code, playerId, name, autoReconnect, linkedUserId: linkedUserId ?? null });
 
@@ -173,6 +189,7 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       logger.error('[mobile] joinRoom FAIL', err.message || err);
       socket.emit('error', err.message || String(err));
     }
+    })();
   });
 
   socket.on('leaveRoom', (roomId: string, playerId: string) => {

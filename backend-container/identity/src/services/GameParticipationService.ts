@@ -83,6 +83,11 @@ export async function listParticipationsByUser(
     .toArray();
 }
 
+export async function deleteParticipationsByUser(userId: string): Promise<void> {
+  if (!ObjectId.isValid(userId)) return;
+  await participations().deleteMany({ userId: new ObjectId(userId) });
+}
+
 export async function incrementUserStatsAfterGame(
   userId: string,
   participation: { won: boolean; isMvp: boolean; role?: string; team?: string },

@@ -28,6 +28,7 @@ const JOIN_ERROR_MESSAGES: Record<string, string> = {
   invalid_room_code: 'Código inválido. Debe ser FIRE-XXXX.',
   invalid_player_id: 'Sesión corrupta. Vuelve a ingresar tu alias.',
   lobby_closed: 'El host cerró la sala. Escanea un código nuevo para jugar.',
+  email_not_verified: 'Verifica tu correo antes de unirte. Revisa tu bandeja o pega el código en tu perfil.',
 };
 
 const CHAT_ERROR_MESSAGES: Record<string, string> = {

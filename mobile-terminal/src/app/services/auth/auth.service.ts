@@ -18,6 +18,7 @@ export interface AuthUser {
   authProvider?: string;
   avatarUrl?: string;
   preferredLocale?: string;
+  emailVerified?: boolean;
   stats: UserStats;
   linkedGuestIds: string[];
   createdAt: string;
@@ -211,6 +212,24 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  /** Invitados siempre pueden jugar; cuentas registradas requieren correo verificado. */
+  canPlay(): boolean {
+    if (!this.isLoggedIn()) return true;
+    return this.getUser()?.emailVerified !== false;
+  }
+
+  /** Sincroniza datos del usuario desde el servidor (p. ej. tras verificar correo en web). */
+  async refreshUser(): Promise<AuthUser | null> {
+    if (!this.isLoggedIn()) return null;
+    await this.ensureSessionFresh();
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/me`, { headers: this.headers(false) });
+    const data = await this.readJson(res);
+    if (!res.ok) return this.getUser();
+    const user = data['user'] as AuthUser | undefined;
+    if (user) this.persistUser(user);
+    return user ?? null;
   }
 
   /** Nombre visible en partidas (= username de la cuenta). */
@@ -431,17 +450,61 @@ export class AuthService {
     return data as unknown as AuthSession;
   }
 
-  async login(email: string, password: string): Promise<AuthSession> {
+  async login(login: string, password: string): Promise<AuthSession> {
     const deviceId = await getDeviceLabel();
     const res = await this.apiFetch(`${this.apiBase()}/api/auth/login`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ login: email.trim(), password, deviceId }),
+      body: JSON.stringify({ login: login.trim(), password, deviceId }),
     });
     const data = await this.readJson(res);
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_credentials'));
     this.persistSession(data as unknown as AuthSession);
     return data as unknown as AuthSession;
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'forgot_password_failed'));
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const issue = validatePassword(newPassword);
+    if (issue) throw new Error(issue);
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ token: token.trim(), newPassword }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_reset_token'));
+  }
+
+  async verifyEmail(token: string): Promise<AuthUser> {
+    const res = await this.apiFetch(`${this.apiBase()}/api/auth/verify-email`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ token: token.trim() }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_verify_token'));
+    const user = data['user'] as AuthUser;
+    if (user) this.persistUser(user);
+    return user;
+  }
+
+  async resendVerificationEmail(): Promise<void> {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/resend-verification`, {
+      method: 'POST',
+      headers: this.headers(false),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'email_send_failed'));
   }
 
   mapError(code: string): string {
@@ -459,6 +522,27 @@ export class AuthService {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.code || 'link_failed');
     }
+  }
+
+  async requestDeleteAccount(): Promise<void> {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/request-delete-account`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({}),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'email_send_failed'));
+  }
+
+  async confirmDeleteAccount(token: string, password: string): Promise<void> {
+    const res = await this.authorizedFetch(`${this.apiBase()}/api/auth/confirm-delete-account`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ token: token.trim(), password }),
+    });
+    const data = await this.readJson(res);
+    if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'delete_account_failed'));
+    this.logout();
   }
 
   logout(): void {

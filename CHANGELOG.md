@@ -2,6 +2,28 @@
 
 Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por sesión de desarrollo.
 
+**Los avatares en object storage (R2/S3) o disco** — servicio dedicado `media`, no en MongoDB.
+
+**Almacenamiento configurable:** `AVATAR_STORAGE=disk` o `r2`/`s3` en el servicio **media**. Ver §0 y [`backend-container/media/README.md`](backend-container/media/README.md).
+
+---
+
+## [Unreleased] — 2026-06-26
+
+### Backend — microservicios Docker (stack principal)
+
+- **`backend-container/`** operativo: `gateway`, `identity`, `media`, `game-realtime`.
+- [`docker-compose.yml`](docker-compose.yml) en raíz; puerto público único **3000**.
+- **identity:** verificación de correo, reset password, eliminar cuenta, correos HTML, `APP_PUBLIC_URL`.
+- **media:** avatares en Cloudflare R2; rutas legacy `/api/auth/avatars/*`; borrado interno al eliminar cuenta.
+- **game-realtime:** bloqueo join sin correo verificado (cuentas registradas); invitados libres.
+- Documentación: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), [`docs/ROADMAP_BACKEND.md`](docs/ROADMAP_BACKEND.md), README principal actualizado.
+
+### Mobile
+
+- Panel cuenta: verificación correo, eliminar cuenta, botones perfil en esquinas opuestas.
+- Guard join si `emailVerified === false`.
+
 ---
 
 ## [Unreleased] — 2026-06-24

@@ -7,6 +7,7 @@ RUN npm ci --include=dev 2>/dev/null || npm install --include=dev
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY assets ./assets
 
 EXPOSE 3002
 

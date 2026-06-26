@@ -51,6 +51,7 @@ services:
       PORT: "3002"
       NODE_ENV: production
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-firewall-internal-media}
+      MEDIA_URL: http://media:3003
 
   media:
     build:
