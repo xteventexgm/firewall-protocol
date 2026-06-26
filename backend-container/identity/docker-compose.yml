@@ -1,0 +1,24 @@
+services:
+  identity:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: firewall-identity
+    container_name: firewall-protocol-identity
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      DOCKER: "1"
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "3001"
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-firewall_protocol}
+      MONGO_DNS_SERVERS: ${MONGO_DNS_SERVERS:-8.8.8.8,1.1.1.1}
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      JWT_ACCESS_TTL_SEC: ${JWT_ACCESS_TTL_SEC:-86400}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-90}
+      LOG_LEVEL: ${LOG_LEVEL:-info}

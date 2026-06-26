@@ -1,0 +1,127 @@
+/**
+ * REST API del servicio game-realtime.
+ */
+import express from 'express';
+import bodyParser from 'body-parser';
+import database, { getPersistenceMode } from './config/database';
+import { isMongoConnected, isMongoEnabled, getMongoLastError, getDb } from './services/mongoConnection';
+import { isValidRoomCode, normalizeRoomCode } from './utils/socketErrors';
+
+const app = express();
+
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-User-Id, ngrok-skip-browser-warning, Bypass-Tunnel-Reminder',
+  );
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
+app.use(bodyParser.json());
+
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'game-realtime',
+    ts: new Date().toISOString(),
+    persistence: getPersistenceMode(),
+    mongodb: {
+      configured: isMongoEnabled(),
+      connected: isMongoConnected(),
+      error: isMongoEnabled() && !isMongoConnected() ? getMongoLastError() : null,
+    },
+  });
+});
+
+app.get('/', (_req, res) => {
+  res.send('Firewall Protocol game-realtime service');
+});
+
+app.get('/api/games', (_req, res) => {
+  const games = database.list().map((roomId) => {
+    const data = database.load(roomId);
+    return {
+      roomId,
+      phase: data?.phase ?? null,
+      playerCount: data?.players?.length ?? 0,
+      winner: data?.winner ?? null,
+      savedAt: data?.phaseStartedAt ?? null,
+    };
+  });
+  res.json({ games });
+});
+
+app.get('/api/roles', async (_req, res) => {
+  if (!isMongoConnected()) {
+    res.json({ roles: [], source: 'code', message: 'MongoDB no conectado — el juego usa roles.types.ts' });
+    return;
+  }
+  try {
+    const roles = await getDb()
+      .collection('roles')
+      .find({})
+      .project({ _id: 1, team: 1, displayName: 1, description: 1, playerGuide: 1, nightActions: 1, victoryHint: 1 })
+      .toArray();
+    res.json({ roles, source: 'mongodb', count: roles.length });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg, code: 'roles_fetch_failed' });
+  }
+});
+
+app.get('/api/games/:roomId/replay', async (req, res) => {
+  const code = normalizeRoomCode(req.params.roomId);
+  if (!isValidRoomCode(code)) {
+    res.status(400).json({ error: 'Código inválido (invalid_room_code)' });
+    return;
+  }
+  const data = await database.loadOrArchiveAsync(code);
+  if (!data) {
+    res.status(404).json({ error: 'Sala no encontrada (room_not_found)' });
+    return;
+  }
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="${code}-replay.json"`);
+  res.json({
+    exportedAt: new Date().toISOString(),
+    roomId: code,
+    ...data,
+  });
+});
+
+app.get('/api/games/:roomId/session-log', async (req, res) => {
+  const code = normalizeRoomCode(req.params.roomId);
+  if (!isValidRoomCode(code)) {
+    res.status(400).json({ error: 'Código inválido (invalid_room_code)' });
+    return;
+  }
+  const logText = await database.readSessionLogAsync(code);
+  if (!logText) {
+    res.status(404).json({
+      error: 'Registro no encontrado — la partida debe estar archivada como finishgame (session_log_not_found)',
+    });
+    return;
+  }
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${code}.log"`);
+  res.send(logText);
+});
+
+app.get('/api/games/:roomId/status', (req, res) => {
+  const code = normalizeRoomCode(req.params.roomId);
+  if (!isValidRoomCode(code)) {
+    res.status(400).json({ error: 'invalid_room_code' });
+    return;
+  }
+  const playerId = typeof req.query.playerId === 'string' ? req.query.playerId : undefined;
+  res.json(database.getStatus(code, playerId));
+});
+
+export default app;

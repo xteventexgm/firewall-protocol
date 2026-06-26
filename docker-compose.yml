@@ -1,0 +1,88 @@
+# Firewall Protocol — stack de microservicios
+#
+# Ejecutar SIEMPRE desde la raíz del repositorio:
+#   docker compose up -d --build
+#
+# Solo el puerto 3000 (gateway) se expone al exterior.
+
+name: firewall-protocol
+
+networks:
+  firewall-internal:
+    driver: bridge
+
+services:
+  gateway:
+    build:
+      context: ./backend-container/gateway
+      dockerfile: Dockerfile
+    image: firewall-gateway
+    container_name: firewall-protocol-gateway
+    restart: unless-stopped
+    networks:
+      - firewall-internal
+    ports:
+      - "${GATEWAY_PORT:-3000}:3000"
+    env_file:
+      - ./backend-container/.env
+    environment:
+      PORT: "3000"
+      IDENTITY_URL: http://identity:3002
+      GAME_REALTIME_URL: http://game-realtime:3001
+      MEDIA_URL: http://media:3003
+    depends_on:
+      - identity
+      - media
+      - game-realtime
+
+  identity:
+    build:
+      context: ./backend-container/identity
+      dockerfile: Dockerfile
+    image: firewall-identity
+    container_name: firewall-protocol-identity
+    restart: unless-stopped
+    networks:
+      - firewall-internal
+    env_file:
+      - ./backend-container/.env
+    environment:
+      DOCKER: "1"
+      PORT: "3002"
+      NODE_ENV: production
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-firewall-internal-media}
+
+  media:
+    build:
+      context: ./backend-container/media
+      dockerfile: Dockerfile
+    image: firewall-media
+    container_name: firewall-protocol-media
+    restart: unless-stopped
+    networks:
+      - firewall-internal
+    env_file:
+      - ./backend-container/.env
+    environment:
+      DOCKER: "1"
+      PORT: "3003"
+      NODE_ENV: production
+      IDENTITY_URL: http://identity:3002
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-firewall-internal-media}
+
+  game-realtime:
+    build:
+      context: .
+      dockerfile: backend-container/game-realtime/Dockerfile
+    image: firewall-game-realtime
+    container_name: firewall-protocol-game-realtime
+    restart: unless-stopped
+    networks:
+      - firewall-internal
+    env_file:
+      - ./backend-container/.env
+    environment:
+      DOCKER: "1"
+      PORT: "3001"
+      NODE_ENV: production
+      IDENTITY_URL: http://identity:3002

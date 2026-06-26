@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { apiTunnelHeaders, networkErrorMessage, resolveApiBase } from '../../core/utils/api-base.utils';
+import { getDeviceLabel } from '../../core/utils/device-info.utils';
 import { validatePassword } from '../../core/utils/password-policy.utils';
 
 export interface UserStats {
@@ -58,6 +60,12 @@ const SESSION_EXPIRED = 'session_expired';
 export class AuthService {
   private avatarBlobUrl: string | null = null;
   private refreshPromise: Promise<boolean> | null = null;
+  private readonly profileUpdated = new Subject<AuthUser>();
+  private readonly avatarBlobChanged = new Subject<string | null>();
+  /** Emite cuando el usuario en localStorage cambia (avatar, username, etc.). */
+  readonly profileUpdated$ = this.profileUpdated.asObservable();
+  /** Emite cuando el blob del avatar en memoria cambia (recarga tras fetch). */
+  readonly avatarBlobChanged$ = this.avatarBlobChanged.asObservable();
 
   private apiBase(): string {
     return resolveApiBase();
@@ -228,9 +236,11 @@ export class AuthService {
     let url = avatarUrl;
     if (url.startsWith('/')) url = `${base}${url}`;
     else if (!/^https?:\/\//i.test(url)) url = `${base}/${url}`;
-    const rev = localStorage.getItem(STORAGE_KEYS.avatarRev);
-    if ((cacheBust || rev) && url.includes('/api/auth/avatars/')) {
-      const v = rev ?? String(Date.now());
+    if (url.includes('/api/auth/avatars/')) {
+      // La ruta no cambia al re-subir; forzar ?v= distinto evita caché HTTP del navegador.
+      const v = cacheBust
+        ? String(Date.now())
+        : (localStorage.getItem(STORAGE_KEYS.avatarRev) ?? String(Date.now()));
       const sep = url.includes('?') ? '&' : '?';
       url = `${url}${sep}v=${v}`;
     } else if (cacheBust) {
@@ -240,30 +250,59 @@ export class AuthService {
     return url;
   }
 
+  /** Invalida caché HTTP del avatar (misma ruta `/api/auth/avatars/:id` en cada subida). */
+  bumpAvatarCache(): void {
+    localStorage.setItem(STORAGE_KEYS.avatarRev, String(Date.now()));
+  }
+
+  /** Asigna blob en memoria (p. ej. preview local tras elegir archivo). */
+  setAvatarBlob(blobUrl: string): void {
+    if (this.avatarBlobUrl) URL.revokeObjectURL(this.avatarBlobUrl);
+    this.avatarBlobUrl = blobUrl;
+    this.avatarBlobChanged.next(blobUrl);
+  }
+
   /** Carga avatar subido vía fetch (más fiable en móvil/LAN que `<img src>` directo). */
   async loadAvatarBlobUrl(avatarUrl?: string): Promise<string | null> {
     const resolved = this.resolveAvatarUrl(avatarUrl, true);
-    if (!resolved) return null;
+    if (!resolved) return this.avatarBlobUrl;
     if (!resolved.includes('/api/auth/avatars/')) return resolved;
 
-    try {
-      const res = await this.apiFetch(resolved, { headers: this.headers(false) });
-      if (!res.ok) return this.avatarBlobUrl;
-      const blob = await res.blob();
-      const next = URL.createObjectURL(blob);
-      if (this.avatarBlobUrl) URL.revokeObjectURL(this.avatarBlobUrl);
-      this.avatarBlobUrl = next;
-      return this.avatarBlobUrl;
-    } catch {
-      return this.avatarBlobUrl;
+    const attempts = 3;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await this.authorizedFetch(resolved, {
+          headers: this.headers(false),
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const next = URL.createObjectURL(blob);
+          if (this.avatarBlobUrl) URL.revokeObjectURL(this.avatarBlobUrl);
+          this.avatarBlobUrl = next;
+          this.avatarBlobChanged.next(next);
+          return this.avatarBlobUrl;
+        }
+        if (res.status !== 404 || i === attempts - 1) break;
+      } catch {
+        if (i === attempts - 1) break;
+      }
+      await new Promise((r) => setTimeout(r, 250 * (i + 1)));
     }
+    return this.avatarBlobUrl;
   }
 
   revokeAvatarBlob(): void {
     if (this.avatarBlobUrl) {
       URL.revokeObjectURL(this.avatarBlobUrl);
       this.avatarBlobUrl = null;
+      this.avatarBlobChanged.next(null);
     }
+  }
+
+  /** Blob en memoria tras `loadAvatarBlobUrl` (para UI sin segundo fetch). */
+  getAvatarBlobUrl(): string | null {
+    return this.avatarBlobUrl;
   }
 
   async uploadAvatar(file: File): Promise<AuthUser> {
@@ -277,7 +316,15 @@ export class AuthService {
     const data = await this.readJson(res);
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'avatar_upload_failed'));
     const user = data['user'] as AuthUser;
+    if (!user?.id) throw new Error('avatar_upload_failed');
+
+    this.bumpAvatarCache();
+    this.setAvatarBlob(URL.createObjectURL(file));
     this.persistUser(user);
+
+    if (user.avatarUrl) {
+      await this.loadAvatarBlobUrl(user.avatarUrl);
+    }
     return user;
   }
 
@@ -290,8 +337,10 @@ export class AuthService {
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'avatar_delete_failed'));
     this.revokeAvatarBlob();
     const user = data['user'] as AuthUser | undefined;
-    if (user) this.persistUser(user);
-    else localStorage.removeItem(STORAGE_KEYS.user);
+    if (user) {
+      this.bumpAvatarCache();
+      this.persistUser(user);
+    } else localStorage.removeItem(STORAGE_KEYS.user);
     return user ?? null;
   }
 
@@ -334,8 +383,12 @@ export class AuthService {
     });
     const data = await this.readJson(res);
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_avatar_url'));
-    this.persistUser(data['user'] as AuthUser);
-    return data['user'] as AuthUser;
+    const user = data['user'] as AuthUser;
+    this.bumpAvatarCache();
+    this.revokeAvatarBlob();
+    this.persistUser(user);
+    if (user?.avatarUrl) await this.loadAvatarBlobUrl(user.avatarUrl);
+    return user;
   }
 
   async updateUsername(currentPassword: string, username: string): Promise<AuthUser> {
@@ -366,10 +419,11 @@ export class AuthService {
   async register(email: string, username: string, password: string): Promise<AuthSession> {
     const issue = validatePassword(password);
     if (issue) throw new Error(issue);
+    const deviceId = await getDeviceLabel();
     const res = await this.apiFetch(`${this.apiBase()}/api/auth/register`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ email: email.trim(), username: username.trim(), password }),
+      body: JSON.stringify({ email: email.trim(), username: username.trim(), password, deviceId }),
     });
     const data = await this.readJson(res);
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'register_failed'));
@@ -378,10 +432,11 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<AuthSession> {
+    const deviceId = await getDeviceLabel();
     const res = await this.apiFetch(`${this.apiBase()}/api/auth/login`, {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ login: email.trim(), password }),
+      body: JSON.stringify({ login: email.trim(), password, deviceId }),
     });
     const data = await this.readJson(res);
     if (!res.ok) throw new Error(String(data['code'] || data['error'] || 'invalid_credentials'));
@@ -438,14 +493,12 @@ export class AuthService {
   private persistSession(data: AuthSession): void {
     localStorage.setItem(STORAGE_KEYS.accessToken, data.accessToken);
     localStorage.setItem(STORAGE_KEYS.refreshToken, data.refreshToken);
+    if (data.user.avatarUrl) this.bumpAvatarCache();
     this.persistUser(data.user);
   }
 
   private persistUser(user: AuthUser): void {
-    const prev = this.getUser()?.avatarUrl;
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-    if (prev !== user.avatarUrl) {
-      localStorage.setItem(STORAGE_KEYS.avatarRev, String(Date.now()));
-    }
+    this.profileUpdated.next(user);
   }
 }

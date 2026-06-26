@@ -62,6 +62,14 @@ export class LoginPage implements OnInit, OnDestroy {
     private authService: AuthService,
   ) {
     this.subs.add(
+      this.authService.profileUpdated$.subscribe(() => void this.refreshAccountAvatar()),
+    );
+    this.subs.add(
+      this.authService.avatarBlobChanged$.subscribe((blob) => {
+        this.accountAvatarUrl = blob;
+      }),
+    );
+    this.subs.add(
       this.socketService.connected$.subscribe((c) => {
         this.connected = c;
         if (c && this.errorMessage.startsWith('No se pudo conectar')) {
@@ -129,7 +137,8 @@ export class LoginPage implements OnInit, OnDestroy {
       this.accountAvatarUrl = null;
       return;
     }
-    this.accountAvatarUrl = await this.authService.loadAvatarBlobUrl(user.avatarUrl);
+    const blob = await this.authService.loadAvatarBlobUrl(user.avatarUrl);
+    this.accountAvatarUrl = blob ?? this.authService.getAvatarBlobUrl();
   }
 
   get isLoggedIn(): boolean {

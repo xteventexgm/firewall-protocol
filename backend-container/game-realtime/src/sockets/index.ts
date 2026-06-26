@@ -1,0 +1,72 @@
+/**
+ * Punto de entrada Socket.IO: namespaces `/game` (móvil) y `/dashboard` (host).
+ *
+ * - `/game`: join, acciones, votos, desconexión → `roomHandler` + `gameHandler`
+ * - `/dashboard`: crear sala, unirse como espectador → `dashboardHandler`
+ *
+ * La sincronización estado ↔ clientes pasa por `roomBridge.attachRoomBridge`.
+ */
+import * as http from 'http';
+import { Server as IOServer, Namespace } from 'socket.io';
+import RoomManager from '../game/RoomManager';
+import registerRoomHandlers from './roomHandler';
+import registerGameHandlers from './gameHandler';
+import registerDashboardHandlers from './dashboardHandler';
+import { broadcastRoomState } from './roomBridge';
+import { logClient } from '../utils/socketLog';
+import { logger } from '../utils/logger';
+
+/** Crea servidor Socket.IO y registra handlers por namespace. */
+export function initSockets(server: http.Server) {
+  const io = new IOServer(server, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-User-Id',
+        'ngrok-skip-browser-warning',
+        'Bypass-Tunnel-Reminder',
+      ],
+    },
+    allowEIO3: true,
+  });
+  const gameNs: Namespace = io.of('/game');
+  const dashboardNs: Namespace = io.of('/dashboard');
+
+  gameNs.on('connection', (socket) => {
+    registerRoomHandlers(socket, gameNs, dashboardNs);
+    registerGameHandlers(socket);
+
+    socket.on('disconnect', (reason) => {
+      const data = socket.data as { leavingVoluntarily?: boolean };
+      if (data.leavingVoluntarily) {
+        logClient('mobile', 'disconnect (salida voluntaria)', socket.id, { reason });
+        return;
+      }
+      const found = RoomManager.findPlayerBySocketId(socket.id);
+      if (found) {
+        logClient('mobile', 'player disconnected from room', socket.id, {
+          roomId: found.room.id,
+          playerId: found.player.id,
+          reason,
+        });
+        found.room.markPlayerDisconnected(socket.id, 'transport');
+        broadcastRoomState(gameNs, found.room);
+      } else {
+        logClient('mobile', 'disconnect (no room)', socket.id, { reason });
+      }
+    });
+  });
+
+  dashboardNs.on('connection', (socket) => {
+    registerDashboardHandlers(socket, dashboardNs, gameNs);
+  });
+
+  logger.info('[socket] namespaces ready', { game: '/game', dashboard: '/dashboard' });
+
+  return io;
+}
+
+export default initSockets;
