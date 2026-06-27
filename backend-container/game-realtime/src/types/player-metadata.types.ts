@@ -5,7 +5,7 @@
  * `ROLE_NIGHT_ACTIONS` define qué `type` acepta ActionValidator por rol.
  */
 import { PlayerId } from './events.types';
-import { RoleName } from './roles.types';
+import { ROLE_CATALOG, RoleName, Team } from './roles.types';
 
 /** Estado de infección (Gusano u otra fuente) sobre un nodo. */
 export interface PlayerInfection {
@@ -22,6 +22,8 @@ export interface PlayerInfection {
  */
 export interface PlayerMetadata {
   actedThisNight?: boolean;
+  /** Voto de consenso hacker enviado esta noche (independiente de la habilidad del rol). */
+  hackerVoteTonight?: boolean;
   lastProtectedTarget?: PlayerId | null;
   lastCuredTarget?: PlayerId | null;
   pentesterUsesLeft?: number;
@@ -121,3 +123,13 @@ export const ROLE_NIGHT_ACTIONS: Partial<Record<RoleName, string[]>> = {
   [RoleName.MIRAGE]: ['mirage_cloak'],
   [RoleName.CHAOS_ROUTER]: ['chaos_route'],
 };
+
+/** Hackers con habilidad especial también participan en el consenso nocturno. */
+const HACKER_VOTE_ONLY = new Set<RoleName>([RoleName.DDOS, RoleName.ROOTKIT]);
+for (const role of Object.values(RoleName)) {
+  const catalog = ROLE_CATALOG[role];
+  if (catalog?.team !== Team.BLACK_HAT) continue;
+  const actions = ROLE_NIGHT_ACTIONS[role];
+  if (!actions || HACKER_VOTE_ONLY.has(role) || actions.includes('hacker_vote')) continue;
+  actions.push('hacker_vote');
+}

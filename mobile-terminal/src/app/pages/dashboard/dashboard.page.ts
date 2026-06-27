@@ -48,6 +48,7 @@ import {
   getEliminatedIdsFromIncident,
   infectionSourceLabel,
   isNodeCritical,
+  mergeChatMessages,
   phaseLabel,
   translateEliminationReason,
 } from '../../core/utils/game.utils';
@@ -162,6 +163,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   chatInput = '';
   chatOpen = false;
   chatChannel: 'public' | 'dead' | 'hacker' = 'public';
+  chatChannelOptions: { value: 'public' | 'dead' | 'hacker'; label: string }[] = [
+    { value: 'public', label: 'Público' },
+  ];
   selectedProvokeIndex = 0;
   gameStats: GameStatsEntry[] = [];
   showLobbyClosedOverlay = false;
@@ -219,6 +223,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.gameSound.setMuted(this.soundMuted);
     void this.gameSound.unlockAudio();
+    this.restoreHackerTeamFromStorage();
 
     this.subs.add(
       this.socketService.connected$.subscribe((c) => {
@@ -247,6 +252,12 @@ export class DashboardPage implements OnInit, OnDestroy {
         const me = this.players.find((p) => p.id === this.myPlayerId);
         if (me?.team) this.myTeam = me.team;
         if (me) this.isFrozen = !!me.frozen;
+        if (
+          (this.myTeam === 'black_hat' || me?.team === 'black_hat') &&
+          !this.hackerTeamMemberIds.length
+        ) {
+          this.restoreHackerTeamFromStorage();
+        }
 
         const gameEnded = state.phase === 'FIN' || !!state.winner || !!state.soloWinner;
 
@@ -256,11 +267,12 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.gamePhase = 'ELIMINATED';
           this.phaseBulletin = phaseBulletin('ELIMINATED');
           void this.runDeathHaptic();
+          this.syncChatForPhase({ forceChannel: true });
         } else if (state.phase) {
           this.gamePhase = state.phase;
           this.phaseBulletin = phaseBulletin(state.phase);
           this.syncNightSoundPolicy(state.phase);
-          this.syncChatForPhase();
+          this.refreshChatChannelOptions();
         }
 
         this.allPlayers = this.players.map((p) => ({
@@ -296,7 +308,9 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.syncRoleMeta(me);
 
         if (state.nightProgress) this.nightProgress = state.nightProgress;
-        if (state.chatMessages) this.chatMessages = state.chatMessages;
+        if (state.chatMessages?.length) {
+          this.chatMessages = mergeChatMessages(this.chatMessages, state.chatMessages);
+        }
         if (state.gameStats) this.gameStats = state.gameStats;
         if (state.sessionThreatBrief) this.sessionThreatBrief = state.sessionThreatBrief;
 
@@ -329,7 +343,8 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.role) {
           this.playerRole = player.role;
           const roleKey = player.roleId ?? player.role;
-          this.canActAtNight = !!getNightActionType(roleKey);
+          this.canActAtNight =
+            !!getNightActionType(roleKey) || getNightActionVariants(roleKey).length > 0;
           const variants = getNightActionVariants(roleKey);
           if (variants.length && !this.selectedNightActionType) {
             this.selectedNightActionType = variants[0].value;
@@ -337,12 +352,13 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (player.teamLabel) this.playerTeamLabel = player.teamLabel;
         if (player.team) this.myTeam = player.team;
-        this.syncChatForPhase();
+        this.refreshChatChannelOptions();
         if (player.roleDescription) this.roleDescription = formatRoleCopy(player.roleDescription);
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
           this.gamePhase = 'ELIMINATED';
           void this.runDeathHaptic();
+          this.syncChatForPhase({ forceChannel: true });
         }
         this.isSilenced = !!player.silenced;
         this.isFrozen = !!player.frozen;
@@ -363,6 +379,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (payload.type === 'hacker_team') {
           this.hackerTeamMemberIds = payload.members ?? [];
+          this.persistHackerTeam(this.hackerTeamMemberIds);
           const names = this.hackerTeamMemberIds
             .map((id: string) => this.players.find((p) => p.id === id)?.name ?? id)
             .join(', ');
@@ -431,29 +448,33 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.phaseTransition$.subscribe((t) => {
-        this.gamePhase = t.to;
-        this.triggerPhaseFlash(t.to);
-        void this.runPhaseHaptic(t.to);
-        this.phaseBulletin = phaseBulletin(t.to);
+        const me = this.players.find((p) => p.id === this.myPlayerId);
+        const amDead = !!(me && !me.isAlive);
+        if (!amDead) {
+          this.gamePhase = t.to;
+          this.triggerPhaseFlash(t.to);
+          void this.runPhaseHaptic(t.to);
+          this.phaseBulletin = phaseBulletin(t.to);
+          this.syncNightSoundPolicy(t.to);
+        }
         if (t.at) {
           this.phaseStartedAt = t.at;
           this.phaseEndsAt = null;
         }
-        this.syncNightSoundPolicy(t.to);
-        if (t.to === 'DIA') this.gameSound.playDay();
+        if (t.to === 'DIA' && !amDead) this.gameSound.playDay();
         if (t.to === 'NOCHE') {
           this.minigameChallenge = null;
           this.challengeAnswer = null;
           this.minigamePending = false;
           this.minigameFeedbackType = 'none';
           this.minigameFeedbackMessage = '';
-          if (this.canActAtNight) this.socketService.requestMinigame();
-          this.syncChatForPhase();
+          if (!amDead && this.canActAtNight) this.socketService.requestMinigame();
+          if (!amDead) this.syncChatForPhase({ forceChannel: true });
         }
-        if (t.to === 'DIA') {
+        if (t.to === 'DIA' && !amDead) {
           this.setStatus('Amanecer — auditoría diurna iniciada', 'info');
         }
-        if (t.to === 'NOCHE') {
+        if (t.to === 'NOCHE' && !amDead) {
           this.setStatus('Modo sigilo activado', 'warn');
           this.topologyOpen = false;
           this.selectedTarget = '';
@@ -462,15 +483,15 @@ export class DashboardPage implements OnInit, OnDestroy {
             this.nightActionReport = null;
           }
         }
-        if (t.to === 'DIA') {
+        if (t.to === 'DIA' && !amDead) {
           this.topologyOpen = true;
         }
-        if (t.to === 'VOTACION') {
+        if (t.to === 'VOTACION' && !amDead) {
           this.myVoteConfirmed = false;
           this.selectedTarget = '';
           this.voteTiedMessage = '';
         }
-        if (t.to === 'VERIFICACION') {
+        if (t.to === 'VERIFICACION' && !amDead) {
           this.setStatus('Verificando integridad del sistema…', 'info');
         }
         this.voteUrgentSeconds = 0;
@@ -643,8 +664,9 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.chatMessage$.subscribe((m) => {
-        this.chatMessages = [...this.chatMessages, m].slice(-30);
-        this.gameSound.playChat();
+        if (!this.chatMessages.some((existing) => existing.id === m.id)) {
+          this.gameSound.playChat();
+        }
       }),
     );
 
@@ -1229,13 +1251,20 @@ export class DashboardPage implements OnInit, OnDestroy {
     return this.myTeam || this.socketService.getMyTeam() || '';
   }
 
-  private syncChatForPhase(): void {
+  private syncChatForPhase(options?: { forceChannel?: boolean }): void {
+    this.refreshChatChannelOptions();
     if (this.gamePhase === 'ELIMINATED') {
-      this.chatChannel = 'dead';
+      if (options?.forceChannel || this.chatChannel !== 'dead') {
+        this.chatChannel = 'dead';
+      }
       this.chatOpen = true;
       return;
     }
-    if (this.gamePhase === 'NOCHE' && this.effectiveTeam === 'black_hat') {
+    if (
+      options?.forceChannel &&
+      this.gamePhase === 'NOCHE' &&
+      this.effectiveTeam === 'black_hat'
+    ) {
       this.chatChannel = 'hacker';
       this.chatOpen = true;
       return;
@@ -1245,9 +1274,30 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  private refreshChatChannelOptions(): void {
+    if (this.gamePhase === 'ELIMINATED') {
+      this.chatChannelOptions = [{ value: 'dead', label: 'Espectadores (eliminados)' }];
+      return;
+    }
+    if (this.effectiveTeam === 'black_hat' && this.gamePhase === 'NOCHE') {
+      this.chatChannelOptions = [
+        { value: 'hacker', label: 'Canal hacker (noche)' },
+        { value: 'public', label: 'Público' },
+      ];
+      return;
+    }
+    if (this.effectiveTeam === 'black_hat') {
+      this.chatChannelOptions = [
+        { value: 'public', label: 'Público' },
+        { value: 'hacker', label: 'Canal hacker' },
+      ];
+      return;
+    }
+    this.chatChannelOptions = [{ value: 'public', label: 'Público' }];
+  }
+
   private getEffectiveChatChannel(): 'public' | 'dead' | 'hacker' {
     if (this.gamePhase === 'ELIMINATED') return 'dead';
-    if (this.gamePhase === 'NOCHE' && this.effectiveTeam === 'black_hat') return 'hacker';
     return this.chatChannel;
   }
 
@@ -1278,20 +1328,8 @@ export class DashboardPage implements OnInit, OnDestroy {
     }, 1000);
   }
 
-  get chatChannelOptions(): { value: 'public' | 'dead' | 'hacker'; label: string }[] {
-    if (this.gamePhase === 'ELIMINATED') {
-      return [{ value: 'dead', label: 'Espectadores (eliminados)' }];
-    }
-    if (this.effectiveTeam === 'black_hat' && this.gamePhase === 'NOCHE') {
-      return [{ value: 'hacker', label: 'Canal hacker (noche)' }];
-    }
-    if (this.effectiveTeam === 'black_hat') {
-      return [
-        { value: 'public', label: 'Público' },
-        { value: 'hacker', label: 'Canal hacker' },
-      ];
-    }
-    return [{ value: 'public', label: 'Público' }];
+  trackChatChannel(_index: number, ch: { value: string }): string {
+    return ch.value;
   }
 
   get canShowChat(): boolean {
@@ -1313,7 +1351,42 @@ export class DashboardPage implements OnInit, OnDestroy {
     return filtered.slice(-25);
   }
 
+  private hackerTeamStorageKey(): string {
+    return `fp_hacker_team_${(this.roomCode || localStorage.getItem('roomCode') || '').toUpperCase()}`;
+  }
+
+  private persistHackerTeam(members: string[]): void {
+    const key = this.hackerTeamStorageKey();
+    if (!key || key === 'fp_hacker_team_') return;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(members));
+    } catch {
+      /* ignore quota errors */
+    }
+  }
+
+  private restoreHackerTeamFromStorage(): void {
+    const key = this.hackerTeamStorageKey();
+    if (!key || key === 'fp_hacker_team_') return;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as string[];
+      if (Array.isArray(parsed) && parsed.length) {
+        this.hackerTeamMemberIds = parsed;
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }
+
   exitRoomCompletely(): void {
+    try {
+      sessionStorage.removeItem(this.hackerTeamStorageKey());
+    } catch {
+      /* ignore */
+    }
+    this.hackerTeamMemberIds = [];
     this.socketService.clearSession();
     void this.router.navigate(['/login']);
   }
@@ -1541,7 +1614,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.showGameOver = true;
     this.gamePhase = 'FIN';
     this.gameOverView = buildGameOverView(
-      this.myTeam,
+      this.myTeam || this.socketService.getMyTeam(),
       this.myPlayerId,
       winner,
       soloWinner,

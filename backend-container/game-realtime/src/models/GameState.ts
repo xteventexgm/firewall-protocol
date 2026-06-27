@@ -237,7 +237,7 @@ export class GameStateModel implements GameState {
       if (isSilenced(p, this.dayNumber)) continue;
       total += 1;
       const meta = getMeta(p);
-      if (meta.actedThisNight || this.actionQueue.some((a) => a.actor === p.id)) {
+      if (meta.actedThisNight || meta.hackerVoteTonight || this.actionQueue.some((a) => a.actor === p.id)) {
         acted += 1;
       }
     }
@@ -343,12 +343,15 @@ export class GameStateModel implements GameState {
   }
 
   queueAction(action: PlayerAction) {
-    this.stateRemoveDuplicateActor(action.actor);
+    const type = (action.type || '').toLowerCase();
+    this.actionQueue = this.actionQueue.filter(
+      (a) => !(a.actor === action.actor && (a.type || '').toLowerCase() === type),
+    );
     this.actionQueue.push(action);
   }
 
   private stateRemoveDuplicateActor(actorId: string) {
-    this.actionQueue = this.actionQueue.filter(a => a.actor !== actorId);
+    this.actionQueue = this.actionQueue.filter((a) => a.actor !== actorId);
   }
 
   clearActions() {

@@ -54,15 +54,21 @@ export function validateNightAction(
   if (frozenActors.has(action.actor)) return 'actor_frozen';
 
   const meta = getMeta(actor);
-  const replacingQueued = state.actionQueue.some(a => a.actor === action.actor);
-  if (meta.actedThisNight && !replacingQueued) return 'already_acted';
+  const type = (action.type || '').toLowerCase();
+  const replacingQueued = state.actionQueue.some(
+    (a) => a.actor === action.actor && (a.type || '').toLowerCase() === type,
+  );
+  if (type === 'hacker_vote') {
+    if (meta.hackerVoteTonight && !replacingQueued) return 'already_acted';
+  } else if (meta.actedThisNight && !replacingQueued) {
+    return 'already_acted';
+  }
 
   const role = actor.role as RoleName | undefined;
   if (!role) return 'role_mismatch';
   if (action.role && action.role !== role) return 'role_mismatch';
 
   const allowed = ROLE_NIGHT_ACTIONS[role] ?? [];
-  const type = (action.type || '').toLowerCase();
 
   if (role === RoleName.SYSADMIN) {
     return 'invalid_action_type';
@@ -213,6 +219,11 @@ export function revertQueuedActionMetadata(actor: Player, actionType: string, ta
   if (type === 'crypto_bribe') {
     meta.shieldCharges = (meta.shieldCharges ?? 0) + 1;
   }
+  if (type === 'hacker_vote') {
+    meta.hackerVoteTonight = false;
+  } else {
+    meta.actedThisNight = false;
+  }
 }
 
 /** Marca metadata post-validación (cooldowns, usos, flags de noche) al encolar acción. */
@@ -223,7 +234,11 @@ export function markActionSubmitted(
   playerCount?: number,
 ) {
   const meta = getMeta(actor);
-  meta.actedThisNight = true;
+  if (actionType === 'hacker_vote') {
+    meta.hackerVoteTonight = true;
+  } else {
+    meta.actedThisNight = true;
+  }
 
   if (actionType === 'pentester_kill') {
     meta.pentesterUsesLeft = Math.max(0, (meta.pentesterUsesLeft ?? 0) - 1);
@@ -284,9 +299,9 @@ export function formatActionValidationError(err: ActionValidationError): string 
   return `${message} (${err})`;
 }
 
-/** Lista de IDs Black Hat vivos (para evento `hacker_team` al inicio). */
+/** Lista de IDs Black Hat en la partida (para evento `hacker_team`; incluye eliminados). */
 export function getHackerTeam(state: GameStateModel): string[] {
   return state.players
-    .filter(p => p.isAlive && p.team === Team.BLACK_HAT)
+    .filter(p => p.team === Team.BLACK_HAT)
     .map(p => p.id);
 }

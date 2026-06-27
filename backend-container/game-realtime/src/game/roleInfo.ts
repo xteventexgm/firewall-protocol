@@ -10,78 +10,100 @@ import { ROLE_CATALOG, RoleName, Team } from '../types/roles.types';
 import { formatRoleCopy } from '../utils/roleCopy';
 
 const TEAM_LABELS: Record<Team, string> = {
-  [Team.SYSTEM]: 'Equipo Sistema (Blue Team)',
-  [Team.BLACK_HAT]: 'Equipo Hacker (Red Team)',
+  [Team.SYSTEM]: 'Equipo Sistema',
+  [Team.BLACK_HAT]: 'Equipo Hacker',
   [Team.CHAOTIC]: 'Equipo Caótico',
 };
 
 const NIGHT_ACTION_HINTS: Record<string, string> = {
-  scan: 'Correlacionas eventos sobre un nodo: SEGURO (alineado al Sistema), SOSPECHOSO (comportamiento anómalo / caótico) o MALICIOSO (amenaza confirmada). El Rootkit siempre aparece como SEGURO.',
-  protect: 'Bloquea un intento de eliminación dirigido al objetivo esta noche. No repitas el mismo nodo dos noches seguidas.',
-  cure: 'Remedia una infección activa (p. ej. Gusano). No repitas el mismo nodo dos noches seguidas.',
-  pentester_kill: 'Exploit autorizado: eliminas a un jugador de noche (usos según tamaño de sala). Si eliminas a un aliado del Sistema, tú también caes.',
-  freeze: 'Aislamiento de endpoint: el objetivo no ejecuta acciones nocturnas esta ronda (contención EDR).',
-  bgp_swap: 'Mitigación de enrutamiento: intercambias el destino de dos nodos para desviar ataques nocturnos entre ellos.',
-  honeypot_drag: 'Despliegas un señuelo sobre un nodo. Si caes en un ataque nocturno, arrastras contigo a quien marcaste (ignora protección Antivirus).',
-  hacker_vote: 'Votas el objetivo de la campaña nocturna con el equipo hacker (mayoría simple).',
-  ddos_vote: 'Tu voto en el consenso hacker cuenta doble. Si hay consenso, el objetivo queda degradado (silenciado al día siguiente) aunque sobreviva.',
-  ransomware: 'Cifras operaciones del objetivo: no actúa de noche ni vota al día siguiente. Enfriamiento tras cada uso según tamaño de sala.',
-  spy: 'Interceptas conexiones hacia el objetivo: ves qué nodos lo visitaron y el tipo de actividad (sin revelar roles).',
-  phisher_redirect: 'Ingeniería social: rediriges el voto diurno de un jugador hacia otro objetivo (fase VOTACION).',
-  worm_infect: 'Propagación autónoma: infectas a un nodo; caerá tras dos noches sin cura. Tu primera eliminación nocturna falla (inmunidad de persistencia); luego eres vulnerable.',
-  worm_kill: 'Alias de worm_infect.',
-  zero_day_assume: 'Exploit 0-day (una vez por partida): asumes el rol de un jugador ya eliminado y heredas sus habilidades. Los escaneos SOC reflejan tu rol asumido.',
-  troll_provoke: 'Deja un mensaje anónimo en el feed público del amanecer. Elige tu provocación con cuidado.',
-  mine_crypto: 'Cryptojacking sigiloso: parasitizas el procesamiento de un nodo y ganas +1 escudo (máx. 3 acumulables). La víctima no recibe aviso.',
-  crypto_bribe: 'Soborno letal: gastas 1 escudo para eliminar directamente a un objetivo (kill directo, sujeto a protect). Requiere al menos 1 escudo.',
-  ids_watch: 'Vigilas un nodo. Si recibe visitas hostiles esa noche, recibes alerta privada con el conteo (sin roles).',
-  patch_harden: 'El objetivo no puede morir por consenso hacker esta noche (kills directos sí aplican).',
-  forensic_trace: 'Recibes bajas de la última noche por bando y si tu objetivo estuvo entre las víctimas.',
-  brute_force: 'Kill directo único por partida (1 uso). Sujeto a protect, honeypot y escudos.',
-  team_probe: 'Sondeas un nodo vivo y recibes su equipo (System / Black Hat / Caótico), no el rol exacto.',
-  exploit_strip: 'El protect del Antivirus no aplica sobre el objetivo esta noche.',
-  data_leak: 'Filtras el equipo de un jugador al feed público de forma anónima al amanecer.',
-  shadow_mask: 'Un jugador aparece como SEGURO en escaneos SOC esta noche.',
-  logic_bomb: 'Armas una bomba: si el objetivo actúa la noche siguiente, muere antes de resolver su acción.',
-  backup_mark: '1×/partida: el objetivo sobrevive un kill esta noche (se consume el respaldo).',
-  threat_hunt: 'AMENAZA o LIMPIO — sin rol exacto.',
-  incident_clear: 'Elimina silencio de Ransomware/DDoS y bloqueos de voto activos.',
-  waf_block: 'Bloquea infección de Gusano sobre el objetivo esta noche.',
-  intel_pulse: '1×/partida: conteo privado de vivos por bando.',
-  integrity_check: '¿El objetivo es del bando System? (sí/no).',
-  ally_verify: '¿El objetivo pertenece a tu mismo bando? (sí/no).',
-  backdoor_plant: '+1 peso en consenso hacker contra el objetivo esta noche.',
-  lateral_probe: '¿El objetivo es System? (sí/no).',
-  vote_trace: 'A quién votó el objetivo en la última votación.',
-  vuln_scan: '¿Está infectado o silenciado? (comprometido sí/no).',
-  cred_probe: 'DEFENSA_CRÍTICA o PERFIL_ESTÁNDAR según rol defensivo.',
-  mitm_hijack: 'Fuerzas el voto nocturno de un hacker hacia tu objetivo.',
-  dns_spoof: 'Envenenas el resolver DNS: el voto del objetivo se desvía al azar en la próxima votación (siempre hacia otro nodo distinto al que eligió). Tú apareces SEGURO en escaneos SOC esta noche.',
-  rigged_payload: 'La próxima noche el objetivo ignora protect, cure y respaldo. Ganas +1 escudo caótico (máx. 2; empiezas con 1).',
-  jam_hacker: 'Jammeas tu propia señal: SEGURO en SOC, inmune al consenso hacker esta noche y sobrevives un linchamiento mañana.',
-  chaos_route: 'Desvías ataques del origen hacia un colateral (unidireccional, no intercambio BGP).',
-  ransom_note: 'Silencia al objetivo y publica nota de rescate anónima.',
-  noise_burst: 'Mensaje anónimo de ruido en el feed público.',
-  mirage_cloak: 'Te enmascaras como SEGURO en escaneos SOC esta noche.',
+  scan: 'De noche señalas a alguien. Solo tú recibes si parece confiable, sospechoso o peligroso.',
+  protect: 'De noche eliges a alguien para que no lo eliminen esa noche.',
+  cure: 'De noche quitas la infección de alguien (por ejemplo, si lo atacó el Gusano).',
+  pentester_kill: 'De noche intentas eliminar a alguien (1 o 2 veces según jugadores). Si eliminas a un aliado, tú también caes.',
+  freeze: 'De noche bloqueas a alguien para que no pueda hacer nada hasta el amanecer.',
+  bgp_swap: 'De noche intercambias a dos jugadores: los ataques contra uno van al otro.',
+  honeypot_drag: 'De noche marcas a alguien. Si te eliminan, él cae contigo.',
+  hacker_vote: 'De noche votas con los hackers a quién eliminar. Gana quien tenga más votos.',
+  ddos_vote: 'Tu voto cuenta doble. Si el objetivo sobrevive, queda sin hablar ni votar al día siguiente.',
+  ransomware: 'De noche callas a alguien: no actúa ni vota al día siguiente. Luego debes esperar unas noches.',
+  spy: 'De noche espías a alguien. Al amanecer ves quién lo visitó (sin saber roles exactos).',
+  phisher_redirect: 'De noche engañas a alguien: en la próxima votación su voto irá a otra persona que elijas.',
+  worm_infect: 'De noche infectas a alguien: muere en dos noches si nadie lo cura. La primera vez que intenten matarte, sobrevives.',
+  worm_kill: 'De noche infectas a alguien para que muera en un par de noches si no lo curan.',
+  zero_day_assume: 'Una vez por partida copias el rol de alguien ya eliminado.',
+  troll_provoke: 'De noche dejas un mensaje anónimo que todos leerán al amanecer.',
+  mine_crypto: 'De noche ganas un escudo extra (máximo 3).',
+  crypto_bribe: 'Gastas 1 escudo para intentar eliminar a alguien esa noche.',
+  ids_watch: 'De noche vigias a alguien. Si lo atacan, recibes una alerta.',
+  patch_harden: 'De noche proteges a alguien del voto conjunto de los hackers (otros ataques sí pueden matarlo).',
+  forensic_trace: 'De noche investigas a alguien y ves quién murió la noche anterior.',
+  brute_force: 'Una sola vez en la partida intentas eliminar a alguien de noche.',
+  team_probe: 'De noche descubres si alguien es del bando bueno, hacker o caótico (no su rol exacto).',
+  exploit_strip: 'De noche anulas la protección del Antivirus sobre alguien.',
+  data_leak: 'De noche revelas el bando de alguien en el chat público al amanecer (sin decir quién eres).',
+  shadow_mask: 'De noche haces que alguien parezca inocente si lo investigan.',
+  logic_bomb: 'De noche pones una trampa: si esa persona actúa la noche siguiente, muere.',
+  backup_mark: 'Una vez por partida salvas a alguien de morir esa noche.',
+  threat_hunt: 'De noche investigas a alguien: te dice si es una amenaza o parece limpio.',
+  incident_clear: 'De noche quitas silencios y bloqueos de voto a alguien.',
+  waf_block: 'De noche evitas que el Gusano infecte a alguien.',
+  intel_pulse: 'Una vez por partida ves cuántos jugadores vivos hay de cada bando.',
+  ally_verify: 'De noche compruebas si alguien es de tu mismo equipo (sí o no).',
+  backdoor_plant: 'De noche refuerzas el voto de los hackers contra alguien.',
+  lateral_probe: 'De noche compruebas si alguien es del bando bueno (sí o no).',
+  vote_trace: 'De noche ves a quién votó alguien en la última votación.',
+  vuln_scan: 'De noche ves si alguien está infectado o silenciado.',
+  cred_probe: 'De noche descubres si alguien tiene un rol muy importante de defensa.',
+  mitm_hijack: 'De noche haces que un hacker vote contra alguien que elijas.',
+  dns_spoof: 'De noche confundes a alguien: en la próxima votación su voto va a otra persona al azar.',
+  rigged_payload: 'De noche preparas un sabotaje para la próxima noche y ganas un escudo.',
+  jam_hacker: 'De noche te proteges: pareces inocente, los hackers no pueden matarte por voto y sobrevives un linchamiento.',
+  chaos_route: 'De noche rediriges los ataques de alguien hacia otra persona.',
+  ransom_note: 'De noche silencias a alguien y publicas una nota anónima.',
+  noise_burst: 'De noche publicas un mensaje anónimo de confusión al amanecer.',
+  mirage_cloak: 'De noche te camuflas para parecer inocente si te investigan.',
 };
 
 const PASSIVE_NIGHT_HINT =
-  'No tienes acción nocturna. Participa en el debate diurno y en las votaciones.';
+  'No tienes poder de noche. Habla y vota de día para ayudar a tu equipo.';
 
 const TEAM_VICTORY_HINTS: Record<Team, string> = {
   [Team.SYSTEM]:
-    'Victoria del Sistema: 0 hackers vivos, 0 caóticos vivos y al menos 1 defensor System en pie.',
+    'Gana tu equipo si eliminan a todos los hackers y caóticos, y queda al menos un defensor vivo.',
   [Team.BLACK_HAT]:
-    'Victoria Black Hat: 0 jugadores System vivos; si quedan caóticos, debes superarlos en número (hackers > caóticos).',
-  [Team.CHAOTIC]: 'Victoria según tu rol caótico — revisa tu condición especial abajo.',
+    'Gana tu equipo si eliminan a todos los del bando bueno. Si quedan caóticos, debéis ser más numerosos que ellos.',
+  [Team.CHAOTIC]: 'Tu forma de ganar depende de tu rol caótico (léelo abajo).',
 };
 
 const ROLE_VICTORY_HINTS: Partial<Record<RoleName, string>> = {
-  [RoleName.TROLL]: 'Victoria solitaria: ser expulsado por votación diurna (te banean).',
-  [RoleName.WORM]: 'Victoria solitaria: quedar como único jugador vivo.',
-  [RoleName.CRYPTO_MINER]: 'Victoria solitaria: quedar como único jugador vivo.',
-  [RoleName.ZERO_DAY]: 'Hereda la victoria del rol que asumas con zero_day_assume.',
-  [RoleName.SYSADMIN]: 'Victoria del Sistema: 0 hackers y 0 caóticos vivos.',
+  [RoleName.TROLL]: 'Ganas si te expulsan votando de día.',
+  [RoleName.WORM]: 'Ganas si eres el único jugador vivo al final.',
+  [RoleName.CRYPTO_MINER]: 'Ganas si eres el único jugador vivo al final.',
+  [RoleName.ZERO_DAY]: 'Ganas con las mismas reglas del rol que copies.',
+  [RoleName.SYSADMIN]: 'Ganas con el bando bueno: sin hackers ni caóticos vivos.',
+};
+
+/** Descripción corta en lenguaje cotidiano (sin jerga técnica). */
+const ROLE_PLAIN_DESCRIPTION: Partial<Record<RoleName, string>> = {
+  [RoleName.SYSADMIN]: 'Diriges la red. Tu equipo gana eliminando a hackers y caóticos.',
+  [RoleName.SOC_ANALYST]: 'Investigas quién es sospechoso. Ayudas al bando bueno a encontrar enemigos.',
+  [RoleName.ANTIVIRUS]: 'Proteges y curas. Eres la defensa directa contra ataques e infecciones.',
+  [RoleName.PENTESTER]: 'Puedes eliminar a alguien de noche con permiso, pero cuidado con matar aliados.',
+  [RoleName.HONEYPOT]: 'Si te eliminan, te llevas contigo a quien hayas marcado.',
+  [RoleName.DEEP_FREEZE]: 'Congelas a alguien para que no actúe de noche.',
+  [RoleName.BGP_ROUTER]: 'Intercambias objetivos para confundir ataques nocturnos.',
+  [RoleName.IDS]: 'Vigilas a alguien y te avisan si lo atacan.',
+  [RoleName.PATCH_MANAGER]: 'Refuerzas a un compañero para que los hackers no lo maten por voto conjunto.',
+  [RoleName.FORENSIC_ANALYST]: 'Investigas muertes recientes para encontrar pistas.',
+  [RoleName.BACKUP_NODE]: 'Una vez por partida evitas que alguien muera esa noche.',
+  [RoleName.DDOS]: 'Votas con los hackers; tu voto cuenta doble.',
+  [RoleName.ROOTKIT]: 'Votas con los hackers y pareces inocente en las investigaciones.',
+  [RoleName.RANSOMWARE]: 'Silencias a alguien para que no actúe ni vote al día siguiente.',
+  [RoleName.SPYWARE]: 'Espías visitas nocturnas hacia alguien.',
+  [RoleName.PHISHER]: 'Manipulas el voto diurno de otra persona.',
+  [RoleName.WORM]: 'Infectas y quieres quedar solo al final.',
+  [RoleName.TROLL]: 'Quieres que te expulsen votando: ganas perdiendo.',
+  [RoleName.CRYPTO_MINER]: 'Acumulas escudos y quieres sobrevivir solo al final.',
 };
 
 function victoryHintFor(role: RoleName, team: Team): string {
@@ -93,12 +115,13 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
   const catalog = ROLE_CATALOG[role];
   const resolvedTeam = team ?? catalog.team;
   const nightActions = ROLE_NIGHT_ACTIONS[role];
-  const nightAction = nightActions?.[0] ?? null;
+  const nightAction =
+    nightActions?.find((a) => a !== 'hacker_vote') ?? nightActions?.[0] ?? null;
 
   let nightActionHint = nightAction ? NIGHT_ACTION_HINTS[nightAction] ?? PASSIVE_NIGHT_HINT : PASSIVE_NIGHT_HINT;
   if (role === RoleName.ANTIVIRUS) {
     nightActionHint =
-      'EDR del Sistema — una acción por noche: protect (bloquea un kill sobre el objetivo) O cure (limpia infección), nunca ambas. No repitas el mismo nodo dos noches seguidas con la misma acción.';
+      'Cada noche eliges: proteger a alguien de un ataque O quitar una infección. No repitas al mismo jugador dos noches seguidas.';
   }
   if (role === RoleName.WORM) {
     nightActionHint = NIGHT_ACTION_HINTS.worm_infect;
@@ -108,11 +131,11 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
   }
   if (role === RoleName.CRYPTO_MINER) {
     nightActionHint =
-      'Economía cripto — una acción por noche: mine_crypto (minar +1 escudo, máx. 3) O crypto_bribe (gasta 1 escudo → kill directo). Los escudos bloquean ataques directos; infección madura te elimina. Ganas si eres el único jugador vivo.';
+      'Cada noche minas (+1 escudo, máx. 3) O gastas 1 escudo para intentar matar a alguien. Ganas si eres el único vivo.';
   }
   if (role === RoleName.SYSADMIN) {
     nightActionHint =
-      'Sin acción nocturna. Durante VOTACION puedes usar Parche de emergencia (1×/partida) para anular el voto de un jugador.';
+      'Sin acción de noche. Una vez por partida, en votación, puedes anular el voto de alguien.';
   }
   if (role === RoleName.TROLL) {
     nightActionHint = NIGHT_ACTION_HINTS.troll_provoke;
@@ -142,12 +165,23 @@ export function buildRoleAssignedPayload(role: RoleName, team?: Team): PrivateRe
     nightActionHint = NIGHT_ACTION_HINTS.mitm_hijack;
   }
 
+  const hasHackerVote = nightActions?.includes('hacker_vote');
+  const hasOtherAbility = nightActions?.some((a) => a !== 'hacker_vote');
+  if (resolvedTeam === Team.BLACK_HAT && hasHackerVote && hasOtherAbility) {
+    nightActionHint = `${nightActionHint} También votas cada noche con los hackers a quién eliminar.`;
+  }
+
+  const roleDescription =
+    ROLE_PLAIN_DESCRIPTION[role] ??
+    catalog.description ??
+    catalog.displayName;
+
   return {
     type: 'role_assigned',
     role,
     team: resolvedTeam,
     displayName: catalog.displayName,
-    description: formatRoleCopy(catalog.playerGuide ?? catalog.description ?? ''),
+    description: formatRoleCopy(roleDescription),
     teamLabel: TEAM_LABELS[resolvedTeam],
     nightAction,
     nightActionHint: formatRoleCopy(nightActionHint),

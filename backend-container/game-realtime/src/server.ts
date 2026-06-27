@@ -7,6 +7,7 @@ import initSockets from './sockets';
 import { warmDatabaseCache } from './config/database';
 import { MONGO_URI, PORT, assertRequiredRuntimeEnv } from './config/env';
 import { connectMongo, isMongoEnabled } from './services/mongoConnection';
+import { connectMongo as connectIdentityMongo, isMongoEnabled as isIdentityMongoEnabled } from '@firewall/identity-service';
 import { logger } from './utils/logger';
 
 async function bootstrap(): Promise<void> {
@@ -21,6 +22,10 @@ async function bootstrap(): Promise<void> {
   if (isMongoEnabled()) {
     try {
       await connectMongo();
+      // UserService / GameParticipationService del paquete identity usan su propio singleton.
+      if (isIdentityMongoEnabled()) {
+        await connectIdentityMongo();
+      }
       await warmDatabaseCache();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

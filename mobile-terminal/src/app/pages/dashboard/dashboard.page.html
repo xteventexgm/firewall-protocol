@@ -3,12 +3,11 @@
   [scrollY]="false"
   [class.phase-flash]="phaseFlash"
   [class.system-night-standby]="isSystemNightStandby"
-  [class.player-dead-screen]="isPlayerDead"
   [attr.data-phase]="gamePhase"
   [attr.data-team-theme]="teamTheme">
-  <app-home-atmosphere />
+  <app-home-atmosphere *ngIf="!isPlayerDead && !showGameOver" />
 
-  <div class="page-scroll terminal-page">
+  <div class="page-scroll terminal-page" *ngIf="!isPlayerDead && !showGameOver">
   <div class="terminal-outer">
   <div class="terminal-shell" [class.interference-shake]="interferenceShake" [class.in-game]="isInGamePhase">
 
@@ -443,7 +442,7 @@
         <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
           <label class="field-label">Canal</label>
           <select [(ngModel)]="chatChannel" class="terminal-select">
-            <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
+            <option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</option>
           </select>
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
@@ -498,7 +497,7 @@
         <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
           <label class="field-label">Canal</label>
           <select [(ngModel)]="chatChannel" class="terminal-select">
-            <option *ngFor="let ch of chatChannelOptions" [value]="ch.value">{{ ch.label }}</option>
+            <option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</option>
           </select>
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
@@ -627,13 +626,22 @@
 
   <!-- Overlay: eliminado -->
   <div *ngIf="gamePhase === 'ELIMINATED' && !showGameOver" class="fullscreen-overlay eliminated">
+    <div class="eliminated-border" aria-hidden="true"></div>
     <div class="overlay-content">
       <h1 class="overlay-title">SISTEMA CAÍDO</h1>
-      <p class="overlay-sub">Conexión terminada por el servidor</p>
+      <p class="overlay-sub">Has sido eliminado.</p>
       <div class="error-box">
-        <p>> ERR_CONNECTION_REFUSED</p>
-        <p>> Nodo comprometido.</p>
+        <p>> ERR_NODE_OFFLINE</p>
+        <p>> Acceso de juego revocado.</p>
       </div>
+
+      <button
+        type="button"
+        class="terminal-btn role-guide-btn dead-role-btn"
+        *ngIf="roleDescription || nightActionHint || roleVictoryHint"
+        (click)="openRoleGuide()">
+        Ver rol y habilidad
+      </button>
 
       <section class="dead-chat-panel">
         <p class="chat-channel-badge">Chat de espectadores (eliminados)</p>
@@ -666,9 +674,12 @@
     [class.gameover-loss]="!gameOverView.didWin">
     <div class="overlay-content">
       <p class="winner-label">{{ gameOverView.headline }}</p>
-      <p class="winner-side">{{ gameOverView.winnerSideTitle }}</p>
+      <p class="winner-side">{{ gameOverView.winnerKicker }}</p>
       <div class="winner-divider" [class.loss]="!gameOverView.didWin"></div>
-      <h1 class="winner-team" [class.loss]="!gameOverView.didWin">{{ gameOverView.winnerTeam }}</h1>
+      <h1 class="winner-team" [class.loss]="!gameOverView.didWin">{{ gameOverView.winningSideLabel }}</h1>
+      <p class="gameover-personal" [class.win]="gameOverView.didWin" [class.loss]="!gameOverView.didWin">
+        {{ gameOverView.personalResult }}
+      </p>
       <p class="overlay-sub">{{ gameOverView.message }}</p>
 
       <section *ngFor="let reveal of gameOverView.reveals" class="reveal-panel">

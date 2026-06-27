@@ -179,10 +179,17 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   formatTeam(team?: string): string {
     const labels: Record<string, string> = {
       system: 'Sistema',
-      black_hat: 'Black Hat',
+      black_hat: 'Hacker',
       chaotic: 'Caótico',
     };
     return team ? (labels[team] ?? team) : '—';
+  }
+
+  formatParticipationLine(g: { role?: string; team?: string; won?: boolean }): string {
+    const role = g.role?.trim() || '—';
+    const team = this.formatTeam(g.team);
+    const result = g.won ? 'Victoria' : 'Derrota';
+    return `${role} — ${team} · ${result}`;
   }
 
   openEditProfile(): void {

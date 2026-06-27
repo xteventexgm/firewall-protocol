@@ -140,7 +140,7 @@
           </div>
         </div>
 
-        <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles?.length">
+        <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles.length">
           <h4>Roles frecuentes</h4>
           <p class="chip-row">
             <span class="chip" *ngFor="let role of bundle.user.stats.favoriteRoles">{{ role }}</span>
@@ -156,9 +156,7 @@
               <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
             </div>
             <div class="hist-meta">
-              <span>{{ g.role || '—' }}</span>
-              <span>{{ formatTeam(g.team) }}</span>
-              <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
+              <span [class.win]="g.won">{{ formatParticipationLine(g) }}</span>
               <span *ngIf="g.isMvp" class="mvp">MVP</span>
             </div>
           </div>
@@ -194,9 +192,7 @@
             <span class="hist-date">{{ formatDate(g.finishedAt) }}</span>
           </div>
           <div class="hist-meta">
-            <span>{{ g.role || '—' }}</span>
-            <span>{{ formatTeam(g.team) }}</span>
-            <span [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</span>
+            <span [class.win]="g.won">{{ formatParticipationLine(g) }}</span>
             <span *ngIf="g.isMvp" class="mvp">MVP</span>
           </div>
         </li>
@@ -214,9 +210,7 @@
         <p class="detail-date">{{ formatDate(g.finishedAt) }}</p>
         <dl class="detail-grid">
           <div><dt>Jugador</dt><dd>{{ g.playerName }}</dd></div>
-          <div><dt>Rol</dt><dd>{{ g.role || '—' }}</dd></div>
-          <div><dt>Equipo</dt><dd>{{ formatTeam(g.team) }}</dd></div>
-          <div><dt>Resultado</dt><dd [class.win]="g.won">{{ g.won ? 'Victoria' : 'Derrota' }}</dd></div>
+          <div><dt>Partida</dt><dd [class.win]="g.won">{{ formatParticipationLine(g) }}</dd></div>
           <div><dt>MVP</dt><dd>{{ g.isMvp ? 'Sí' : 'No' }}</dd></div>
           <div *ngIf="g.eliminatedOnDay"><dt>Eliminado día</dt><dd>{{ g.eliminatedOnDay }}</dd></div>
         </dl>

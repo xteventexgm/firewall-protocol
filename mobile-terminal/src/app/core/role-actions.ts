@@ -59,9 +59,43 @@ export const ROLE_NIGHT_VARIANTS: Record<string, { value: string; label: string 
   ],
 };
 
+/** Hackers con habilidad propia también votan en el consenso nocturno. */
+const BLACK_HAT_ABILITY_ROLES = new Set([
+  'Ransomware',
+  'Spyware',
+  'Phisher',
+  'Fuerza Bruta',
+  'Sniffer',
+  'Kit de Exploits',
+  'Implante Backdoor',
+  'Movimiento Lateral',
+  'Keylogger',
+  'Escáner de Vulnerabilidades',
+  'Robador de Credenciales',
+  'Proxy MitM',
+  'Gusano',
+  'Zero-Day',
+  'Filtrador',
+  'Sombra',
+  'Bomba Lógica',
+  'Envenenador DNS',
+  'Nota de Rescate',
+  'Dropper',
+  'Saboteador',
+  'Espejismo',
+  'Router del Caos',
+]);
+
 export function getNightActionVariants(role: string | undefined): { value: string; label: string }[] {
   if (!role) return [];
-  return ROLE_NIGHT_VARIANTS[role] ?? [];
+  if (ROLE_NIGHT_VARIANTS[role]?.length) return ROLE_NIGHT_VARIANTS[role];
+  if (!BLACK_HAT_ABILITY_ROLES.has(role)) return [];
+  const primary = ROLE_NIGHT_ACTION[role];
+  if (!primary || primary === 'hacker_vote') return [];
+  return [
+    { value: primary, label: getNightActionLabel(role, primary) },
+    { value: 'hacker_vote', label: 'Votar eliminación (consenso hacker)' },
+  ];
 }
 
 export function getNightActionType(role: string | undefined, variant?: string): string | null {
