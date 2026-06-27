@@ -136,6 +136,13 @@
           (click)="openRoleGuide()">
           Ver rol y habilidad
         </button>
+        <button
+          type="button"
+          class="role-guide-btn ghost"
+          *ngIf="sessionThreatBrief"
+          (click)="openRoleList()">
+          Ver roles en la partida
+        </button>
         <p *ngIf="isSilenced" class="silenced-warn">⚠ Nodo silenciado — no puedes actuar ni votar</p>
         <p *ngIf="isFrozen && gamePhase === 'NOCHE'" class="frozen-warn">❄ Nodo congelado — no puedes actuar esta noche</p>
       </section>
@@ -599,6 +606,20 @@
       <button type="button" class="terminal-btn primary briefing-dismiss" (click)="dismissThreatBriefing()">
         Continuar sesión
       </button>
+    </div>
+  </div>
+
+  <div *ngIf="showRoleList" class="fullscreen-overlay threat-briefing" data-team="system" (click)="closeRoleList()">
+    <div class="threat-briefing-card" (click)="$event.stopPropagation()">
+      <p class="threat-brief-code">ROLES DE PARTIDA</p>
+      <h1 class="threat-brief-title">Roles en la partida</h1>
+      <p class="threat-brief-lead">Esta partida contiene los siguientes equipos. No se revelan identidades ni estado de eliminación.</p>
+      <ul class="threat-brief-stats">
+        <li *ngFor="let line of roleListLines">
+          <span>{{ line }}</span>
+        </li>
+      </ul>
+      <button type="button" class="terminal-btn primary briefing-dismiss" (click)="closeRoleList()">Cerrar</button>
     </div>
   </div>
 
