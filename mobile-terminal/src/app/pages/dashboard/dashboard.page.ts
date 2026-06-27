@@ -142,6 +142,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   showRoleBriefing = false;
   showRoleGuide = false;
   showThreatBriefing = false;
+  showRoleList = false;
+  roleListLines: string[] = [];
   roleRevealTeam = '';
   roleVictoryHint = '';
   roleBriefingProgress = 100;
@@ -327,6 +329,8 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.openThreatBriefing();
         }
 
+        this.updateRoleList();
+
         if (state.lastNightKills?.length) {
           this.lastNightKillNames = state.lastNightKills.map(
             (id) => this.players.find((p) => p.id === id)?.name ?? id,
@@ -409,6 +413,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           if (!this.roleBriefingSeenForRoom(this.roomCode)) {
             this.openRoleBriefing(payload.team ?? '');
           }
+          this.updateRoleList();
         }
         if (payload.type === 'infection_warning') {
           this.myInfectionSource = payload.infectionSource ?? 'worm';
@@ -909,6 +914,34 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.showThreatBriefing = false;
     this.threatBriefingProgress = 0;
     this.threatBriefingView = null;
+  }
+
+  updateRoleList(): void {
+    if (!this.sessionThreatBrief) {
+      this.roleListLines = [];
+      return;
+    }
+
+    const lines: string[] = [
+      `${this.sessionThreatBrief.hackerCount} Black Hat${this.sessionThreatBrief.hackerCount === 1 ? '' : 's'}`,
+      `${this.sessionThreatBrief.intruderCount} Caótico${this.sessionThreatBrief.intruderCount === 1 ? '' : 's'}`,
+      `${this.sessionThreatBrief.systemCount} Sistema`,
+    ];
+
+    if (this.playerRole && this.playerRole !== 'Desconocido') {
+      lines.push(`Tu rol: ${this.playerRole}`);
+    }
+
+    this.roleListLines = lines;
+  }
+
+  openRoleList(): void {
+    this.updateRoleList();
+    this.showRoleList = true;
+  }
+
+  closeRoleList(): void {
+    this.showRoleList = false;
   }
 
   private threatBriefingSeenForRoom(roomId: string): boolean {

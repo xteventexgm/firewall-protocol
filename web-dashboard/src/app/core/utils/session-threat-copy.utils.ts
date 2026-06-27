@@ -55,12 +55,12 @@ export function buildThreatBriefingView(
 
   return {
     accent: 'system',
-    code: 'ALERTA SIEM — NIVEL CRÍTICO',
-    title: 'RED COMPROMETIDA',
+    code: 'ALERTA SIEM — ANOMALÍAS EN LA RED',
+    title: 'SE ENCONTRARON ANOMALÍAS EN LA RED',
     lead:
-      `Se han detectado <strong>${hackers}</strong> ` +
-      `${hackers === 1 ? 'agente hostil' : 'agentes hostiles'} (Black Hat) y <strong>${intruders}</strong> ` +
-      `${intruders === 1 ? 'intruso' : 'intrusos'} de origen desconocido en la red.`,
+      `Se detectaron anomalías en la red: ${hackers} ` +
+      `${hackers === 1 ? 'agente hostil' : 'agentes hostiles'} (Black Hat) y ${intruders} ` +
+      `${intruders === 1 ? 'intruso' : 'intrusos'} de origen desconocido.`,
     footer: 'Credenciales repartidas. Inicia el debate diurno — identifica y expulsa amenazas.',
     stats: [
       { label: 'Nodos en línea', value: String(brief.nodeCount) },
