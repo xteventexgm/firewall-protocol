@@ -302,7 +302,7 @@ export class Room extends EventEmitter {
     if (name) existing.name = name;
     if (userId) existing.userId = userId;
     this.emit('playerReconnected', { roomId: this.id, playerId, playerName: existing.name });
-    this.emitPrivateRoleInfo(existing);
+    this.emitPrivatePlayerSync(existing);
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on reconnectPlayer', e); }
     return true;
   }
@@ -317,7 +317,7 @@ export class Room extends EventEmitter {
     if (name) existing.name = name;
     if (userId) existing.userId = userId;
     this.emit('playerConnected', { roomId: this.id, playerId, playerName: existing.name });
-    this.emitPrivateRoleInfo(existing);
+    this.emitPrivatePlayerSync(existing);
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on connectPlayer', e); }
     return true;
   }
@@ -452,6 +452,22 @@ export class Room extends EventEmitter {
     this.sm.transitionTo(GamePhase.DIA);
   }
 
+  private emitPrivatePlayerSync(player: Player) {
+    this.emitPrivateRoleInfo(player);
+    this.emitHackerTeamIfNeeded(player);
+  }
+
+  private emitHackerTeamIfNeeded(player: Player) {
+    if (player.team !== Team.BLACK_HAT) return;
+    if (this.state.phase === GamePhase.LOBBY || this.state.phase === GamePhase.REPARTO) return;
+    const hackers = getHackerTeam(this.state);
+    this.emit('privateResult', {
+      roomId: this.id,
+      playerId: player.id,
+      payload: { type: 'hacker_team', members: hackers },
+    });
+  }
+
   private emitPrivateRoleInfo(player: Player) {
     if (!player.role) return;
     this.emit('privateResult', {
@@ -510,7 +526,9 @@ export class Room extends EventEmitter {
       action.meta?.challengeAnswer,
     );
 
-    const previous = this.state.actionQueue.find(a => a.actor === action.actor);
+    const previous = this.state.actionQueue.find(
+      (a) => a.actor === action.actor && (a.type || '').toLowerCase() === type,
+    );
     if (previous) {
       revertQueuedActionMetadata(actor, previous.type, previous.target);
     }

@@ -65,6 +65,7 @@ export function resetNightFlags(players: Player[]) {
   for (const p of players) {
     const meta = getMeta(p);
     meta.actedThisNight = false;
+    meta.hackerVoteTonight = false;
     meta.trollProvokeUsedTonight = false;
     meta.backdoorBonusTonight = false;
     if (meta.backupSaveTonight) meta.backupSaveTonight = false;

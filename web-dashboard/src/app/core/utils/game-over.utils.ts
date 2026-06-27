@@ -37,10 +37,23 @@ export function buildHostGameOverSummary(
     const playerName = player?.name ?? soloWinner.playerId;
     const reason = soloVictoryNarrative(soloWinner.reason);
     return {
-      headline: `Victoria solitaria — ${playerName}`,
+      headline: `Victoria caótica — ${playerName}`,
       message: `${soloWinner.role}. ${reason}`,
       winners: [{ playerName, role: soloWinner.role }],
-      reveals: buildHostReveals(winner, soloWinner, players),
+      reveals: [],
+      outcome: 'neutral',
+    };
+  }
+
+  if (winner === 'chaotic') {
+    const chaotic = pickChaoticWinnerPlayer(players);
+    const playerName = chaotic?.name ?? 'Jugador caótico';
+    const role = chaotic?.role ?? 'Rol caótico';
+    return {
+      headline: `Victoria caótica — ${playerName}`,
+      message: `${role} ha prevalecido en la red.`,
+      winners: [{ playerName, role }],
+      reveals: [],
       outcome: 'neutral',
     };
   }
@@ -50,7 +63,7 @@ export function buildHostGameOverSummary(
       headline: winnerLabel(winner),
       message: teamWinMessage(winner, players),
       winners: [{ playerName: winnerTeamName(winner), role: 'Equipo ganador' }],
-      reveals: buildHostReveals(winner, null, players),
+      reveals: buildHostReveals(winner, players),
       outcome: winner === 'system' ? 'win' : 'loss',
     };
   }
@@ -59,7 +72,7 @@ export function buildHostGameOverSummary(
     headline: 'Partida terminada',
     message: 'La partida ha concluido.',
     winners: [],
-    reveals: buildHostReveals(null, null, players),
+    reveals: [],
     outcome: 'neutral',
   };
 }
@@ -74,8 +87,8 @@ export function buildHostGameOverFromState(state: PublicGameState | null): GameO
 
 function teamWinMessage(winner: Team, players: PublicPlayer[]): string {
   const messages: Record<Team, string> = {
-    system: 'El equipo SISTEMA ha restaurado la red.',
-    black_hat: 'El equipo BLACK HAT ha comprometido la infraestructura.',
+    system: 'El equipo Sistema ha restaurado la red.',
+    black_hat: 'El equipo Hacker ha comprometido la infraestructura.',
     chaotic: 'El caos ha prevalecido en la red.',
   };
   const base = messages[winner] ?? winnerLabel(winner);
@@ -86,63 +99,42 @@ function teamWinMessage(winner: Team, players: PublicPlayer[]): string {
   const systemAlive = aliveWithTeam.filter((p) => resolvePlayerTeam(p) === 'system').length;
   const chaoticsAlive = aliveWithTeam.filter((p) => resolvePlayerTeam(p) === 'chaotic').length;
   return (
-    `${base} Al cierre: ${hackersAlive} hacker(s), ${systemAlive} system, ${chaoticsAlive} caótico(s) vivos. ` +
-    'System gana con 0 hackers y 0 caóticos; Black Hat con 0 system y mayoría sobre caóticos si quedan.'
+    `${base} Al cierre: ${hackersAlive} hacker(s), ${systemAlive} system, ${chaoticsAlive} caótico(s) vivos.`
   );
 }
 
-function buildHostReveals(
-  winner: Team | null,
-  soloWinner: SoloWinner | null,
-  players: PublicPlayer[],
-): GameOverReveal[] {
-  const reveals: GameOverReveal[] = [];
-  const hackers = players.filter((p) => resolvePlayerTeam(p) === 'black_hat');
-  const solos = players.filter((p) => resolvePlayerTeam(p) === 'chaotic');
-  const systemPlayers = players.filter((p) => resolvePlayerTeam(p) === 'system');
-  const withRoles = players.filter((p) => p.role);
-
+function buildHostReveals(winner: Team, players: PublicPlayer[]): GameOverReveal[] {
   if (winner === 'system') {
-    reveals.push({
-      title: 'Equipo ganador — SISTEMA',
-      items: systemPlayers.length
-        ? systemPlayers.map(formatPlayerReveal)
-        : ['El Sistema restauró la integridad de la red.'],
-    });
+    const systemPlayers = players.filter((p) => resolvePlayerTeam(p) === 'system');
+    return [
+      {
+        title: 'Roles del equipo Sistema',
+        items: systemPlayers.length
+          ? systemPlayers.map(formatPlayerReveal)
+          : ['No hay roles registrados del equipo Sistema.'],
+      },
+    ];
   }
 
   if (winner === 'black_hat') {
-    reveals.push({
-      title: 'Equipo ganador — BLACK HAT',
-      items: hackers.length
-        ? hackers.map(formatPlayerReveal)
-        : ['Los atacantes han tomado control de la infraestructura.'],
-    });
+    const hackers = players.filter((p) => resolvePlayerTeam(p) === 'black_hat');
+    return [
+      {
+        title: 'Roles del equipo Hacker',
+        items: hackers.length
+          ? hackers.map(formatPlayerReveal)
+          : ['No hay roles registrados del equipo Hacker.'],
+      },
+    ];
   }
 
-  if (winner === 'chaotic' && solos.length) {
-    reveals.push({ title: 'Equipo ganador — CAÓTICO', items: solos.map(formatPlayerReveal) });
-  }
+  return [];
+}
 
-  if (soloWinner) {
-    const soloPlayer = players.find((p) => p.id === soloWinner.playerId);
-    reveals.unshift({
-      title: `Ganador solitario — ${soloWinner.role}`,
-      items: [
-        soloPlayer ? formatPlayerReveal(soloPlayer) : `${soloWinner.playerId} — ${soloWinner.role}`,
-        soloVictoryNarrative(soloWinner.reason),
-      ],
-    });
-  }
-
-  if (withRoles.length && !reveals.some((r) => r.title === 'Todos los roles revelados')) {
-    reveals.push({
-      title: 'Todos los roles revelados',
-      items: withRoles.map(formatPlayerReveal),
-    });
-  }
-
-  return reveals.filter((r) => r.items.length > 0);
+function pickChaoticWinnerPlayer(players: PublicPlayer[]): PublicPlayer | undefined {
+  const aliveChaotics = players.filter((p) => resolvePlayerTeam(p) === 'chaotic' && p.isAlive);
+  if (aliveChaotics.length >= 1) return aliveChaotics[0];
+  return players.find((p) => resolvePlayerTeam(p) === 'chaotic');
 }
 
 function formatPlayerReveal(player: PublicPlayer): string {

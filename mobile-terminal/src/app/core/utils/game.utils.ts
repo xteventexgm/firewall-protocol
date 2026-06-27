@@ -1,4 +1,5 @@
 import {
+  ChatMessage,
   GamePhase,
   PlayerRoleMeta,
   PlayerRoomState,
@@ -51,7 +52,22 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     winner: raw?.winner ?? null,
     soloWinner: raw?.soloWinner ?? null,
     lastNightKills: raw?.lastNightKills ?? [],
+    chatMessages: raw?.chatMessages ?? [],
   };
+}
+
+/** Une mensajes por id conservando el historial reciente. */
+export function mergeChatMessages(
+  existing: ChatMessage[],
+  incoming: ChatMessage[] | undefined,
+  limit = 50,
+): ChatMessage[] {
+  if (!incoming?.length) return existing;
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()]
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-limit);
 }
 
 export function isPlayerSilenced(player: any, dayNumber: number): boolean {

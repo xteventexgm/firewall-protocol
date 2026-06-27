@@ -313,8 +313,9 @@ export class App implements OnInit, OnDestroy {
           }
         }, 1500);
       }),
-      this.gameSocket.chatMessage$.subscribe(() => {
+      this.gameSocket.chatMessage$.subscribe((message) => {
         if (!this.inRoom || this.gameOverActive) return;
+        if (message.channel !== 'public') return;
         this.gameSound.play('chat');
       }),
       this.gameSocket.publicLog$.subscribe((entry) => {

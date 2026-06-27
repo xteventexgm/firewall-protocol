@@ -85,7 +85,9 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
 
   room.on('chatMessage', ({ roomId, message }) => {
     gameNs.to(roomId).emit('chatMessage', roomId, message);
-    dashboardNs?.to(roomId).emit('chatMessage', roomId, message);
+    if (message.channel === 'public') {
+      dashboardNs?.to(roomId).emit('chatMessage', roomId, message);
+    }
     refresh();
   });
 
