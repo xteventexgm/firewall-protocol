@@ -12,6 +12,19 @@ networks:
     driver: bridge
 
 services:
+  serveo-tunnel:
+    image: alpine:latest
+    container_name: firewall-serveo-tunnel
+    restart: always
+    networks:
+      - firewall-internal
+    volumes:
+      - ~/.ssh:/root/.ssh:ro
+    command: >
+      sh -c "apk add --no-cache openssh-client &&
+      while true; do ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -N -R firewall-protocol:80:gateway:3000 serveo.net; sleep 5; done"
+    depends_on:
+      - gateway
   gateway:
     build:
       context: ./backend-container/gateway

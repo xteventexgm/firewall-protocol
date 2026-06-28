@@ -20,6 +20,7 @@ export interface AuthUser {
   preferredLocale?: string;
   emailVerified?: boolean;
   stats: UserStats;
+  achievements?: string[];
   linkedGuestIds: string[];
   createdAt: string;
   lastLoginAt?: string;
@@ -584,5 +585,21 @@ export class AuthService {
   private persistUser(user: AuthUser): void {
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
     this.profileUpdated.next(user);
+  }
+  async unlockAchievement(achievementId: string): Promise<void> {
+    const res = await fetch(`${this.apiBase()}/api/auth/achievements`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ achievementId }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      this.maybeLogoutOnAuthFailure(res.status, err?.code);
+      throw new Error(err?.error || 'Failed to unlock achievement');
+    }
+
+    // Refresh user profile so achievements are up to date in frontend
+    await this.refreshUser();
   }
 }

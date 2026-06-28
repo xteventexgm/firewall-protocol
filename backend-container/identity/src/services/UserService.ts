@@ -19,6 +19,7 @@ export type UserDocument = {
     mvpCount: number;
     favoriteRoles: string[];
   };
+  achievements?: string[];
   linkedGuestIds: string[];
   createdAt: Date;
   lastLoginAt?: Date;
@@ -35,6 +36,7 @@ export type PublicUser = {
   avatarUrl?: string;
   preferredLocale?: string;
   stats: UserDocument['stats'];
+  achievements: string[];
   linkedGuestIds: string[];
   createdAt: string;
   lastLoginAt?: string;
@@ -51,6 +53,7 @@ function toPublicUser(doc: UserDocument): PublicUser {
     avatarUrl: doc.avatarUrl,
     preferredLocale: doc.preferredLocale,
     stats: doc.stats,
+    achievements: doc.achievements ?? [],
     linkedGuestIds: doc.linkedGuestIds ?? [],
     createdAt: doc.createdAt.toISOString(),
     lastLoginAt: doc.lastLoginAt?.toISOString(),
@@ -91,6 +94,7 @@ export async function registerUser(input: {
     authProvider: 'local',
     preferredLocale: input.preferredLocale || 'es',
     stats: { gamesPlayed: 0, winsByTeam: {}, mvpCount: 0, favoriteRoles: [] },
+    achievements: [],
     linkedGuestIds: [],
     createdAt: now,
     isActive: true,
@@ -215,6 +219,14 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   if (!ObjectId.isValid(userId)) throw new Error('invalid_user');
   const result = await users().deleteOne({ _id: new ObjectId(userId), isActive: true });
   if (result.deletedCount === 0) throw new Error('user_not_found');
+}
+
+export async function unlockAchievement(userId: string, achievementId: string): Promise<void> {
+  if (!ObjectId.isValid(userId)) throw new Error('invalid_user');
+  await users().updateOne(
+    { _id: new ObjectId(userId) },
+    { $addToSet: { achievements: achievementId } }
+  );
 }
 
 export { toPublicUser };

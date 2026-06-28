@@ -1,0 +1,29 @@
+<main class="crt-container view-achievements animate-fade-in">
+  <header class="hub-header">
+    <div class="brand">
+      <span class="hub-logo">A C H I E V E M E N T S</span>
+    </div>
+    <div class="hub-actions">
+      <button class="terminal-btn ghost" (click)="goBack()">Volver</button>
+    </div>
+  </header>
+
+  <section class="achievements-list">
+    <div class="achievement-card" *ngFor="let ach of allAchievements" [class.unlocked]="unlockedIds.has(ach.id)">
+      <div class="achievement-icon" [class.glitch]="unlockedIds.has(ach.id)">{{ ach.icon }}</div>
+      <div class="achievement-info">
+        <h3 class="achievement-title">{{ ach.name }}</h3>
+        <p class="achievement-desc" *ngIf="unlockedIds.has(ach.id) || !ach.secret">
+          {{ ach.description }}
+        </p>
+        <p class="achievement-desc secret-desc" *ngIf="!unlockedIds.has(ach.id) && ach.secret">
+          ??? (Logro secreto)
+        </p>
+      </div>
+      <div class="achievement-status">
+        <span *ngIf="unlockedIds.has(ach.id)" class="status-badge unlocked">DESBLOQUEADO</span>
+        <span *ngIf="!unlockedIds.has(ach.id)" class="status-badge locked">BLOQUEADO</span>
+      </div>
+    </div>
+  </section>
+</main>

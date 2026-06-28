@@ -214,68 +214,79 @@
         <p class="panel-sub">Tu rol no tiene acciones nocturnas. Mantén silencio de radio.</p>
       </section>
 
+      <button *ngIf="isNightPhase && isNightActionMinimized" class="terminal-btn primary restore-night-btn" (click)="restoreNightAction()">
+        Restaurar Terminal de Acción Nocturna
+      </button>
+
       <!-- NOCHE con acción -->
-      <section *ngIf="isNightPhase" class="panel action-panel night">
-        <app-action-progress [progress]="nightProgress"></app-action-progress>
+      <div *ngIf="isNightPhase && !isNightActionMinimized" class="night-action-modal-overlay">
+        <section class="panel action-panel night modal-window">
+          <div class="modal-header">
+            <span class="modal-title">Terminal de Acción Nocturna</span>
+            <span class="modal-close" (click)="minimizeNightAction()">_</span>
+          </div>
 
-        <app-text-challenge
-          *ngIf="minigameChallenge && !isTrollNight"
-          [challenge]="minigameChallenge"
-          [pending]="minigamePending"
-          [feedbackType]="minigameFeedbackType"
-          [feedbackMessage]="minigameFeedbackMessage"
-          (answered)="onChallengeAnswered($event)"
-          (skip)="onChallengeSkipped()">
-        </app-text-challenge>
+          <app-action-progress [progress]="nightProgress"></app-action-progress>
 
-        <p class="night-step-label" *ngIf="minigameChallenge && !isTrollNight">Paso 2 · Tu acción nocturna</p>
-        <h3 class="panel-title">{{ nightActionLabel }}</h3>
+          <app-text-challenge
+            *ngIf="minigameChallenge && !isTrollNight"
+            [challenge]="minigameChallenge"
+            [pending]="minigamePending"
+            [feedbackType]="minigameFeedbackType"
+            [feedbackMessage]="minigameFeedbackMessage"
+            (answered)="onChallengeAnswered($event)"
+            (skip)="onChallengeSkipped()">
+          </app-text-challenge>
 
-        <ng-container *ngIf="isTrollNight">
-          <label class="field-label">Mensaje anónimo</label>
-          <select [(ngModel)]="selectedProvokeIndex" class="terminal-select">
-            <option *ngFor="let msg of trollMessages; let i = index" [value]="i">{{ msg }}</option>
-          </select>
-          <button (click)="executeNightAction()" class="terminal-btn danger">
-            Enviar provocación
-          </button>
-        </ng-container>
+          <p class="night-step-label" *ngIf="minigameChallenge && !isTrollNight">Paso 2 · Comando Maestro</p>
+          <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
-        <ng-container *ngIf="!isTrollNight">
-        <ng-container *ngIf="nightActionVariants.length > 1">
-          <label class="field-label">Tipo de acción</label>
-          <select [(ngModel)]="selectedNightActionType" class="terminal-select">
-            <option *ngFor="let v of nightActionVariants" [value]="v.value">{{ v.label }}</option>
-          </select>
-        </ng-container>
+          <ng-container *ngIf="isTrollNight">
+            <label class="field-label">Transmisión anónima</label>
+            <select [(ngModel)]="selectedProvokeIndex" class="terminal-select">
+              <option *ngFor="let msg of trollMessages; let i = index" [value]="i">{{ msg }}</option>
+            </select>
+            <button (click)="executeNightAction()" class="terminal-btn danger pulse-btn">
+              Emitir Transmisión
+            </button>
+          </ng-container>
 
-        <label class="field-label">Objetivo principal</label>
-        <app-node-picker
-          [options]="targetOptions"
-          [(selectedId)]="selectedTarget"
-          placeholder="-- Seleccionar nodo --"
-        ></app-node-picker>
+          <ng-container *ngIf="!isTrollNight">
+            <ng-container *ngIf="nightActionVariants.length > 1">
+              <label class="field-label">Parámetro de ejecución</label>
+              <select [(ngModel)]="selectedNightActionType" class="terminal-select">
+                <option *ngFor="let v of nightActionVariants" [value]="v.value">{{ v.label }}</option>
+              </select>
+            </ng-container>
 
-        <ng-container *ngIf="needsSecondary">
-          <label class="field-label">{{ secondaryLabel }}</label>
-          <app-node-picker
-            [options]="secondaryOptions"
-            [(selectedId)]="selectedSecondary"
-            placeholder="-- Segundo nodo --"
-          ></app-node-picker>
-        </ng-container>
+            <label class="field-label">Nodo objetivo</label>
+            <app-node-picker
+              [options]="targetOptions"
+              [(selectedId)]="selectedTarget"
+              placeholder="-- Rastrear nodo --"
+            ></app-node-picker>
 
-        <button
-          (click)="executeNightAction()"
-          [disabled]="nightActionDisabled"
-          class="terminal-btn danger">
-          Confirmar comando
-        </button>
-        <p *ngIf="selectedNightActionType === 'crypto_bribe' && !canCryptoBribe(myRoleMeta)" class="field-hint warn">
-          Necesitas al menos 1 escudo para sobornar al sistema.
-        </p>
-        </ng-container>
-      </section>
+            <ng-container *ngIf="needsSecondary">
+              <label class="field-label">{{ secondaryLabel }}</label>
+              <app-node-picker
+                [options]="secondaryOptions"
+                [(selectedId)]="selectedSecondary"
+                placeholder="-- Nodo secundario --"
+              ></app-node-picker>
+            </ng-container>
+
+            <button
+              (click)="executeNightAction()"
+              [disabled]="nightActionDisabled"
+              class="terminal-btn danger pulse-btn">
+              Ejecutar Comando
+            </button>
+            <p *ngIf="selectedNightActionType === 'crypto_bribe' && !canCryptoBribe(myRoleMeta)" class="field-hint warn">
+              Fondos insuficientes (1 escudo requerido).
+            </p>
+          </ng-container>
+        </section>
+      </div>
 
       <!-- DÍA -->
       <section *ngIf="gamePhase === 'DIA'" class="panel day-panel">

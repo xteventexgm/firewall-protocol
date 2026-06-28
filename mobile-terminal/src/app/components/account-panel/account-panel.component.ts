@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, S
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { AuthService, AuthUser, GameParticipation, UserProfileBundle } from '../../services/auth/auth.service';
 import {
@@ -68,7 +69,7 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   deleteAccountSuccess = '';
   private subs = new Subscription();
 
-  constructor(private authService: AuthService) {
+  constructor(private authService: AuthService, private router: Router) {
     this.subs.add(
       this.authService.profileUpdated$.subscribe((user) => {
         this.applyUserToProfile(user);
@@ -150,6 +151,11 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   get initials(): string {
     const name = this.profile?.user.username ?? '';
     return name.slice(0, 2).toUpperCase() || '?';
+  }
+
+  openAchievements(): void {
+    this.dismiss();
+    this.router.navigate(['/achievements']);
   }
 
   dismiss(): void {

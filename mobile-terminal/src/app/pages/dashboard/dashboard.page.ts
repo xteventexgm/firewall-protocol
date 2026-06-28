@@ -178,8 +178,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   nodeDeathAlertExiting = false;
   readonly trollMessages = TROLL_PROVOKE_MESSAGES;
   readonly canCryptoBribe = canCryptoBribe;
+  isNightActionMinimized = false;
 
   private subs = new Subscription();
+
+  minimizeNightAction() {
+    this.isNightActionMinimized = true;
+  }
+
+  restoreNightAction() {
+    this.isNightActionMinimized = false;
+  }
   private pendingNightAction: PendingNightAction | null = null;
   myPlayerId = localStorage.getItem('myPlayerId') ?? '';
   private incidentTimer?: ReturnType<typeof setTimeout>;
@@ -271,6 +280,9 @@ export class DashboardPage implements OnInit, OnDestroy {
           void this.runDeathHaptic();
           this.syncChatForPhase({ forceChannel: true });
         } else if (state.phase) {
+          if (this.gamePhase !== state.phase) {
+            this.isNightActionMinimized = false;
+          }
           this.gamePhase = state.phase;
           this.phaseBulletin = phaseBulletin(state.phase);
           this.syncNightSoundPolicy(state.phase);

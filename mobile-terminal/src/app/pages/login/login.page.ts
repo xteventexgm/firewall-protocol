@@ -172,6 +172,10 @@ export class LoginPage implements OnInit, OnDestroy {
     this.showAccountPanel = true;
   }
 
+  openAchievements(): void {
+    this.router.navigate(['/achievements']);
+  }
+
   onAccountPanelClosed(): void {
     this.showAccountPanel = false;
     this.accountPanelAuthMode = null;
