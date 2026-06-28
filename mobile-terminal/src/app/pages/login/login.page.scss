@@ -20,10 +20,10 @@
 }
 
 .account-fab {
-  position: fixed;
-  top: max(1.5rem, var(--app-safe-top));
-  right: max(1.5rem, env(safe-area-inset-right, 1.5rem));
-  z-index: 1100;
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 10;
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 50%;
@@ -88,6 +88,7 @@
 }
 
 .login-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;

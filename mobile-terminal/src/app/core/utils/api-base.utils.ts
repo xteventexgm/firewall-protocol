@@ -19,7 +19,7 @@ function isTunnelHost(host: string): boolean {
   return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel');
 }
 
-/** URL base del backend. Prioridad: localStorage ‚Üí environment ‚Üí ajuste LAN. */
+/** URL base del backend. Prioridad: localStorage Å® environment Å® ajuste LAN. */
 export function resolveApiBase(): string {
   let base = (getStoredApiUrl() || environment.apiUrl).replace(/\/$/, '');
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
@@ -31,7 +31,7 @@ export function resolveApiBase(): string {
       const apiIsLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
       const pageIsLocal = pageHost === 'localhost' || pageHost === '127.0.0.1';
 
-      // LAN: sustituir localhost por IP de la p√°gina (ionic serve en 192.168.x.x)
+      // LAN: sustituir localhost por IP de la pagina (ionic serve en 192.168.x.x)
       if (apiIsLocal && !pageIsLocal && !isTunnelHost(pageHost)) {
         parsed.hostname = pageHost;
         base = parsed.origin;
@@ -54,9 +54,5 @@ export function apiTunnelHeaders(): Record<string, string> {
 }
 
 export function networkErrorMessage(): string {
-  const base = resolveApiBase();
-  if (base.includes('ngrok') || getStoredApiUrl()) {
-    return 'No se pudo contactar al servidor. Verifica que ngrok apunte al puerto 3000 y que la URL del backend est√© bien configurada.';
-  }
-  return 'No se pudo contactar al servidor. Revisa la red o configura la URL del backend.';
+  return 'No se pudo contactar al servidor. Revisa tu conexion a internet o intenta de nuevo.';
 }

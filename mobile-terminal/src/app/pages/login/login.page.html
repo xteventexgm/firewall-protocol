@@ -1,18 +1,6 @@
 <ion-content class="login-content scroll-page" [scrollY]="false">
   <app-home-atmosphere />
 
-  <button
-    type="button"
-    class="account-fab"
-    (click)="openAccountPanel()"
-    [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
-  >
-    <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
-    <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true">👤</span>
-    <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
-  </button>
-
-
   <app-account-panel
     *ngIf="showAccountPanel"
     [initialView]="isLoggedIn ? 'profile' : 'auth'"
@@ -23,6 +11,17 @@
 
   <div class="page-scroll login-page">
     <div class="login-shell">
+      <button
+        type="button"
+        class="account-fab"
+        (click)="openAccountPanel()"
+        [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
+      >
+        <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
+        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true">👤</span>
+        <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
+      </button>
+
       <header class="login-hero">
         <div class="login-hero-top">
           <div class="conn-status" [class.online]="connected">
