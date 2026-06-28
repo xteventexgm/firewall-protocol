@@ -14,6 +14,7 @@ export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 export interface PublicPlayer {
   id: string;
   name: string;
+  avatarUrl?: string;
   isAlive: boolean;
   isConnected: boolean;
   isBot?: boolean;

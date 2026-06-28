@@ -65,6 +65,7 @@ export interface GameStatsEntry {
 export interface RoomPlayer {
   id: string;
   name: string;
+  avatarUrl?: string;
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;
