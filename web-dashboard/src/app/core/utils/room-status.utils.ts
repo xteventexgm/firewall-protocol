@@ -38,13 +38,32 @@ export async function fetchRoomStatus(
     headers['ngrok-skip-browser-warning'] = '69420';
   }
 
-  try {
-    const res = await fetch(`${base}/api/games/${code}/status${query}`, { headers });
-    if (!res.ok) {
-      return { ...UNAVAILABLE, unavailable: false };
+  const maxRetries = 3;
+  const retryDelay = 5000;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(`${base}/api/games/${code}/status${query}`, {
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, retryDelay));
+          continue;
+        }
+        return { ...UNAVAILABLE, unavailable: false };
+      }
+      return res.json() as Promise<RoomStatusResponse>;
+    } catch {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, retryDelay));
+      }
     }
-    return res.json() as Promise<RoomStatusResponse>;
-  } catch {
-    return UNAVAILABLE;
   }
+  return UNAVAILABLE;
 }

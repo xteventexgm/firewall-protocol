@@ -12,7 +12,7 @@ export function socketReconnectOptions(): {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 2_000,
-    reconnectionDelayMax: 12_000,
+    reconnectionDelayMax: 10_000,
     timeout: 15_000,
   };
 }

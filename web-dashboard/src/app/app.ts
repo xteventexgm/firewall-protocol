@@ -331,12 +331,15 @@ export class App implements OnInit, OnDestroy {
           this.gameOverSummary = { ...this.gameOverSummary, stats };
         }
       }),
-      this.gameSocket.error$.subscribe((msg) => {
+        this.gameSocket.error$.subscribe((msg) => {
         this.errorMessage = formatServerErrorForToast(msg);
         this.statusMessageType = 'error';
         setTimeout(() => {
           if (this.errorMessage === formatServerErrorForToast(msg)) this.errorMessage = '';
         }, 6000);
+      }),
+      this.gameSocket.info$.subscribe((msg) => {
+        this.showStatusMessage(msg, 'info', 50000, true);
       }),
     );
   }
