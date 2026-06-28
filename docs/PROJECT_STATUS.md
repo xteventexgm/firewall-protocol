@@ -68,7 +68,9 @@ Correos: plantillas HTML estilo terminal; enlaces usan `APP_PUBLIC_URL` (ngrok /
 | Cuenta, perfil, avatar, historial | ✅ |
 | URL backend configurable (LAN / ngrok) | ✅ |
 | Panel verificación / eliminar cuenta | ✅ |
-| Reconexión a partida en curso | ✅ |
+| Reconexión a partida en curso/finalizada | ✅ |
+| Sistema de Logros y estadísticas | ✅ |
+| Interfaz UI escalable dinámica (Edge to Edge) | ✅ |
 
 ---
 
@@ -77,6 +79,7 @@ Correos: plantillas HTML estilo terminal; enlaces usan `APP_PUBLIC_URL` (ngrok /
 | Funcionalidad | Estado |
 |---------------|--------|
 | Crear sala, QR, lobby | ✅ |
+| Modo Espectador (visualización en tiempo real) | ✅ |
 | Topología, SIEM, fases | ✅ |
 | Bots QA (dev) | ✅ |
 

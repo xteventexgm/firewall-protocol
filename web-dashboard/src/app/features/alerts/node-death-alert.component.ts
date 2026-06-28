@@ -17,8 +17,13 @@ import { NodeDeathAlertData } from '../../core/utils/node-death-alert.utils';
           <p class="node-death-kicker">ALERTA DE RED</p>
           <h2 class="node-death-headline">{{ alert.headline }}</h2>
           <div class="node-death-names">
-            @for (name of alert.playerNames; track name) {
-              <span class="node-death-name">{{ name }}</span>
+            @for (p of alert.players; track p.name) {
+              <span class="node-death-name">
+                {{ p.name }}
+                @if (p.role) {
+                  <span class="node-death-role">[{{ p.role }}]</span>
+                }
+              </span>
             }
           </div>
           <p class="node-death-sub">{{ alert.subtitle }}</p>
@@ -121,6 +126,13 @@ import { NodeDeathAlertData } from '../../core/utils/node-death-alert.utils';
         font-weight: 700;
         color: #fff;
         letter-spacing: 0.04em;
+      }
+
+      .node-death-role {
+        font-size: 0.85em;
+        opacity: 0.8;
+        margin-left: 0.4rem;
+        color: #ff6b84;
       }
 
       .node-death-sub {

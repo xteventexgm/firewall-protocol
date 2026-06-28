@@ -693,8 +693,11 @@ export class App implements OnInit, OnDestroy {
   }
 
   private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
-    const names = playerIds.map((id) => playerNameById(this.state, id));
-    const alert = buildNodeDeathAlert(names, reason);
+    const playersData = playerIds.map((id) => {
+      const player = this.state?.players.find(p => p.id === id);
+      return { name: player?.name ?? id, role: player?.role };
+    });
+    const alert = buildNodeDeathAlert(playersData, reason);
     if (!alert) return;
     this.deathAlertQueue.push(alert);
     this.pumpNodeDeathAlertQueue();

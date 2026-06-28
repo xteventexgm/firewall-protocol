@@ -226,8 +226,6 @@
             <span class="panel-minimize" (click)="minimizeNightAction()">[Minimizar]</span>
           </div>
 
-          <app-action-progress [progress]="nightProgress"></app-action-progress>
-
           <app-text-challenge
             *ngIf="minigameChallenge && !isTrollNight"
             [challenge]="minigameChallenge"
@@ -647,7 +645,10 @@
       <p class="node-death-kicker">ALERTA DE RED</p>
       <h2 class="node-death-headline">{{ nodeDeathAlert.headline }}</h2>
       <div class="node-death-names">
-        <span class="node-death-name" *ngFor="let name of nodeDeathAlert.playerNames">{{ name }}</span>
+        <span class="node-death-name" *ngFor="let p of nodeDeathAlert.players">
+          {{ p.name }}
+          <span class="node-death-role" *ngIf="p.role">[{{ p.role }}]</span>
+        </span>
       </div>
       <p class="node-death-sub">{{ nodeDeathAlert.subtitle }}</p>
       <div class="node-death-bar" aria-hidden="true">
