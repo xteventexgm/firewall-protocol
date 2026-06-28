@@ -175,12 +175,12 @@
       <polygon class="node-hex node-hex-inner" [attr.points]="hexPoints(nodeMetrics.inner)" />
       }
 
-      @if (node.player.avatarUrl && resolveAvatarUrl(node.player.avatarUrl)) {
+      @if (node.player.avatarUrl && avatarBlobUrls.get(node.player.id)) {
         <clipPath [id]="'hex-clip-' + node.id">
           <polygon [attr.points]="hexPoints(nodeMetrics.inner)" />
         </clipPath>
-        <image [attr.href]="resolveAvatarUrl(node.player.avatarUrl)"
-          [attr.xlink:href]="resolveAvatarUrl(node.player.avatarUrl)"
+        <image [attr.href]="avatarBlobUrls.get(node.player.id)"
+          [attr.xlink:href]="avatarBlobUrls.get(node.player.id)"
           [attr.x]="-nodeMetrics.inner" [attr.y]="-nodeMetrics.inner"
           [attr.width]="nodeMetrics.inner * 2" [attr.height]="nodeMetrics.inner * 2"
           [attr.clip-path]="'url(' + currentUrl + '#hex-clip-' + node.id + ')'"

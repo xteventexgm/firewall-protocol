@@ -617,6 +617,7 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
     this.pendingAvatarFile = file;
     this.removeAvatarFlag = false;
     this.avatarPreviewUrl = URL.createObjectURL(file);
+    this.displayAvatarUrl = this.avatarPreviewUrl; // <--- FIX: Actually show the preview
     input.value = '';
   }
 
