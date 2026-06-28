@@ -529,3 +529,18 @@
     flex-shrink: 0;
   }
 }
+
+.profile-block {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-block h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #8ab4c7;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

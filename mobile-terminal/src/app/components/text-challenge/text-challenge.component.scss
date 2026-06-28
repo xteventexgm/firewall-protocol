@@ -58,6 +58,25 @@
   border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
+.ch-timer-bar-bg {
+  height: 4px;
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 2px;
+  margin-bottom: 0.85rem;
+  overflow: hidden;
+  width: 100%;
+}
+
+.ch-timer-bar-fill {
+  height: 100%;
+  background: #fbbf24;
+  transition: width 1s linear, background-color 0.3s ease;
+  
+  &.danger {
+    background: #ef4444;
+  }
+}
+
 .ch-objective {
   margin-bottom: 0.75rem;
   padding: 0.6rem 0.7rem;

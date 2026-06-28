@@ -17,6 +17,7 @@
       [gameOverActive]="gameOverActive"
       (createLobby)="onCreateLobby($event)"
       (rejoinRoom)="onRejoinRoom($event)"
+      (spectateLobby)="onSpectateLobby($event)"
       (removeSavedRoom)="onRemoveSavedRoom($event)"
       (backToLobby)="onBackToLobby()"
       (startGame)="onStartGame()"
@@ -27,6 +28,7 @@
       (clearBots)="onClearBots()"
       (runBotQaMatch)="onRunBotQaMatch()"
       [soundMuted]="soundMuted"
+      [isHost]="isHost"
     />
   </div>
 
@@ -36,7 +38,7 @@
 
       @if (state) {
         <header class="stage-hud" [class.stage-hud--fullscreen]="gameFullscreenMode">
-          @if (gameFullscreenMode) {
+          @if (gameFullscreenMode && isHost) {
             <button type="button" class="hud-advance-btn" (click)="onAdvancePhase()">
               Avanzar fase
             </button>
@@ -90,7 +92,7 @@
         [phase]="state?.phase ?? 'LOBBY'"
         [glitchPlayerIds]="glitchPlayerIds"
         [skipVotes]="lastVoteTiedSkipVotes"
-        [kickEnabled]="!gameOverActive && state?.phase === 'LOBBY'"
+        [kickEnabled]="!gameOverActive && state?.phase === 'LOBBY' && isHost"
         (kickPlayer)="onKickPlayer($event)"
       />
 
