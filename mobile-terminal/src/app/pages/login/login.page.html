@@ -12,6 +12,7 @@
     <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
   </button>
 
+
   <app-account-panel
     *ngIf="showAccountPanel"
     [initialView]="isLoggedIn ? 'profile' : 'auth'"

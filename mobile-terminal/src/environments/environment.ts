@@ -6,6 +6,6 @@
 export const environment = {
   production: false,
   /** URL base del backend (HTTP + Socket.io). Ej: http://localhost:3000 */
-  apiUrl: 'http://localhost:3000',
+  apiUrl: 'https://firewall-protocol.serveousercontent.com',
   socketNamespace: '/game',
 };

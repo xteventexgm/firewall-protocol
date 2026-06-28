@@ -5,6 +5,6 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://interapophyseal-contemningly-sherly.ngrok-free.dev',
+  apiUrl: 'https://trust-thicker-hepler-stefanie.ngrok-free.dev',
   socketNamespace: '/game',
 };

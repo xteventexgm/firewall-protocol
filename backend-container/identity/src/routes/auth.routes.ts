@@ -26,6 +26,7 @@ import {
   resetUserPassword,
   toPublicUser,
   updateUserAvatarUrl,
+  unlockAchievement,
   type PublicUser,
 } from '../services/UserService';
 import { createEmailToken, consumeEmailToken } from '../services/EmailTokenService';
@@ -557,6 +558,28 @@ router.get('/verify', (req, res) => {
     return;
   }
   res.json({ valid: true, userId });
+});
+
+router.post('/achievements', async (req, res) => {
+  if (authUnavailable(res)) return;
+  const userId = bearerUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: 'Token inválido', code: 'unauthorized' });
+    return;
+  }
+  const achievementId = String(req.body?.achievementId ?? '').trim();
+  if (!achievementId) {
+    res.status(400).json({ error: 'achievementId requerido', code: 'invalid_achievement_id' });
+    return;
+  }
+  try {
+    await unlockAchievement(userId, achievementId);
+    logger.info('achievement unlocked', { userId, achievementId });
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const code = err instanceof Error ? err.message : 'unlock_failed';
+    res.status(400).json({ error: code, code });
+  }
 });
 
 export default router;

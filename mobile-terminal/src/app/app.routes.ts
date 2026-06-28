@@ -15,5 +15,8 @@ export const routes: Routes = [
     path: 'dashboard',
     loadComponent: () => import('./pages/dashboard/dashboard.page').then( m => m.DashboardPage),
     canActivate: [roomGuard],
-  }
-];
+  },
+  {
+    path: 'achievements',
+    loadComponent: () => import('./pages/achievements/achievements.component').then( m => m.AchievementsComponent)
+  }];

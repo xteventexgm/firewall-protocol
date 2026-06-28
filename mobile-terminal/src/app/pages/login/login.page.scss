@@ -21,8 +21,8 @@
 
 .account-fab {
   position: fixed;
-  top: max(0.75rem, var(--app-safe-top));
-  right: max(0.75rem, env(safe-area-inset-right, 0.75rem));
+  top: max(1.5rem, var(--app-safe-top));
+  right: max(1.5rem, env(safe-area-inset-right, 1.5rem));
   z-index: 1100;
   width: 2.75rem;
   height: 2.75rem;
@@ -630,3 +630,5 @@
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
+
+
