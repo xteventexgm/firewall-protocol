@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { ToastController } from '@ionic/angular';
 import { io, Socket } from 'socket.io-client';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { resolveApiBase, apiTunnelHeaders } from '../../core/utils/api-base.utils';
@@ -42,12 +43,14 @@ export type { GamePhase, RoomPlayer, TargetOption };
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private readonly router = inject(Router);
+  private readonly toastCtrl = inject(ToastController);
   private socket: Socket | null = null;
   private listenersAttached = false;
   private gameOverNavTimer?: ReturnType<typeof setTimeout>;
   /** Solo re-join automático tras caída de socket, no en el primer connect. */
   private pendingAutoRejoin = false;
   private manualJoinInFlight = false;
+  private warmingUpToast: HTMLIonToastElement | null = null;
 
   private myRole: string | undefined;
   private myTeam: string | undefined;
@@ -112,6 +115,7 @@ export class SocketService {
     this.socket = io(url, socketOptions);
 
     this.socket.on('connect', () => {
+      this.dismissWarmingUpToast();
       this.connected$.next(true);
       this.reconnecting$.next(false);
       if (this.pendingAutoRejoin && !this.manualJoinInFlight) {
@@ -130,6 +134,7 @@ export class SocketService {
 
     this.socket.on('connect_error', () => {
       this.connected$.next(false);
+      this.showWarmingUpToast();
       if (localStorage.getItem('roomCode')) {
         this.reconnecting$.next(true);
         this.pendingAutoRejoin = true;
@@ -137,6 +142,7 @@ export class SocketService {
     });
 
     this.socket.io.on('reconnect_attempt', () => {
+      this.showWarmingUpToast();
       if (localStorage.getItem('roomCode')) {
         this.reconnecting$.next(true);
       }
@@ -175,6 +181,25 @@ export class SocketService {
       }
       this.ensureConnection();
     }, 5_000);
+  }
+
+  private async showWarmingUpToast(): Promise<void> {
+    if (this.warmingUpToast) return;
+    this.warmingUpToast = await this.toastCtrl.create({
+      message: 'Despertando los servidores de juego en la nube... (Esto puede tomar hasta 50 segundos la primera vez)',
+      duration: 50000,
+      position: 'top',
+      color: 'warning',
+      icon: 'cloud-offline-outline'
+    });
+    await this.warmingUpToast.present();
+  }
+
+  private async dismissWarmingUpToast(): Promise<void> {
+    if (this.warmingUpToast) {
+      await this.warmingUpToast.dismiss();
+      this.warmingUpToast = null;
+    }
   }
 
   /** Fuerza nueva conexión (p. ej. tras cambiar URL del backend/ngrok). */

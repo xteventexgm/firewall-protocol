@@ -54,6 +54,7 @@ export class GameSocketService implements OnDestroy {
   readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly playerConnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
+  readonly info$ = new Subject<string>();
   readonly error$ = new Subject<string>();
   readonly incidents$ = new Subject<{ incidents: IncidentDisplay[]; nightNumber: number }>();
   readonly connected$ = new BehaviorSubject<boolean>(false);
@@ -95,7 +96,10 @@ export class GameSocketService implements OnDestroy {
 
     this.socket = io(url, socketOptions);
 
+    let warmingUpToastShown = false;
+
     this.socket.on('connect', () => {
+      warmingUpToastShown = false;
       this.connected$.next(true);
       this.reconnecting$.next(false);
       if (this.roomId) {
@@ -108,11 +112,19 @@ export class GameSocketService implements OnDestroy {
     });
     this.socket.on('connect_error', (err: Error) => {
       this.connected$.next(false);
+      if (!warmingUpToastShown) {
+        warmingUpToastShown = true;
+        this.info$.next('Despertando los servidores de juego en la nube... (Esto puede tomar hasta 50 segundos la primera vez)');
+      }
       if (this.roomId) this.reconnecting$.next(true);
-      this.error$.next(`No se pudo conectar al servidor: ${err.message}`);
+      // Omitimos emitir el error$ aquí para no spamear al usuario durante el calentamiento.
     });
 
     this.socket.io.on('reconnect_attempt', () => {
+      if (!warmingUpToastShown) {
+        warmingUpToastShown = true;
+        this.info$.next('Despertando los servidores de juego en la nube... (Esto puede tomar hasta 50 segundos la primera vez)');
+      }
       if (this.roomId) this.reconnecting$.next(true);
     });
 

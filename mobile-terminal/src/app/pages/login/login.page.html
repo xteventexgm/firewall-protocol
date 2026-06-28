@@ -175,15 +175,6 @@
 
       <footer class="login-footer">
         <p>Invitado: alias libre. Con cuenta: entras con <strong>correo</strong>; tu <strong>nombre de usuario</strong> es el que ves en partida.</p>
-        <button type="button" class="server-config-toggle" (click)="showServerConfig = !showServerConfig">
-          {{ showServerConfig ? 'Ocultar servidor' : 'Configurar URL del servidor (ngrok)' }}
-        </button>
-        <div *ngIf="showServerConfig" class="server-config">
-          <p class="muted small">Pega la URL de ngrok del <strong>backend</strong> (puerto 3000), ej. <code>https://xxxx.ngrok-free.app</code></p>
-          <input type="url" class="terminal-input" [(ngModel)]="serverUrlInput" placeholder="https://…" />
-          <p class="muted small">Activa: {{ activeServerUrl }}</p>
-          <button type="button" class="ghost-btn" (click)="saveServerUrl()">Guardar y reconectar</button>
-        </div>
       </footer>
     </div>
   </div>

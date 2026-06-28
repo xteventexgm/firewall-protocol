@@ -74,11 +74,31 @@ export class AuthService {
   }
 
   private async apiFetch(url: string, init?: RequestInit): Promise<Response> {
-    try {
-      return await fetch(url, init);
-    } catch {
-      throw new Error('network_error');
+    const maxRetries = 3;
+    const retryDelay = 5000;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(url, { ...init, signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!res.ok && res.status >= 500 && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, retryDelay));
+          continue;
+        }
+
+        return res;
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, retryDelay));
+        }
+      }
     }
+    throw new Error('network_error');
   }
 
   /** Reintenta con refresh token si el access JWT expiró (sesión hasta cerrar sesión). */

@@ -5,6 +5,6 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://firewall-protocol.serveousercontent.com',
+  apiUrl: 'https://firewall-protocol.onrender.com',
   socketNamespace: '/game',
 };
