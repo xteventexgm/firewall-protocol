@@ -114,6 +114,10 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
   }
 
+  get currentUrl(): string {
+    return window.location.pathname;
+  }
+
   // Dimensiones del canvas SVG
 
   @ViewChild('svgContainer', { static: true }) svgContainer!: ElementRef<HTMLElement>;
