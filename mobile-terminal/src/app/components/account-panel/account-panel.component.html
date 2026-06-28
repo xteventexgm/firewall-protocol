@@ -237,9 +237,8 @@
             <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
             <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
           </div>
-          <div class="upload-btn" (click)="avatarInput.click()">
-            <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp" (change)="onAvatarFileSelected($event)" [disabled]="saving" />
-            Elegir foto (JPG, PNG, WebP · máx. 2 MB)
+          <div class="upload-btn" (click)="pickAvatar()">
+            <span>Elegir foto de la galería (máx. 2 MB)</span>
           </div>
           <details class="url-fallback">
             <summary>O usar enlace externo</summary>

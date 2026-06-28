@@ -198,6 +198,8 @@
 
 .avatar-block .upload-btn {
   display: block;
+  position: relative;
+  overflow: hidden;
   text-align: center;
   padding: 0.55rem 0.75rem;
   border-radius: 8px;
@@ -208,7 +210,15 @@
 }
 
 .avatar-block .upload-btn input {
-  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  /* Ensure it has a higher z-index if needed */
+  z-index: 10;
 }
 
 .url-fallback {
