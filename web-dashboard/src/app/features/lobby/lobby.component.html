@@ -85,6 +85,33 @@
             <span class="home-cta-text">Crear sala</span>
           </button>
 
+          <div class="home-spectate-divider">
+            <span>O también</span>
+          </div>
+
+          <label class="home-field">
+            <span class="home-field-label">Espectar sala (Solo visualización)</span>
+            <div class="home-input-wrap">
+              <input
+                type="text"
+                class="home-input"
+                placeholder="FIRE-XXXX"
+                [(ngModel)]="spectateRoomCode"
+                [disabled]="!connected"
+                maxlength="10"
+              />
+            </div>
+          </label>
+
+          <button
+            type="button"
+            class="home-cta spectate-cta"
+            (click)="onSpectateRoom()"
+            [disabled]="!connected || !spectateRoomCode.trim()"
+          >
+            <span class="home-cta-text">Espectar sala</span>
+          </button>
+
           <p class="home-footer">Escanea el QR o ingresa el código en la terminal móvil.</p>
         </section>
       } @else {
@@ -225,75 +252,77 @@
     </section>
 
     <div class="actions flex flex-col gap-2">
-      @if (!compactMode) {
-      <section class="phase-config border border-cyber-border rounded p-2 text-xs">
-        <p class="text-cyber-muted uppercase tracking-widest mb-2">Ritmo de partida</p>
-        <label class="flex items-center gap-2 mb-2">
-          <input type="checkbox" [(ngModel)]="autoAdvance" />
-          <span>Auto-avance con timer</span>
-        </label>
-        <label class="flex flex-col gap-1 mb-1">
-          <span>Noche (min)</span>
-          <input type="number" min="0.5" max="10" step="0.5" [(ngModel)]="nightMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
-        </label>
-        <label class="flex flex-col gap-1 mb-2">
-          <span>Día (min)</span>
-          <input type="number" min="0.5" max="15" step="0.5" [(ngModel)]="dayMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
-        </label>
-        <button type="button" class="btn-secondary btn-sm w-full" (click)="onApplyPhaseConfig()">
-          Aplicar timers
-        </button>
-      </section>
-      <button
-        type="button"
-        class="btn-secondary"
-        (click)="onFillBots()"
-        [disabled]="!canFillBots"
-        title="Añade un bot por clic. Requiere al menos un jugador real en la sala."
-      >
-        Añadir bot
-      </button>
-      @if (state?.phase === 'LOBBY' && humanCount === 0) {
-        <p class="lobby-hint">Esperando jugadores reales desde el móvil para poder añadir bots.</p>
-      } @else if (canFillBots) {
-        <p class="lobby-hint">{{ capacity - playerCount }} plaza(s) libre(s). Un bot por clic.</p>
-      }
-      @if (botCount > 0) {
+      @if (isHost) {
+        @if (!compactMode) {
+        <section class="phase-config border border-cyber-border rounded p-2 text-xs">
+          <p class="text-cyber-muted uppercase tracking-widest mb-2">Ritmo de partida</p>
+          <label class="flex items-center gap-2 mb-2">
+            <input type="checkbox" [(ngModel)]="autoAdvance" />
+            <span>Auto-avance con timer</span>
+          </label>
+          <label class="flex flex-col gap-1 mb-1">
+            <span>Noche (min)</span>
+            <input type="number" min="0.5" max="10" step="0.5" [(ngModel)]="nightMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
+          </label>
+          <label class="flex flex-col gap-1 mb-2">
+            <span>Día (min)</span>
+            <input type="number" min="0.5" max="15" step="0.5" [(ngModel)]="dayMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
+          </label>
+          <button type="button" class="btn-secondary btn-sm w-full" (click)="onApplyPhaseConfig()">
+            Aplicar timers
+          </button>
+        </section>
         <button
           type="button"
-          class="btn-secondary btn-sm"
-          (click)="onClearBots()"
-          [disabled]="!canClearBots"
+          class="btn-secondary"
+          (click)="onFillBots()"
+          [disabled]="!canFillBots"
+          title="Añade un bot por clic. Requiere al menos un jugador real en la sala."
         >
-          Quitar bots ({{ botCount }})
+          Añadir bot
+        </button>
+        @if (state?.phase === 'LOBBY' && humanCount === 0) {
+          <p class="lobby-hint">Esperando jugadores reales desde el móvil para poder añadir bots.</p>
+        } @else if (canFillBots) {
+          <p class="lobby-hint">{{ capacity - playerCount }} plaza(s) libre(s). Un bot por clic.</p>
+        }
+        @if (botCount > 0) {
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            (click)="onClearBots()"
+            [disabled]="!canClearBots"
+          >
+            Quitar bots ({{ botCount }})
+          </button>
+        }
+        <button
+          type="button"
+          class="btn-secondary btn-qa-match"
+          (click)="onRunBotQaMatch()"
+          [disabled]="!canRunBotQaMatch"
+          title="Rellena bots, inicia y avanza automáticamente hasta el ganador"
+        >
+          Partida QA automática
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="onStartGame()"
+          [disabled]="!canStart"
+        >
+          Iniciar partida
+        </button>
+        }
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="onAdvancePhase()"
+          [disabled]="!canAdvance"
+        >
+          Avanzar fase
         </button>
       }
-      <button
-        type="button"
-        class="btn-secondary btn-qa-match"
-        (click)="onRunBotQaMatch()"
-        [disabled]="!canRunBotQaMatch"
-        title="Rellena bots, inicia y avanza automáticamente hasta el ganador"
-      >
-        Partida QA automática
-      </button>
-      <button
-        type="button"
-        class="btn-primary"
-        (click)="onStartGame()"
-        [disabled]="!canStart"
-      >
-        Iniciar partida
-      </button>
-      }
-      <button
-        type="button"
-        class="btn-secondary"
-        (click)="onAdvancePhase()"
-        [disabled]="!canAdvance"
-      >
-        Avanzar fase
-      </button>
       <button
         type="button"
         class="btn-secondary"

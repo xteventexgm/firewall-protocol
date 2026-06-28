@@ -219,11 +219,11 @@
       </button>
 
       <!-- NOCHE con acción -->
-      <div *ngIf="isNightPhase && !isNightActionMinimized" class="night-action-modal-overlay">
-        <section class="panel action-panel night modal-window">
-          <div class="modal-header">
-            <span class="modal-title">Terminal de Acción Nocturna</span>
-            <span class="modal-close" (click)="minimizeNightAction()">_</span>
+      <div *ngIf="isNightPhase && !isNightActionMinimized" class="night-action-static-container">
+        <section class="panel action-panel night static-window">
+          <div class="panel-header-static">
+            <span class="panel-title-static">Terminal de Acción Nocturna</span>
+            <span class="panel-minimize" (click)="minimizeNightAction()">[Minimizar]</span>
           </div>
 
           <app-action-progress [progress]="nightProgress"></app-action-progress>

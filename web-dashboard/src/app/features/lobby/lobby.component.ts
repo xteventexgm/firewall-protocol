@@ -38,12 +38,14 @@ export class LobbyComponent implements OnChanges {
   @Input() savedRoomConnected: Record<string, number> = {};
   @Input() gameOverActive = false;
   @Input() soundMuted = false;
+  @Input() isHost = false;
 
   @Output() startGame = new EventEmitter<void>();
   @Output() advancePhase = new EventEmitter<void>();
   @Output() createLobby = new EventEmitter<number>();
   @Output() backToLobby = new EventEmitter<void>();
   @Output() rejoinRoom = new EventEmitter<string>();
+  @Output() spectateLobby = new EventEmitter<string>();
   @Output() removeSavedRoom = new EventEmitter<string>();
   @Output() setPhaseConfig = new EventEmitter<Partial<PhaseConfig>>();
   @Output() toggleSound = new EventEmitter<void>();
@@ -60,6 +62,7 @@ export class LobbyComponent implements OnChanges {
   qrDataUrl = '';
   selectedMaxPlayers = MIN_PLAYERS_TO_START;
   homeTab: 'create' | 'rooms' = 'create';
+  spectateRoomCode = '';
   readonly minPlayers = MIN_PLAYERS_TO_START;
   readonly maxPlayers = MAX_PLAYERS;
 
@@ -211,9 +214,16 @@ export class LobbyComponent implements OnChanges {
     this.backToLobby.emit();
   }
 
-  onRejoinRoom(roomId: string): void {
+  onRejoinRoom(code: string): void {
+    if (!this.connected || !code) return;
     this.gameSound.playUi('confirm');
-    this.rejoinRoom.emit(roomId);
+    this.rejoinRoom.emit(code);
+  }
+
+  onSpectateRoom(): void {
+    if (!this.connected || !this.spectateRoomCode.trim()) return;
+    this.gameSound.playUi('confirm');
+    this.spectateLobby.emit(this.spectateRoomCode.trim());
   }
 
   connectedCountFor(roomId: string): number {

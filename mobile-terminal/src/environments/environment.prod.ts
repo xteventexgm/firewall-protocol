@@ -5,6 +5,6 @@
  */
 export const environment = {
   production: true,
-  apiUrl: 'https://trust-thicker-hepler-stefanie.ngrok-free.dev',
+  apiUrl: 'https://firewall-protocol.serveousercontent.com',
   socketNamespace: '/game',
 };

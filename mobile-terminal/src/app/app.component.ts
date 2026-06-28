@@ -27,6 +27,7 @@ export class AppComponent implements OnInit, OnDestroy {
       document.documentElement.classList.add('immersive-native');
 
       try {
+        await StatusBar.setOverlaysWebView({ overlay: true });
         await StatusBar.hide();
       } catch {
         /* StatusBar no disponible */

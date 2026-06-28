@@ -29,6 +29,8 @@ export class TextChallengeComponent implements OnChanges, OnDestroy {
 
   selectedAnswer: string | number = '';
   secondsLeft = 0;
+  timePercent = 100;
+  totalSeconds = 0;
 
   private timer?: ReturnType<typeof setInterval>;
 
@@ -77,10 +79,15 @@ export class TextChallengeComponent implements OnChanges, OnDestroy {
     this.clearTimer();
     if (!this.challenge?.expiresAt) {
       this.secondsLeft = 75;
+      this.totalSeconds = 75;
+      this.timePercent = 100;
       return;
     }
+    this.totalSeconds = Math.max(1, Math.ceil((this.challenge!.expiresAt - Date.now()) / 1000));
+    
     const tick = () => {
       this.secondsLeft = Math.max(0, Math.ceil((this.challenge!.expiresAt - Date.now()) / 1000));
+      this.timePercent = (this.secondsLeft / this.totalSeconds) * 100;
       if (this.secondsLeft <= 0) this.clearTimer();
     };
     tick();

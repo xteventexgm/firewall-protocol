@@ -104,6 +104,7 @@ export class App implements OnInit, OnDestroy {
   nodeDeathAlert: NodeDeathAlertData | null = null;
   nodeDeathAlertVisible = false;
   nodeDeathAlertExiting = false;
+  isHost = false;
 
   private phaseTimerInterval: ReturnType<typeof setInterval> | null = null;
   private lastPhase: GamePhase | '' = '';
@@ -341,6 +342,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   onCreateLobby(maxPlayers: number): void {
+    this.isHost = true;
     const code = this.gameSocket.createLobby(maxPlayers);
     saveRoom({ roomId: code, maxPlayers, savedAt: Date.now() });
     this.savedRooms = loadSavedRooms();
@@ -356,6 +358,7 @@ export class App implements OnInit, OnDestroy {
 
   onRejoinRoom(roomId: string): void {
     const code = roomId.toUpperCase().trim();
+    this.isHost = true;
     this.clearActiveView();
     this.showGameOver = false;
     this.gameOverSummary = null;
@@ -378,6 +381,38 @@ export class App implements OnInit, OnDestroy {
           this.inRoom = false;
           this.roomCode = '';
           this.errorMessage = outcome.error ?? 'No se pudo entrar a la sala.';
+          this.statusMessageType = 'error';
+        }
+      });
+    this.subs.push(sub);
+    this.gameSocket.joinRoom(code);
+  }
+
+  onSpectateLobby(roomId: string): void {
+    const code = roomId.toUpperCase().trim();
+    this.isHost = false;
+    this.clearActiveView();
+    this.showGameOver = false;
+    this.gameOverSummary = null;
+
+    const sub = this.gameSocket.joinOutcome$
+      .pipe(
+        take(1),
+        timeout(8000),
+        catchError(() =>
+          of({ ok: false, error: 'Tiempo de espera agotado. La sala no respondió.' }),
+        ),
+      )
+      .subscribe((outcome) => {
+        if (outcome.ok) {
+          this.inRoom = true;
+          this.roomCode = code;
+          this.lastPhase = '';
+          this.syncAmbientState();
+        } else {
+          this.inRoom = false;
+          this.roomCode = '';
+          this.errorMessage = outcome.error ?? 'No se pudo encontrar la sala para espectar.';
           this.statusMessageType = 'error';
         }
       });

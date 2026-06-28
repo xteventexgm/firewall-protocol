@@ -31,9 +31,8 @@ export class RoomManager {
   }
 
   private assertJoinablePhase(phase: GamePhase, roomId: string) {
-    if (phase === GamePhase.FIN) {
-      throw new RoomClosedError(`Room ${roomId} has ended`);
-    }
+    // Allows reconnecting players to see the Game Over screen
+    // New players are already blocked in Room.addPlayer if phase !== LOBBY
   }
 
   /** Solo dashboard: sala nueva, sin JSON previo ni sala en memoria. */

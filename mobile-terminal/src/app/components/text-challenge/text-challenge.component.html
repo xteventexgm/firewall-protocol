@@ -8,8 +8,14 @@
       <span class="ch-step">Paso 1 · Opcional</span>
       <span class="ch-tag">{{ typeLabel }}</span>
     </div>
-    <span class="ch-timer" *ngIf="secondsLeft > 0">{{ secondsLeft }}s</span>
+    <div class="ch-timer-wrap" *ngIf="secondsLeft > 0">
+      <span class="ch-timer">{{ secondsLeft }}s</span>
+    </div>
   </header>
+  
+  <div class="ch-timer-bar-bg" *ngIf="secondsLeft > 0">
+    <div class="ch-timer-bar-fill" [style.width.%]="timePercent" [class.danger]="timePercent < 25"></div>
+  </div>
 
   <div class="ch-objective">
     <span class="ch-objective-label">Objetivo</span>
