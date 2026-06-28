@@ -197,26 +197,26 @@ export type ScanResult = 'safe' | 'suspicious' | 'malicious';
 
 export interface PrivateResultPayload {
   type:
-    | 'scan'
-    | 'spy'
-    | 'hacker_team'
-    | 'role_assigned'
-    | 'infected'
-    | 'cured'
-    | 'infection_warning'
-    | 'miner_update'
-    | 'team_probe'
-    | 'forensic_trace'
-    | 'ids_alert'
-    | 'threat_hunt'
-    | 'intel_pulse'
-    | 'integrity_check'
-    | 'ally_verify'
-    | 'dns_spoof'
-    | 'lateral_probe'
-    | 'vote_trace'
-    | 'vuln_scan'
-    | 'cred_probe';
+  | 'scan'
+  | 'spy'
+  | 'hacker_team'
+  | 'role_assigned'
+  | 'infected'
+  | 'cured'
+  | 'infection_warning'
+  | 'miner_update'
+  | 'team_probe'
+  | 'forensic_trace'
+  | 'ids_alert'
+  | 'threat_hunt'
+  | 'intel_pulse'
+  | 'integrity_check'
+  | 'ally_verify'
+  | 'dns_spoof'
+  | 'lateral_probe'
+  | 'vote_trace'
+  | 'vuln_scan'
+  | 'cred_probe';
   targetId?: PlayerId;
   result?: ScanResult;
   visitors?: PlayerId[];

@@ -31,7 +31,6 @@ import {
   TROLL_PROVOKE_MESSAGES,
 } from '../../core/role-actions';
 import { GameSoundService } from '../../services/game-sound.service';
-import { ActionProgressComponent } from '../../components/action-progress/action-progress.component';
 import { TextChallengeComponent } from '../../components/text-challenge/text-challenge.component';
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
@@ -84,7 +83,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, ActionProgressComponent, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent, NodePickerComponent],
+  imports: [IonicModule, FormsModule, CommonModule, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent, NodePickerComponent],
 })
 export class DashboardPage implements OnInit, OnDestroy {
   readonly minPlayers = MIN_PLAYERS_TO_START;
@@ -1597,8 +1596,11 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
     const others = playerIds.filter((id) => id !== this.myPlayerId);
-    const names = others.map((id) => this.players.find((p) => p.id === id)?.name ?? id);
-    const alert = buildNodeDeathAlert(names, reason);
+    const playersData = others.map((id) => {
+      const p = this.players.find((x) => x.id === id);
+      return { name: p?.name ?? id, role: p?.role };
+    });
+    const alert = buildNodeDeathAlert(playersData, reason);
     if (!alert) return;
     this.deathAlertQueue.push(alert);
     this.pumpNodeDeathAlertQueue();

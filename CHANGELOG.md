@@ -8,6 +8,24 @@ Historial de cambios relevantes del monorepo. Las fechas agrupan trabajo por ses
 
 ---
 
+## [Unreleased] — 2026-06-28
+
+### Web Dashboard
+- Implementado el **Modo Espectador**, permitiendo introducir un código de sala para visualizar el estado de la partida en tiempo real.
+- Restringidos los controles de administrador (Start Game) únicamente al Host de la sala en el dashboard.
+
+### Mobile
+- Solucionada la franja negra superior en dispositivos Android mediante desactivación del padding seguro cuando se opera bajo `immersive-native`.
+- Mejorada la escalabilidad de la interfaz de usuario con `font-size: clamp()` de forma global (`global.scss`) para pantallas fluidas.
+- Agregado espaciado en la ventana del perfil (`.profile-hero` y `.profile-block`) para evitar que los elementos colapsen entre sí.
+- Ahora los jugadores pueden reconectarse exitosamente a una partida que ha concluido para recibir y visualizar la pantalla final (Game Over).
+
+### Documentación
+- Creado `ACHIEVEMENTS.md` documentando los logros públicos y secretos de la aplicación.
+- README y CHANGELOG actualizados.
+
+---
+
 ## [Unreleased] — 2026-06-26
 
 ### Backend — microservicios Docker (stack principal)

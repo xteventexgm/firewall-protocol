@@ -2,16 +2,16 @@ import { translateEliminationReason } from './game.utils';
 
 export interface NodeDeathAlertData {
   headline: string;
-  playerNames: string[];
+  players: { name: string; role?: string }[];
   subtitle: string;
 }
 
 export function buildNodeDeathAlert(
-  playerNames: string[],
+  playersData: { name: string; role?: string }[],
   reason: string,
 ): NodeDeathAlertData | null {
-  const names = playerNames.map((n) => n.trim()).filter(Boolean);
-  if (!names.length) return null;
+  const players = playersData.filter(p => p.name && p.name.trim().length > 0);
+  if (!players.length) return null;
 
   const headline =
     reason === 'vote'
@@ -25,5 +25,5 @@ export function buildNodeDeathAlert(
       ? 'Expulsado por votación diurna'
       : `Causa: ${translateEliminationReason(reason)}`;
 
-  return { headline, playerNames: names, subtitle };
+  return { headline, players, subtitle };
 }

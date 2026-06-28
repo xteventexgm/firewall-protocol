@@ -30,9 +30,10 @@
 | **Roles** | **44 roles** en catálogo (16 System · 14 Black Hat · 14 Caótico) |
 | **Host** | Pantalla grande (PC/TV): topología, votos, logs SIEM — **sin revelar roles vivos** |
 | **Jugadores** | Teléfono como terminal: rol, acciones, chat, votos |
-| **Cuentas** | Jugar como **invitado** o registrarse (correo); perfil con estadísticas, historial y avatar |
+| **Cuentas** | Jugar como **invitado** o registrarse (correo); perfil con estadísticas, historial, avatar y **Logros**. |
+| **Espectadores** | Modo espectador web en tiempo real introduciendo el código de sala en el dashboard. |
 
-La partida termina cuando un bando gana o un rol **solitario** cumple su condición. Ver [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) y [`ROLES.md`](ROLES.md).
+La partida termina cuando un bando gana o un rol **solitario** cumple su condición. Ver [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md), [`ROLES.md`](ROLES.md) y [`ACHIEVEMENTS.md`](ACHIEVEMENTS.md).
 
 ---
 
@@ -179,6 +180,7 @@ Detalle API: [`backend-container/identity/README.md`](backend-container/identity
 | [`backend-container/README.md`](backend-container/README.md) | Mapa de servicios y puertos |
 | [`ROLES.md`](ROLES.md) | 44 roles y habilidades |
 | [`WIN_CONDITIONS.md`](WIN_CONDITIONS.md) | Condiciones de victoria |
+| [`ACHIEVEMENTS.md`](ACHIEVEMENTS.md) | Sistema de Logros |
 | [`SOCKET_CONTRACT.md`](SOCKET_CONTRACT.md) | Eventos Socket.io |
 | [`DATABASE.md`](DATABASE.md) | MongoDB y colecciones |
 | [`STORAGE_AND_AVATARS.md`](STORAGE_AND_AVATARS.md) | Avatares: R2, disco, servicio `media` |
