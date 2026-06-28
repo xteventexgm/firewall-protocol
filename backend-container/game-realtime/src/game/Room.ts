@@ -293,7 +293,7 @@ export class Room extends EventEmitter {
   }
 
   /** Reasigna socket tras caída involuntaria de red (no salida voluntaria). */
-  reconnectPlayer(playerId: string, socketId: string, name?: string, userId?: string) {
+  reconnectPlayer(playerId: string, socketId: string, name?: string, userId?: string, avatarUrl?: string) {
     const existing = this.state.getPlayer(playerId);
     if (!existing) return false;
     existing.socketId = socketId;
@@ -301,6 +301,7 @@ export class Room extends EventEmitter {
     existing.lastDisconnectReason = undefined;
     if (name) existing.name = name;
     if (userId) existing.userId = userId;
+    if (avatarUrl !== undefined) existing.avatarUrl = avatarUrl;
     this.emit('playerReconnected', { roomId: this.id, playerId, playerName: existing.name });
     this.emitPrivatePlayerSync(existing);
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on reconnectPlayer', e); }
@@ -308,7 +309,7 @@ export class Room extends EventEmitter {
   }
 
   /** Re-entrada voluntaria o nuevo enlace de socket (login / salir y volver). */
-  connectPlayer(playerId: string, socketId: string, name?: string, userId?: string) {
+  connectPlayer(playerId: string, socketId: string, name?: string, userId?: string, avatarUrl?: string) {
     const existing = this.state.getPlayer(playerId);
     if (!existing) return false;
     existing.socketId = socketId;
@@ -316,6 +317,7 @@ export class Room extends EventEmitter {
     existing.lastDisconnectReason = undefined;
     if (name) existing.name = name;
     if (userId) existing.userId = userId;
+    if (avatarUrl !== undefined) existing.avatarUrl = avatarUrl;
     this.emit('playerConnected', { roomId: this.id, playerId, playerName: existing.name });
     this.emitPrivatePlayerSync(existing);
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on connectPlayer', e); }
