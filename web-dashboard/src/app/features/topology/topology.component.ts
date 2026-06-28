@@ -218,8 +218,6 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.fetchMissingAvatars();
   }
 
-  avatarBlobUrls = new Map<string, string>();
-
   private fetchMissingAvatars(): void {
     if (!this.state) return;
     this.state.players.forEach(p => {
