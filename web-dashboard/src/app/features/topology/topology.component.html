@@ -180,9 +180,10 @@
           <polygon [attr.points]="hexPoints(nodeMetrics.inner)" />
         </clipPath>
         <image [attr.href]="resolveAvatarUrl(node.player.avatarUrl)"
+          [attr.xlink:href]="resolveAvatarUrl(node.player.avatarUrl)"
           [attr.x]="-nodeMetrics.inner" [attr.y]="-nodeMetrics.inner"
           [attr.width]="nodeMetrics.inner * 2" [attr.height]="nodeMetrics.inner * 2"
-          [attr.clip-path]="'url(#hex-clip-' + node.id + ')'"
+          [attr.clip-path]="'url(' + currentUrl + '#hex-clip-' + node.id + ')'"
           preserveAspectRatio="xMidYMid slice"
           [class.node-avatar-spawn]="isSpawning(node.id)" />
         } @else {
