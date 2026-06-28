@@ -62,7 +62,7 @@ html.immersive-native {
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-html.plt-android,
+html.plt-android:not(.immersive-native),
 html.plt-capacitor:not(.immersive-native) {
   --app-safe-top: max(env(safe-area-inset-top, 0px), var(--ion-safe-area-top, 24px));
   --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--ion-safe-area-bottom, 0px));
@@ -190,4 +190,7 @@ ion-content:not(.scroll-page) {
 .cyber-btn-hover:active::after {
   transform: translate(-50%, -50%) scale(1);
   transition: 0s;
+}
+html {
+  font-size: clamp(14px, 4.25vw, 18px);
 }
