@@ -30,6 +30,9 @@ app.use((req, res, next) => {
 app.use(bodyParser.json());
 app.use('/api/media', mediaRoutes);
 
+// Endpoint para UptimeRobot (evita error 404)
+app.get('/api/media/ping', (_req, res) => res.sendStatus(200));
+
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
