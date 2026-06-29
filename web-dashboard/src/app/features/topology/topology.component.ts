@@ -111,12 +111,14 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   // Devuelve la URL pública del avatar basándose en el ID del jugador
   getAvatarUrl(player: PublicPlayer): string {
+
     const base = environment.apiUrl.replace(/\/$/, '');
     if (player.avatarUrl) {
       // El backend manda /api/auth/avatars/ por compatibilidad con la app móvil.
       // El dashboard debe usar /api/media/avatars/ para acceder directamente.
       let url = player.avatarUrl;
       if (url.startsWith('/api/auth/avatars/')) {
+        console.log(`[Avatar] Correcting URL for player ${player.name} (${player.id}). Original: ${url}`);
         url = url.replace('/api/auth/avatars/', '/api/media/avatars/');
       }
       const finalUrl = url.startsWith('http') ? url : `${base}${url}`;
@@ -233,7 +235,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   private syncFromState(): void {
     if (!this.state) return;
 
-    console.log('[Avatar Debug] syncFromState called. Players:', 
+    console.log('[Avatar Debug] syncFromState called. Players:',
       this.state.players.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })));
 
     if (this.state.roomId) {
