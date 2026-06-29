@@ -182,7 +182,7 @@
         <text y="5" text-anchor="middle" class="node-initial" [class.node-spawn-label]="isSpawning(node.id)">{{
           node.player.name.charAt(0).toUpperCase() }}</text>
       } @else {
-        <image [attr.href]="resolveAvatarUrl(node.player.id)" x="-15" y="-15" width="30" height="30"
+        <image [attr.href]="getAvatarUrl(node.player.id)" x="-15" y="-15" width="30" height="30"
           clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice"
           (error)="handleAvatarError(node.player.id)" [class.node-spawn-label]="isSpawning(node.id)" />
       }
