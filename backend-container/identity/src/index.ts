@@ -18,6 +18,7 @@ export {
   loginUser,
   getPublicUser,
   findUserById,
+  findUserByGuestId,
   linkGuestToUser,
   changeUsername,
   changeUserPassword,
