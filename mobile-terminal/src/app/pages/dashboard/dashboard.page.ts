@@ -291,6 +291,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.allPlayers = this.players.map((p) => ({
           id: p.id,
           name: p.name,
+          avatarUrl: p.avatarUrl,
           isAlive: p.isAlive,
           isConnected: p.isConnected,
         }));
@@ -299,14 +300,14 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.aliveTargets,
           this.players
             .filter((p) => p.isAlive && p.id !== this.myPlayerId)
-            .map((p) => ({ id: p.id, name: p.name, isAlive: true, isConnected: p.isConnected })),
+            .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl, isAlive: true, isConnected: p.isConnected })),
         );
 
         this.deadTargets = this.syncTargetList(
           this.deadTargets,
           this.players
             .filter((p) => !p.isAlive)
-            .map((p) => ({ id: p.id, name: p.name, isAlive: false, isConnected: p.isConnected })),
+            .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl, isAlive: false, isConnected: p.isConnected })),
         );
 
         if (
@@ -1089,6 +1090,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     ) {
       for (let i = 0; i < next.length; i++) {
         current[i].name = next[i].name;
+        current[i].avatarUrl = next[i].avatarUrl;
         current[i].isConnected = next[i].isConnected;
         current[i].isAlive = next[i].isAlive;
       }

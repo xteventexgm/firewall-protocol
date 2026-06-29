@@ -118,15 +118,12 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       // El dashboard debe usar /api/media/avatars/ para acceder directamente.
       let url = player.avatarUrl;
       if (url.startsWith('/api/auth/avatars/')) {
-        console.log(`[Avatar] Correcting URL for player ${player.name} (${player.id}). Original: ${url}`);
         url = url.replace('/api/auth/avatars/', '/api/media/avatars/');
       }
       const finalUrl = url.startsWith('http') ? url : `${base}${url}`;
-      console.log(`[Avatar] Resolved URL for ${player.name}:`, finalUrl);
       return finalUrl;
     }
     const url = `${base}/api/media/avatars/${player.id}`;
-    console.log(`[Avatar] Requesting avatar for player ${player.id}. URL: ${url}`);
     return url;
   }
 
@@ -234,20 +231,6 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Sincroniza enlaces y jugadores cuando ya hay estado (p. ej. re-entrada a sala). */
   private syncFromState(): void {
     if (!this.state) return;
-
-    // HACK: El Game Server de Render aún no tiene el modo crudo porque no has hecho git push.
-    // Mapeamos tu nombre directamente a tu ID real de Mongo para que el dashboard pueda ver la imagen.
-    this.state.players.forEach(p => {
-      console.log(JSON.stringify(p, null, 2));
-      if (!p.avatarUrl && p.name == "xteventexgm") {
-        console.log(p.id + "es esta mi url de avatar?")
-        p.avatarUrl = `${p?.avatarUrl?.toString()}`;
-        console.log(p.avatarUrl?.toString);
-      }
-    });
-
-    console.log('[Avatar Debug] syncFromState called. Players:',
-      this.state.players.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })));
 
     if (this.state.roomId) {
       this.currentRoomId = this.state.roomId;
@@ -1329,20 +1312,20 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   get nodeMetrics() {
     return {
-      outer: 42,
-      inner: 32,
-      initialSize: 18,
-      nameSize: 13,
-      statusSize: 10,
-      roleSize: 10,
-      nameY: 58,
-      statusY: -35,
-      roleY: -53,
-      pulseR: 46,
-      linkInset: 44,
+      outer: 50,
+      inner: 38,
+      initialSize: 22,
+      nameSize: 14,
+      statusSize: 11,
+      roleSize: 11,
+      nameY: 68,
+      statusY: -42,
+      roleY: -62,
+      pulseR: 54,
+      linkInset: 52,
       /** Borde del disco del hub donde enchufan los cables (coincide con .hub-plate). */
-      hubPortRadius: 50,
-      primaryInset: 38,
+      hubPortRadius: 55,
+      primaryInset: 46,
     };
   }
 

@@ -241,6 +241,7 @@ export interface PlayerView {
 export interface TargetOption {
   id: string;
   name: string;
+  avatarUrl?: string;
   isAlive?: boolean;
   isConnected?: boolean;
 }
