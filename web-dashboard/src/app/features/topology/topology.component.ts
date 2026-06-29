@@ -235,6 +235,16 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   private syncFromState(): void {
     if (!this.state) return;
 
+    // HACK: El Game Server de Render aún no tiene el modo crudo porque no has hecho git push.
+    // Mapeamos tu nombre directamente a tu ID real de Mongo para que el dashboard pueda ver la imagen.
+    this.state.players.forEach(p => {
+      if (!p.avatarUrl && p.name == "xteventexgm") {
+        console.log(p.id + "es esta mi url de avatar?")
+        p.avatarUrl = `${p?.avatarUrl?.toString()}`;
+        console.log(p.avatarUrl?.toString);
+      }
+    });
+
     console.log('[Avatar Debug] syncFromState called. Players:',
       this.state.players.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })));
 
@@ -1318,17 +1328,17 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   get nodeMetrics() {
     return {
-      outer: 34,
-      inner: 26,
-      initialSize: 15,
-      nameSize: 11,
-      statusSize: 8,
-      roleSize: 9,
-      nameY: 48,
-      statusY: -28,
-      roleY: -44,
-      pulseR: 38,
-      linkInset: 36,
+      outer: 42,
+      inner: 32,
+      initialSize: 18,
+      nameSize: 13,
+      statusSize: 10,
+      roleSize: 10,
+      nameY: 58,
+      statusY: -35,
+      roleY: -53,
+      pulseR: 46,
+      linkInset: 44,
       /** Borde del disco del hub donde enchufan los cables (coincide con .hub-plate). */
       hubPortRadius: 50,
       primaryInset: 38,

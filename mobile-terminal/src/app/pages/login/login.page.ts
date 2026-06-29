@@ -386,9 +386,11 @@ export class LoginPage implements OnInit, OnDestroy {
 
     if (this.authService.isLoggedIn()) {
       try {
+        console.log('[DEBUG JOIN] Calling linkGuest for', myPlayerId);
         await this.authService.linkGuest(myPlayerId);
-      } catch {
-        // No bloquea el join
+        console.log('[DEBUG JOIN] linkGuest SUCCESS');
+      } catch (err) {
+        console.error('[DEBUG JOIN] linkGuest FAILED:', err);
       }
     }
 

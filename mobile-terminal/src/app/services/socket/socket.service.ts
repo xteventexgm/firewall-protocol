@@ -222,11 +222,21 @@ export class SocketService {
     return apiTunnelHeaders();
   }
 
-  private joinOpts(autoReconnect: boolean): { autoReconnect: boolean; accessToken?: string } {
+  private joinOpts(autoReconnect: boolean): { autoReconnect: boolean; accessToken?: string; userId?: string } {
     const accessToken = localStorage.getItem('fp_accessToken');
+    let userId: string | undefined;
+    const userRaw = localStorage.getItem('fp_user');
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        if (user?._id) userId = user._id;
+      } catch (e) {}
+    }
+
     return {
       autoReconnect,
       ...(accessToken ? { accessToken } : {}),
+      ...(userId ? { userId } : {}),
     };
   }
 

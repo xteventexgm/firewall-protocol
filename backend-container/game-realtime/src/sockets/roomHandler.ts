@@ -30,15 +30,17 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
     try {
       const code = normalizeRoomCode(roomId);
       const autoReconnect = opts?.autoReconnect === true;
-      let linkedUserId: string | undefined;
+      let linkedUserId: string | undefined = opts?.userId; // MODO CRUDO: Tomamos el ID directo
       let avatarUrl: string | undefined;
-      if (opts?.accessToken) {
+
+      // Si no nos pasaron userId en crudo, intentamos decodificar el token
+      if (!linkedUserId && opts?.accessToken) {
         const payload = verifyAccessToken(opts.accessToken);
         linkedUserId = payload?.sub;
       }
       
       let doc;
-      console.log(`[DEBUG JOIN] playerId=${playerId}, opts.accessToken?=${!!opts?.accessToken}`);
+      console.log(`[DEBUG JOIN] playerId=${playerId}, opts.userId=${opts?.userId}, opts.accessToken?=${!!opts?.accessToken}`);
       if (linkedUserId) {
         doc = await findUserById(linkedUserId);
         console.log(`[DEBUG JOIN] Found by linkedUserId (${linkedUserId}):`, !!doc);
