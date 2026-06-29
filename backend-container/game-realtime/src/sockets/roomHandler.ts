@@ -25,7 +25,7 @@ import { REQUIRE_EMAIL_VERIFICATION } from '../config/env';
 export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, dashboardNs: Namespace) {
   logClient('mobile', 'connected', socket.id);
 
-  socket.on('joinRoom', (roomId: string, playerId: string, name?: string, opts?: { autoReconnect?: boolean; accessToken?: string }) => {
+  socket.on('joinRoom', (roomId: string, playerId: string, name?: string, opts?: { autoReconnect?: boolean; accessToken?: string; userId?: string }) => {
     void (async () => {
     try {
       const code = normalizeRoomCode(roomId);
