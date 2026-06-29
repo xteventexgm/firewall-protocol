@@ -38,10 +38,13 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       }
       
       let doc;
+      console.log(`[DEBUG JOIN] playerId=${playerId}, opts.accessToken?=${!!opts?.accessToken}`);
       if (linkedUserId) {
         doc = await findUserById(linkedUserId);
+        console.log(`[DEBUG JOIN] Found by linkedUserId (${linkedUserId}):`, !!doc);
       } else if (playerId.startsWith('usr_')) {
         doc = await findUserByGuestId(playerId);
+        console.log(`[DEBUG JOIN] Found by guestId (${playerId}):`, !!doc);
         if (doc) linkedUserId = doc._id.toString();
       }
 
