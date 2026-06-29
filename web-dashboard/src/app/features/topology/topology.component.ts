@@ -113,7 +113,15 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   getAvatarUrl(player: PublicPlayer): string {
     const base = environment.apiUrl.replace(/\/$/, '');
     if (player.avatarUrl) {
-      return player.avatarUrl.startsWith('http') ? player.avatarUrl : `${base}${player.avatarUrl}`;
+      // El backend manda /api/auth/avatars/ por compatibilidad con la app móvil.
+      // El dashboard debe usar /api/media/avatars/ para acceder directamente.
+      let url = player.avatarUrl;
+      if (url.startsWith('/api/auth/avatars/')) {
+        url = url.replace('/api/auth/avatars/', '/api/media/avatars/');
+      }
+      const finalUrl = url.startsWith('http') ? url : `${base}${url}`;
+      console.log(`[Avatar] Resolved URL for ${player.name}:`, finalUrl);
+      return finalUrl;
     }
     const url = `${base}/api/media/avatars/${player.id}`;
     console.log(`[Avatar] Requesting avatar for player ${player.id}. URL: ${url}`);
@@ -224,6 +232,9 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   /** Sincroniza enlaces y jugadores cuando ya hay estado (p. ej. re-entrada a sala). */
   private syncFromState(): void {
     if (!this.state) return;
+
+    console.log('[Avatar Debug] syncFromState called. Players:', 
+      this.state.players.map(p => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })));
 
     if (this.state.roomId) {
       this.currentRoomId = this.state.roomId;
@@ -1729,6 +1740,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.resizeParticlesCanvas();
     this.resizeLinkPacketsCanvas();
     if (initial) this.initParticles();
+    this.cdr.detectChanges();
   }
 
   private resizeLinkPacketsCanvas(): void {
