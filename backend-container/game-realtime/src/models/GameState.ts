@@ -263,6 +263,7 @@ export class GameStateModel implements GameState {
       players: this.players.map(p => ({
         id: p.id,
         name: p.name,
+        avatarUrl: p.avatarUrl,
         isAlive: p.isAlive,
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),
@@ -304,6 +305,7 @@ export class GameStateModel implements GameState {
     return {
       id: p.id,
       name: p.name,
+      avatarUrl: p.avatarUrl,
       socketId: p.socketId,
       role: p.role,
       team: p.team,

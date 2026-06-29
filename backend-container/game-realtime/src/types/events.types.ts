@@ -66,6 +66,7 @@ export interface IncidentReport {
 export interface PublicPlayerState {
   id: PlayerId;
   name: string;
+  avatarUrl?: string;
   isAlive: boolean;
   isConnected: boolean;
   silenced?: boolean;

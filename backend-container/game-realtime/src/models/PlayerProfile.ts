@@ -10,6 +10,7 @@ import { PlayerId, RoleId } from '../types';
 export interface PlayerProfile {
   id: PlayerId;
   name: string;
+  avatarUrl?: string;
   socketId?: string;
   role?: RoleId;
   team?: string;
@@ -28,6 +29,7 @@ export interface PlayerProfile {
 export class Player implements PlayerProfile {
   id: PlayerId;
   name: string;
+  avatarUrl?: string;
   socketId?: string;
   role?: RoleId;
   team?: string;

@@ -31,21 +31,28 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       const code = normalizeRoomCode(roomId);
       const autoReconnect = opts?.autoReconnect === true;
       let linkedUserId: string | undefined;
+      let avatarUrl: string | undefined;
       if (opts?.accessToken) {
         const payload = verifyAccessToken(opts.accessToken);
         linkedUserId = payload?.sub;
-        if (linkedUserId && REQUIRE_EMAIL_VERIFICATION) {
+        if (linkedUserId) {
           const doc = await findUserById(linkedUserId);
-          if (doc && !isEmailVerified(doc)) {
-            logger.warn('[mobile] joinRoom — correo no verificado', { roomId: code, playerId, linkedUserId });
-            socket.emit(
-              'error',
-              formatSocketError(
-                'Debes verificar tu correo antes de unirte a una sala.',
-                'email_not_verified',
-              ),
-            );
-            return;
+          if (doc) {
+            avatarUrl = doc.avatarUrl;
+            if (avatarUrl?.startsWith('/api/media/avatars/')) {
+              avatarUrl = avatarUrl.replace(/^\/api\/media/, '/api/auth');
+            }
+            if (REQUIRE_EMAIL_VERIFICATION && !isEmailVerified(doc)) {
+              logger.warn('[mobile] joinRoom — correo no verificado', { roomId: code, playerId, linkedUserId });
+              socket.emit(
+                'error',
+                formatSocketError(
+                  'Debes verificar tu correo antes de unirte a una sala.',
+                  'email_not_verified',
+                ),
+              );
+              return;
+            }
           }
         }
       }
@@ -125,9 +132,9 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
           !existing.isConnected &&
           existing.lastDisconnectReason === 'transport';
         if (isInvoluntaryReconnect) {
-          room.reconnectPlayer(playerId, socket.id, name, linkedUserId);
+          room.reconnectPlayer(playerId, socket.id, name, linkedUserId, avatarUrl);
         } else {
-          room.connectPlayer(playerId, socket.id, name, linkedUserId);
+          room.connectPlayer(playerId, socket.id, name, linkedUserId, avatarUrl);
         }
         if (previousSocketId && previousSocketId !== socket.id) {
           const oldSock = gameNs.sockets.get(previousSocketId);
@@ -143,6 +150,7 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       } else {
         const p = new Player(playerId, name || `Player-${playerId}`, socket.id);
         if (linkedUserId) p.userId = linkedUserId;
+        if (avatarUrl) p.avatarUrl = avatarUrl;
         try {
           room.addPlayer(p);
         } catch (err) {

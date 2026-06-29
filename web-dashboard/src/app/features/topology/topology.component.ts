@@ -118,6 +118,19 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.avatarErrors.add(playerId);
   }
 
+  resolveAvatarUrl(url?: string): string | null {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    const base = environment.apiUrl.replace(/\/$/, '');
+    return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
+  }
+
+  get currentUrl(): string {
+    return window.location.pathname;
+  }
+
+  // Dimensiones del canvas SVG
+
   @ViewChild('svgContainer', { static: true }) svgContainer!: ElementRef<HTMLElement>;
   @ViewChild('particlesCanvas') particlesCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('linkPacketsCanvas') linkPacketsCanvas?: ElementRef<HTMLCanvasElement>;
@@ -140,6 +153,9 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   returningGhostSlots = new Set<number>();
   spokeGuides: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
   ringMeshLinks: HubLink[] = [];
+
+  avatarBlobUrls = new Map<string, string>();
+
   slotGuides: BootSpoke[] = [];
   phaseTransition = false;
   networkBooting = false;
@@ -210,6 +226,41 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.detectAliveChanges();
     this.detectConnectionChanges();
     this.refreshHubLinks();
+    this.fetchMissingAvatars();
+  }
+
+  private fetchMissingAvatars(): void {
+    if (!this.state) return;
+    this.state.players.forEach(p => {
+      if (p.avatarUrl && !this.avatarBlobUrls.has(p.id)) {
+        const url = this.resolveAvatarUrl(p.avatarUrl);
+        if (url) {
+          // Si es ngrok y no es una imagen externa, usamos fetch para saltar la página de advertencia.
+          // Para todo lo demás (Render, local, o URLs externas), usamos la URL directa.
+          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev')) {
+            this.avatarBlobUrls.set(p.id, '');
+            fetch(url, {
+              headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'Bypass-Tunnel-Reminder': 'true'
+              }
+            }).then(res => {
+              if (!res.ok) throw new Error();
+              return res.blob();
+            }).then(blob => {
+              const blobUrl = URL.createObjectURL(blob);
+              this.avatarBlobUrls.set(p.id, blobUrl);
+              this.cdr.markForCheck();
+            }).catch(() => {
+              this.avatarBlobUrls.delete(p.id);
+            });
+          } else {
+            // URL normal o de Render, se asigna directo para no romper CORS en imágenes externas
+            this.avatarBlobUrls.set(p.id, url);
+          }
+        }
+      }
+    });
   }
 
   ngOnDestroy(): void {
