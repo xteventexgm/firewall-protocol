@@ -263,7 +263,7 @@ export class GameStateModel implements GameState {
       players: this.players.map(p => ({
         id: p.id,
         name: p.name,
-        avatarUrl: p.avatarUrl,
+        avatarUrl: p.userId ? `/api/media/avatars/${p.userId}` : p.avatarUrl,
         isAlive: p.isAlive,
         isConnected: p.isConnected,
         silenced: isSilenced(p, this.dayNumber),

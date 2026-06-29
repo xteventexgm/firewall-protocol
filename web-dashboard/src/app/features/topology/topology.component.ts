@@ -110,12 +110,18 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   avatarErrors = new Set<string>();
 
   // Devuelve la URL pública del avatar basándose en el ID del jugador
-  getAvatarUrl(playerId: string): string {
+  getAvatarUrl(player: PublicPlayer): string {
     const base = environment.apiUrl.replace(/\/$/, '');
-    return `${base}/api/media/avatars/${playerId}`;
+    if (player.avatarUrl) {
+      return player.avatarUrl.startsWith('http') ? player.avatarUrl : `${base}${player.avatarUrl}`;
+    }
+    const url = `${base}/api/media/avatars/${player.id}`;
+    console.log(`[Avatar] Requesting avatar for player ${player.id}. URL: ${url}`);
+    return url;
   }
 
-  handleAvatarError(playerId: string): void {
+  handleAvatarError(playerId: string, event?: Event): void {
+    console.error(`[Avatar] Failed to load avatar for player ${playerId}. Event:`, event);
     this.avatarErrors.add(playerId);
   }
 
