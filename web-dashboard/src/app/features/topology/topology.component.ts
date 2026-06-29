@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { GamePhase, PublicGameState, PublicPlayer } from '../../core/models/game-state.model';
 import { countSkipVotes, roleTeamHint } from '../../core/utils/game.utils';
+import { environment } from '../../../environments/environment';
 import {
   allPrimaryCentralsFallen,
   applyArmFailover,
@@ -105,6 +106,16 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Output() kickPlayer = new EventEmitter<PublicPlayer>();
 
   kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
+  avatarErrors = new Set<string>();
+
+  resolveAvatarUrl(playerId: string): string {
+    const base = environment.apiUrl.replace(/\/$/, '');
+    return `${base}/api/media/avatars/${playerId}`;
+  }
+
+  handleAvatarError(playerId: string): void {
+    this.avatarErrors.add(playerId);
+  }
 
   @ViewChild('svgContainer', { static: true }) svgContainer!: ElementRef<HTMLElement>;
   @ViewChild('particlesCanvas') particlesCanvas?: ElementRef<HTMLCanvasElement>;
