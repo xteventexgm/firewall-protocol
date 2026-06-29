@@ -238,6 +238,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     // HACK: El Game Server de Render aún no tiene el modo crudo porque no has hecho git push.
     // Mapeamos tu nombre directamente a tu ID real de Mongo para que el dashboard pueda ver la imagen.
     this.state.players.forEach(p => {
+      console.log(JSON.stringify(p, null, 2));
       if (!p.avatarUrl && p.name == "xteventexgm") {
         console.log(p.id + "es esta mi url de avatar?")
         p.avatarUrl = `${p?.avatarUrl?.toString()}`;
