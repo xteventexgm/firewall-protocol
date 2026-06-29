@@ -1,9 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { Camera } from '@capacitor/camera';
+
 import { AuthService, AuthUser, GameParticipation, UserProfileBundle } from '../../services/auth/auth.service';
 import {
   PASSWORD_HINT,
@@ -69,7 +71,7 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   deleteAccountSuccess = '';
   private subs = new Subscription();
 
-  constructor(private authService: AuthService, private router: Router) {
+  constructor(private authService: AuthService, private router: Router, private cdr: ChangeDetectorRef) {
     this.subs.add(
       this.authService.profileUpdated$.subscribe((user) => {
         this.applyUserToProfile(user);
@@ -606,6 +608,41 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
       this.profileError = messages[code] ?? this.authService.mapError(code);
     } finally {
       this.saving = false;
+    }
+  }
+
+  async pickAvatar(): Promise<void> {
+    try {
+      if (this.saving) return;
+      const result = await Camera.pickImages({
+        limit: 1,
+      });
+
+      if (result.photos && result.photos.length > 0) {
+        const image = result.photos[0];
+        try {
+          const response = await fetch(image.webPath!);
+          const blob = await response.blob();
+          const file = new File([blob], `avatar.${image.format}`, { type: `image/${image.format}` });
+          
+          this.revokePreview();
+          this.pendingAvatarFile = file;
+          this.removeAvatarFlag = false;
+          this.avatarPreviewUrl = image.webPath!;
+          this.profileError = '';
+        } catch (fetchErr) {
+          console.error('Error procesando imagen', fetchErr);
+          this.profileError = 'No se pudo procesar la imagen seleccionada.';
+        }
+      }
+    } catch (e: any) {
+      console.warn('User cancelled or error picking image', e);
+      if (e?.message && (e.message.includes('User cancelled') || e.message.includes('cancel'))) {
+        return;
+      }
+      this.profileError = 'Error al abrir la galería. (Plugin)';
+    } finally {
+      this.cdr?.markForCheck();
     }
   }
 

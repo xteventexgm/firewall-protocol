@@ -106,6 +106,16 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Output() kickPlayer = new EventEmitter<PublicPlayer>();
 
   kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
+  avatarErrors = new Set<string>();
+
+  resolveAvatarUrl(playerId: string): string {
+    const base = environment.apiUrl.replace(/\/$/, '');
+    return `${base}/api/media/avatars/${playerId}`;
+  }
+
+  handleAvatarError(playerId: string): void {
+    this.avatarErrors.add(playerId);
+  }
 
   resolveAvatarUrl(url?: string): string | null {
     if (!url) return null;
