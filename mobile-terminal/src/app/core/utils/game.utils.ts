@@ -23,6 +23,7 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
   const players: RoomPlayer[] = (raw?.players ?? []).map((p: any) => ({
     id: p.id,
     name: p.name,
+    avatarUrl: p.avatarUrl ?? undefined,
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: isPlayerSilenced(p, dayNumber),

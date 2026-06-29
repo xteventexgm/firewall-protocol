@@ -25,6 +25,7 @@ export function sanitizeGameState(raw: any): PublicGameState {
   const players: PublicPlayer[] = (raw?.players ?? []).map((p: any) => ({
     id: p.id,
     name: p.name,
+    avatarUrl: p.avatarUrl ?? undefined,
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
     silenced: p.silenced === true,

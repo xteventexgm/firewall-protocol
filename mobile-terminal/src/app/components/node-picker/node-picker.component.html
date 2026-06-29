@@ -12,7 +12,12 @@
       [attr.aria-label]="player.name"
     >
       <span class="hex-shape" aria-hidden="true">
-        <span class="hex-inner">{{ initial(player.name) }}</span>
+        <ng-container *ngIf="avatarErrors.has(player.id) || (!player.avatarUrl && player.id.startsWith('usr_')); else avatarImg">
+          <span class="hex-inner">{{ initial(player.name) }}</span>
+        </ng-container>
+        <ng-template #avatarImg>
+          <img class="hex-avatar-img" [src]="getAvatarUrl(player)" (error)="handleAvatarError(player.id)" alt="" />
+        </ng-template>
       </span>
       <span class="hex-label">{{ player.name }}</span>
     </button>
