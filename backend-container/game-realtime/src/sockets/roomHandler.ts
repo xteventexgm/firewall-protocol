@@ -18,7 +18,7 @@ import {
   isValidRoomCode,
   normalizeRoomCode,
 } from '../utils/socketErrors';
-import { verifyAccessToken, findUserById, isEmailVerified } from '@firewall/identity-service';
+import { verifyAccessToken, findUserById, findUserByGuestId, isEmailVerified } from '@firewall/identity-service';
 import { REQUIRE_EMAIL_VERIFICATION } from '../config/env';
 
 /** Registra handlers de lobby/conexión en namespace `/game`. */
@@ -35,27 +35,34 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
       if (opts?.accessToken) {
         const payload = verifyAccessToken(opts.accessToken);
         linkedUserId = payload?.sub;
-        if (linkedUserId) {
-          const doc = await findUserById(linkedUserId);
-          if (doc) {
-            avatarUrl = doc.avatarUrl;
-            if (avatarUrl?.startsWith('/api/media/avatars/')) {
-              avatarUrl = avatarUrl.replace(/^\/api\/media/, '/api/auth');
-            }
-            if (REQUIRE_EMAIL_VERIFICATION && !isEmailVerified(doc)) {
-              logger.warn('[mobile] joinRoom — correo no verificado', { roomId: code, playerId, linkedUserId });
-              socket.emit(
-                'error',
-                formatSocketError(
-                  'Debes verificar tu correo antes de unirte a una sala.',
-                  'email_not_verified',
-                ),
-              );
-              return;
-            }
-          }
+      }
+      
+      let doc;
+      if (linkedUserId) {
+        doc = await findUserById(linkedUserId);
+      } else if (playerId.startsWith('usr_')) {
+        doc = await findUserByGuestId(playerId);
+        if (doc) linkedUserId = doc._id.toString();
+      }
+
+      if (doc) {
+        avatarUrl = doc.avatarUrl;
+        if (avatarUrl?.startsWith('/api/media/avatars/')) {
+          avatarUrl = avatarUrl.replace(/^\/api\/media/, '/api/auth');
+        }
+        if (REQUIRE_EMAIL_VERIFICATION && !isEmailVerified(doc)) {
+          logger.warn('[mobile] joinRoom — correo no verificado', { roomId: code, playerId, linkedUserId });
+          socket.emit(
+            'error',
+            formatSocketError(
+              'Debes verificar tu correo antes de unirte a una sala.',
+              'email_not_verified',
+            ),
+          );
+          return;
         }
       }
+
       logClient('mobile', 'joinRoom', socket.id, { roomId: code, playerId, name, autoReconnect, linkedUserId: linkedUserId ?? null });
 
       if (!isValidRoomCode(code)) {

@@ -150,6 +150,10 @@ export async function findUserById(userId: string): Promise<UserDocument | null>
   return users().findOne({ _id: new ObjectId(userId), isActive: true });
 }
 
+export async function findUserByGuestId(guestId: string): Promise<UserDocument | null> {
+  return users().findOne({ linkedGuestIds: guestId, isActive: true });
+}
+
 export async function getPublicUser(userId: string): Promise<PublicUser | null> {
   const doc = await findUserById(userId);
   return doc ? toPublicUser(doc) : null;
