@@ -109,6 +109,7 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
   avatarErrors = new Set<string>();
 
+  // Devuelve la URL pública del avatar basándose en el ID del jugador
   resolveAvatarUrl(playerId: string): string {
     const base = environment.apiUrl.replace(/\/$/, '');
     return `${base}/api/media/avatars/${playerId}`;
