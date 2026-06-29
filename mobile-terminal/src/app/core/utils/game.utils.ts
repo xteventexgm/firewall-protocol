@@ -148,9 +148,9 @@ export function deadPlayerRoleLabel(player: RoomPlayer, phase: GamePhase | 'ELIM
 
 export function winnerLabel(winner: string | null | undefined): string {
   const labels: Record<string, string> = {
-    system: 'El SISTEMA ha restaurado la red',
-    black_hat: 'BLACK HAT ha comprometido la infraestructura',
-    chaotic: 'El caos ha prevalecido',
+    system: 'El Sistema logró purgar la red de todas las amenazas.',
+    black_hat: 'Black Hat ha comprometido la red eliminando al Sistema.',
+    chaotic: 'El caos ha prevalecido sobre el orden.',
   };
   return winner ? (labels[winner] ?? `Ganador: ${winner}`) : 'Partida terminada';
 }

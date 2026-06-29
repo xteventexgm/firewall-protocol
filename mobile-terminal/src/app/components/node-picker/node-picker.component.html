@@ -18,6 +18,11 @@
         <ng-template #avatarImg>
           <img class="hex-avatar-img" [src]="getAvatarUrl(player)" (error)="handleAvatarError(player.id)" alt="" />
         </ng-template>
+        <div class="hex-selected-overlay" *ngIf="selectedId === player.id">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
       </span>
       <span class="hex-label">{{ player.name }}</span>
     </button>

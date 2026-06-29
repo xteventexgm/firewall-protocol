@@ -155,9 +155,9 @@ export function attachRoomBridge(room: Room, gameNs: Namespace, dashboardNs?: Na
     refresh();
   });
 
-  room.on('playerEliminated', ({ roomId, playerId, reason }) => {
-    gameNs.to(roomId).emit('playerEliminated', roomId, playerId, reason);
-    dashboardNs?.to(roomId).emit('playerEliminated', roomId, playerId, reason);
+  room.on('playerEliminated', ({ roomId, playerId, reason, role }) => {
+    gameNs.to(roomId).emit('playerEliminated', roomId, playerId, reason, role);
+    dashboardNs?.to(roomId).emit('playerEliminated', roomId, playerId, reason, role);
     refresh();
   });
 

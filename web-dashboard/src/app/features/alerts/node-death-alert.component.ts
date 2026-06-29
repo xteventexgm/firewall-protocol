@@ -18,12 +18,12 @@ import { NodeDeathAlertData } from '../../core/utils/node-death-alert.utils';
           <h2 class="node-death-headline">{{ alert.headline }}</h2>
           <div class="node-death-names">
             @for (p of alert.players; track p.name) {
-              <span class="node-death-name">
-                {{ p.name }}
+              <div class="node-death-player-block">
+                <span class="node-death-name">{{ p.name }}</span>
                 @if (p.role) {
-                  <span class="node-death-role">[{{ p.role }}]</span>
+                  <span class="node-death-role">{{ p.role }}</span>
                 }
-              </span>
+              </div>
             }
           </div>
           <p class="node-death-sub">{{ alert.subtitle }}</p>
@@ -116,6 +116,13 @@ import { NodeDeathAlertData } from '../../core/utils/node-death-alert.utils';
         margin-bottom: 0.85rem;
       }
 
+      .node-death-player-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
       .node-death-name {
         display: inline-block;
         padding: 0.35rem 0.85rem;
@@ -129,10 +136,12 @@ import { NodeDeathAlertData } from '../../core/utils/node-death-alert.utils';
       }
 
       .node-death-role {
-        font-size: 0.85em;
+        font-size: 0.8rem;
         opacity: 0.8;
-        margin-left: 0.4rem;
         color: #ff6b84;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.1em;
       }
 
       .node-death-sub {

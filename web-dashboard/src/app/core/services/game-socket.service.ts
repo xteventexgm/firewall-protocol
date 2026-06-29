@@ -50,7 +50,7 @@ export class GameSocketService implements OnDestroy {
   readonly voteTied$ = new Subject<VoteTiedPayload>();
   readonly voteTrace$ = new Subject<VoteTrace>();
   readonly nightResolved$ = new Subject<{ roomId: string; resolution: NightResolution }>();
-  readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string }>();
+  readonly playerEliminated$ = new Subject<{ roomId: string; playerId: string; reason: string; role?: string }>();
   readonly playerDisconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly playerReconnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
   readonly playerConnected$ = new Subject<{ roomId: string; playerId: string; playerName?: string }>();
@@ -351,9 +351,9 @@ export class GameSocketService implements OnDestroy {
       this.nightResolved$.next({ roomId: roomId.toUpperCase(), resolution: full });
     });
 
-    this.socket.on('playerEliminated', (roomId: string, playerId: string, reason: string) => {
+    this.socket.on('playerEliminated', (roomId: string, playerId: string, reason: string, role?: string) => {
       if (!this.matchesRoom(roomId)) return;
-      this.playerEliminated$.next({ roomId: roomId.toUpperCase(), playerId, reason });
+      this.playerEliminated$.next({ roomId: roomId.toUpperCase(), playerId, reason, role });
     });
 
     this.socket.on('playerDisconnected', (roomId: string, playerId: string, playerName?: string) => {
@@ -474,10 +474,12 @@ export class GameSocketService implements OnDestroy {
     if (this.joinPending && isJoinPendingError(resolvedCode, message)) {
       this.joinPending = false;
       this.roomId = null;
+      this.reconnecting$.next(false);
       this.joinOutcome$.next({ ok: false, error: toastMsg });
     } else if (isFatalJoinError(resolvedCode, message)) {
       this.roomId = null;
       this.roomState$.next(null);
+      this.reconnecting$.next(false);
     }
 
     this.error$.next(toastMsg);

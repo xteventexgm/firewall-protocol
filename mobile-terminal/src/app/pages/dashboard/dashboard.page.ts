@@ -12,6 +12,8 @@ import {
 import {
   SocketService,
 } from '../../services/socket/socket.service';
+import { AuthService } from '../../services/auth/auth.service';
+import { evaluateEndOfGameAchievements } from '../../core/utils/achievements.eval';
 import {
   getNightActionLabel,
   getNightActionType,
@@ -178,6 +180,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   readonly trollMessages = TROLL_PROVOKE_MESSAGES;
   readonly canCryptoBribe = canCryptoBribe;
   isNightActionMinimized = false;
+  lastGameState: PlayerRoomState | null = null;
 
   private subs = new Subscription();
 
@@ -220,14 +223,31 @@ export class DashboardPage implements OnInit, OnDestroy {
     private router: Router,
     private gameSound: GameSoundService,
     private platform: Platform,
-    private alertCtrl: AlertController
+    private alertCtrl: AlertController,
+    private authService: AuthService
   ) {}
 
   private backButtonSub?: Subscription;
 
   ionViewDidEnter() {
-    this.backButtonSub = this.platform.backButton.subscribeWithPriority(999, () => {
-      this.confirmLeave();
+    this.backButtonSub = this.platform.backButton.subscribeWithPriority(10, () => {
+      if (this.showIncidentReport) {
+        this.showIncidentReport = false;
+      } else if (this.showRoleBriefing) {
+        this.showRoleBriefing = false;
+      } else if (this.showThreatBriefing) {
+        this.showThreatBriefing = false;
+      } else if (this.showRoleGuide) {
+        this.showRoleGuide = false;
+      } else if (this.showRoleList) {
+        this.showRoleList = false;
+      } else if (this.showPatchConfirm) {
+        this.showPatchConfirm = false;
+      } else if (this.showNodeDeathAlert) {
+        this.showNodeDeathAlert = false;
+      } else {
+        this.confirmLeave();
+      }
     });
   }
 
@@ -303,6 +323,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     this.subs.add(
       this.socketService.gameState$.subscribe((state) => {
+        this.lastGameState = state;
         if (state.roomId) this.roomCode = state.roomId;
         this.dayNumber = state.dayNumber ?? 0;
         this.nightNumber = state.nightNumber ?? 0;
@@ -1623,7 +1644,6 @@ export class DashboardPage implements OnInit, OnDestroy {
     winner: string | null | undefined,
     soloWinner?: { playerId: string; role: string; reason: string } | null,
   ): void {
-    if (this.showGameOver) return;
     this.showGameOverScreen(winner, soloWinner);
   }
 
@@ -1735,6 +1755,25 @@ export class DashboardPage implements OnInit, OnDestroy {
       }
     } else {
       this.gameSound.play('defeat');
+    }
+
+    if (this.lastGameState) {
+      const user = this.authService.getUser();
+      const currentAchievements = user?.achievements || [];
+      const team = this.myTeam || this.socketService.getMyTeam();
+      const newUnlocks = evaluateEndOfGameAchievements(
+        this.gameOverView,
+        this.lastGameState,
+        this.myPlayerId,
+        currentAchievements,
+        team
+      );
+
+      for (const id of newUnlocks) {
+        this.authService.unlockAchievement(id).catch(err => 
+          console.error('Failed to unlock achievement', id, err)
+        );
+      }
     }
   }
 
