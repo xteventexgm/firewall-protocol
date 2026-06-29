@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { Keyboard } from '@capacitor/keyboard';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 import { AuthService } from './services/auth/auth.service';
@@ -15,6 +16,8 @@ import { Router } from '@angular/router';
 })
 export class AppComponent implements OnInit, OnDestroy {
   private resumeListener?: { remove: () => Promise<void> };
+  private keyboardShowListener?: { remove: () => Promise<void> };
+  private keyboardHideListener?: { remove: () => Promise<void> };
   private lastBackPress = 0;
   private readonly onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
@@ -64,6 +67,23 @@ export class AppComponent implements OnInit, OnDestroy {
         /* StatusBar no disponible */
       }
 
+      // Keyboard show/hide listeners to adjust layout
+      try {
+        this.keyboardShowListener = await Keyboard.addListener('keyboardWillShow', (info) => {
+          document.documentElement.classList.add('keyboard-visible');
+          document.documentElement.style.setProperty(
+            '--keyboard-offset',
+            `${info.keyboardHeight}px`,
+          );
+        });
+        this.keyboardHideListener = await Keyboard.addListener('keyboardWillHide', () => {
+          document.documentElement.classList.remove('keyboard-visible');
+          document.documentElement.style.setProperty('--keyboard-offset', '0px');
+        });
+      } catch {
+        /* Keyboard plugin no disponible */
+      }
+
       this.resumeListener = await App.addListener('appStateChange', ({ isActive }) => {
         if (isActive) void this.authService.ensureSessionFresh();
       });
@@ -74,6 +94,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     void this.resumeListener?.remove();
+    void this.keyboardShowListener?.remove();
+    void this.keyboardHideListener?.remove();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
 }
+

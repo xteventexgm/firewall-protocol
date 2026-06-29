@@ -223,3 +223,90 @@ select option {
   color: #fff;
 }
 
+/* ─── Cyber Alert (ion-alert confirmation dialogs) ─────────────────── */
+ion-alert.cyber-alert {
+  --background: #0d1520;
+  --backdrop-opacity: 0.7;
+
+  .alert-wrapper {
+    background: #0d1520 !important;
+    border: 1px solid rgba(0, 240, 255, 0.25);
+    border-radius: 16px;
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.08), 0 8px 32px rgba(0, 0, 0, 0.6);
+  }
+
+  .alert-head {
+    padding: 1.2rem 1.2rem 0.5rem;
+  }
+
+  .alert-title {
+    color: #00f0ff !important;
+    font-family: var(--font-mono, monospace);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .alert-message {
+    color: #a8d5e5 !important;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    padding: 0.5rem 1.2rem 1rem;
+  }
+
+  .alert-button-group {
+    padding: 0 0.8rem 0.8rem;
+  }
+
+  .alert-button {
+    color: #a8d5e5 !important;
+    font-family: var(--font-mono, monospace);
+    font-weight: 600;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    min-height: 42px;
+    transition: background 0.2s ease;
+
+    &:hover,
+    &:focus {
+      background: rgba(0, 240, 255, 0.08);
+    }
+  }
+
+  /* Destructive button (e.g. "Salir y ser Baneado") */
+  .alert-button[role='destructive'],
+  .alert-button.alert-button-role-destructive {
+    color: #ff2d55 !important;
+    border: 1px solid rgba(255, 45, 85, 0.35);
+    background: rgba(255, 45, 85, 0.08);
+
+    &:hover,
+    &:focus {
+      background: rgba(255, 45, 85, 0.18);
+    }
+  }
+
+  /* Cancel button */
+  .alert-button[role='cancel'],
+  .alert-button.alert-button-role-cancel {
+    color: #4a6a7a !important;
+  }
+}
+
+/* ─── Keyboard visible — adjust layout when soft keyboard opens ────── */
+:root {
+  --keyboard-offset: 0px;
+}
+
+html.keyboard-visible {
+  .page-scroll {
+    padding-bottom: calc(var(--keyboard-offset, 0px) + var(--app-safe-bottom, 0px)) !important;
+  }
+
+  /* Keep chat compose and input areas visible above keyboard */
+  .chat-compose,
+  .dead-chat-panel .chat-compose {
+    padding-bottom: 0.5rem;
+  }
+}
+
