@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, Platform, AlertController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -219,7 +219,61 @@ export class DashboardPage implements OnInit, OnDestroy {
     private socketService: SocketService,
     private router: Router,
     private gameSound: GameSoundService,
+    private platform: Platform,
+    private alertCtrl: AlertController
   ) {}
+
+  private backButtonSub?: Subscription;
+
+  ionViewDidEnter() {
+    this.backButtonSub = this.platform.backButton.subscribeWithPriority(999, () => {
+      this.confirmLeave();
+    });
+  }
+
+  ionViewWillLeave() {
+    this.backButtonSub?.unsubscribe();
+  }
+
+  private cleanupAndExit() {
+    try {
+      sessionStorage.removeItem(this.hackerTeamStorageKey());
+    } catch {
+      /* ignore */
+    }
+    this.hackerTeamMemberIds = [];
+    this.socketService.leaveRoom();
+    this.socketService.clearSession();
+    void this.router.navigate(['/login']);
+  }
+
+  async confirmLeave() {
+    if (this.gamePhase === 'LOBBY' || this.gamePhase === 'FIN') {
+      this.cleanupAndExit();
+      return;
+    }
+
+    const alert = await this.alertCtrl.create({
+      header: '¿Abandonar Partida?',
+      message: 'La partida está en curso. Si sales ahora, tu nodo será desconectado y quedarás eliminado (baneado).',
+      buttons: [
+        {
+          text: 'Cancelar',
+          role: 'cancel'
+        },
+        {
+          text: 'Salir y ser Baneado',
+          role: 'destructive',
+          handler: () => {
+            this.cleanupAndExit();
+          }
+        }
+      ],
+      cssClass: 'cyber-alert'
+    });
+
+    await alert.present();
+  }
 
   ngOnInit(): void {
     this.roomCode = localStorage.getItem('roomCode') ?? '';
@@ -1378,6 +1432,14 @@ export class DashboardPage implements OnInit, OnDestroy {
     return ch.value;
   }
 
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  trackByVariant(_index: number, variant: { value: string; label: string }): string {
+    return variant.value;
+  }
+
   get canShowChat(): boolean {
     if (this.gamePhase === 'ELIMINATED') return false;
     if (this.gamePhase === 'LOBBY' || this.gamePhase === 'DIA' || this.gamePhase === 'VOTACION' || this.gamePhase === 'FIN') {
@@ -1427,14 +1489,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   exitRoomCompletely(): void {
-    try {
-      sessionStorage.removeItem(this.hackerTeamStorageKey());
-    } catch {
-      /* ignore */
-    }
-    this.hackerTeamMemberIds = [];
-    this.socketService.clearSession();
-    void this.router.navigate(['/login']);
+    void this.confirmLeave();
   }
 
   get nightActionDisabled(): boolean {

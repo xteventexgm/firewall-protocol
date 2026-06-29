@@ -241,9 +241,9 @@
 
           <ng-container *ngIf="isTrollNight">
             <label class="field-label">Transmisión anónima</label>
-            <select [(ngModel)]="selectedProvokeIndex" class="terminal-select">
-              <option *ngFor="let msg of trollMessages; let i = index" [value]="i">{{ msg }}</option>
-            </select>
+            <ion-select [(ngModel)]="selectedProvokeIndex" class="terminal-select" interface="popover">
+              <ion-select-option *ngFor="let msg of trollMessages; let i = index; trackBy: trackByIndex" [value]="i">{{ msg }}</ion-select-option>
+            </ion-select>
             <button (click)="executeNightAction()" class="terminal-btn danger pulse-btn">
               Emitir Transmisión
             </button>
@@ -252,9 +252,9 @@
           <ng-container *ngIf="!isTrollNight">
             <ng-container *ngIf="nightActionVariants.length > 1">
               <label class="field-label">Parámetro de ejecución</label>
-              <select [(ngModel)]="selectedNightActionType" class="terminal-select">
-                <option *ngFor="let v of nightActionVariants" [value]="v.value">{{ v.label }}</option>
-              </select>
+              <ion-select [(ngModel)]="selectedNightActionType" class="terminal-select" interface="popover">
+                <ion-select-option *ngFor="let v of nightActionVariants; trackBy: trackByVariant" [value]="v.value">{{ v.label }}</ion-select-option>
+              </ion-select>
             </ng-container>
 
             <label class="field-label">Nodo objetivo</label>
@@ -457,9 +457,9 @@
       <section class="panel chat-panel chat-panel-full">
         <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
           <label class="field-label">Canal</label>
-          <select [(ngModel)]="chatChannel" class="terminal-select">
-            <option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</option>
-          </select>
+          <ion-select [(ngModel)]="chatChannel" class="terminal-select" interface="popover">
+            <ion-select-option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</ion-select-option>
+          </ion-select>
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
         <ul class="chat-list chat-list-tall">
@@ -512,9 +512,9 @@
       <div *ngIf="chatOpen" class="chat-body">
         <div *ngIf="chatChannelOptions.length > 1" class="chat-channel-row">
           <label class="field-label">Canal</label>
-          <select [(ngModel)]="chatChannel" class="terminal-select">
-            <option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</option>
-          </select>
+          <ion-select [(ngModel)]="chatChannel" class="terminal-select" interface="popover">
+            <ion-select-option *ngFor="let ch of chatChannelOptions; trackBy: trackChatChannel" [value]="ch.value">{{ ch.label }}</ion-select-option>
+          </ion-select>
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
         <ul class="chat-list">
