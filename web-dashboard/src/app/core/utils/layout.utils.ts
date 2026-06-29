@@ -34,8 +34,8 @@ const NODE_MARGIN = 46;
 
 /** Escala radial base (fracción del viewport). */
 const CLASSIC_RING = 0.46;
-const PRIMARY_RING = 0.44;
-const BRANCH_DIST = 0.4;
+const PRIMARY_RING = 0.52;
+const BRANCH_DIST = 0.48;
 /** No comprimir por debajo del viewport: siempre escala para que quepan todos los nodos. */
 const SAFE_TOP = 68;
 const SAFE_BOTTOM = 72;

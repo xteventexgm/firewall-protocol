@@ -1058,21 +1058,29 @@
   margin: 0.75rem 0 0.35rem;
 }
 
+ion-select.terminal-select,
 .terminal-select {
   width: 100%;
   min-height: 48px;
-  padding: 0.75rem 2.25rem 0.75rem 1rem;
   background-color: rgba(5, 10, 18, 0.85);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2300f0ff' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.85rem center;
   border: 1px solid rgba(26, 58, 74, 0.85);
   border-radius: 10px;
   color: var(--team-text, #c8e6f0);
   font-family: inherit;
   font-size: 0.85rem;
-  appearance: none;
-  -webkit-appearance: none;
+  
+  /* Ionic specific variables */
+  --padding-start: 1rem;
+  --padding-end: 2.25rem;
+  --placeholder-color: var(--team-text, #c8e6f0);
+  --placeholder-opacity: 0.8;
+  --background: transparent;
+  
+  &::part(icon) {
+    color: #00f0ff;
+    opacity: 1;
+    font-size: 1.2rem;
+  }
 
   &:focus {
     outline: none;

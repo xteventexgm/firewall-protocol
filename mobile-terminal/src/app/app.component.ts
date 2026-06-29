@@ -5,6 +5,9 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { IonApp, IonRouterOutlet } from '@ionic/angular/standalone';
 import { AuthService } from './services/auth/auth.service';
 
+import { Platform, ToastController } from '@ionic/angular';
+import { Router } from '@angular/router';
+
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
@@ -12,13 +15,41 @@ import { AuthService } from './services/auth/auth.service';
 })
 export class AppComponent implements OnInit, OnDestroy {
   private resumeListener?: { remove: () => Promise<void> };
+  private lastBackPress = 0;
   private readonly onVisibilityChange = (): void => {
     if (document.visibilityState === 'visible') {
       void this.authService.ensureSessionFresh();
     }
   };
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private platform: Platform,
+    private toastCtrl: ToastController,
+    private router: Router
+  ) {
+    this.platform.backButton.subscribeWithPriority(10, async (processNextHandler) => {
+      // If we are in the dashboard, don't exit the app, let the dashboard's own back button handler do its thing (priority 999)
+      if (this.router.url.includes('/dashboard')) {
+        processNextHandler();
+        return;
+      }
+
+      const now = Date.now();
+      if (now - this.lastBackPress < 2000) {
+        App.exitApp();
+      } else {
+        this.lastBackPress = now;
+        const toast = await this.toastCtrl.create({
+          message: 'Pulsa de nuevo para salir',
+          duration: 2000,
+          position: 'bottom',
+          color: 'dark'
+        });
+        await toast.present();
+      }
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     void this.authService.ensureSessionFresh();

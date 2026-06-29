@@ -336,14 +336,32 @@ export class Room extends EventEmitter {
     return true;
   }
 
-  /** Salida voluntaria del jugador (mantiene slot en partida en curso). */
+  /** Salida voluntaria del jugador (mantiene slot en partida en curso pero lo elimina si está activa). */
   voluntaryLeave(playerId: string) {
     const player = this.state.getPlayer(playerId);
     if (!player) return false;
+    
     player.isConnected = false;
     player.socketId = undefined;
     player.lastDisconnectReason = 'voluntary';
-    this.emit('playerDisconnected', { roomId: this.id, playerId: player.id });
+    
+    const phase = this.sm.getPhase();
+    if (phase !== GamePhase.LOBBY && phase !== GamePhase.FIN && player.isAlive) {
+      player.isAlive = false;
+      this.state.log(`Node disconnected abruptly (Baneado): ${player.name}`);
+      this.emit('incidentReport', {
+        roomId: this.id,
+        eliminatedPlayerIds: [player.id],
+        disconnected: [player.id],
+      });
+      this.emit('playerEliminated', { roomId: this.id, playerId: player.id, reason: 'abandonment' });
+      
+      // Chequear si su eliminación termina el juego
+      this.maybeEndGame();
+    } else {
+      this.emit('playerDisconnected', { roomId: this.id, playerId: player.id });
+    }
+    
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving on voluntaryLeave', e); }
     return true;
   }

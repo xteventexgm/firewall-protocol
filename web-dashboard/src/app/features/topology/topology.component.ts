@@ -1312,20 +1312,20 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   get nodeMetrics() {
     return {
-      outer: 50,
-      inner: 38,
+      outer: 45,
+      inner: 34,
       initialSize: 22,
       nameSize: 14,
       statusSize: 11,
       roleSize: 11,
-      nameY: 68,
-      statusY: -42,
-      roleY: -62,
-      pulseR: 54,
-      linkInset: 52,
+      nameY: 60,
+      statusY: -38,
+      roleY: -56,
+      pulseR: 48,
+      linkInset: 47,
       /** Borde del disco del hub donde enchufan los cables (coincide con .hub-plate). */
       hubPortRadius: 55,
-      primaryInset: 46,
+      primaryInset: 42,
     };
   }
 
