@@ -207,6 +207,8 @@
   color: #8ad4e8;
   font-size: 0.72rem;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
 .avatar-block .upload-btn input {
