@@ -257,11 +257,7 @@ export class LoginPage implements OnInit, OnDestroy {
         this.errorMessage = 'Esta partida ya finalizó. Pide al host que cree una sala nueva.';
         return;
       }
-      const savedPlayerId = localStorage.getItem('myPlayerId');
-      if (!status.canJoin && !savedPlayerId) {
-        this.errorMessage = 'La partida ya comenzó. Solo jugadores registrados pueden reconectar.';
-        return;
-      }
+      // Spectators can now join ongoing games, so we no longer block them here.
 
       if (this.needsAliasStep) {
         this.step = 'alias';

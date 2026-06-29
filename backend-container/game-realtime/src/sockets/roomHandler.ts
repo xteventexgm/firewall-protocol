@@ -167,14 +167,11 @@ export default function registerRoomHandlers(socket: Socket, gameNs: Namespace, 
           room.addPlayer(p);
         } catch (err) {
           if (err instanceof RoomJoinDeniedError) {
-            logger.warn('[mobile] joinRoom — partida en curso', { roomId: code, playerId, phase: room.state.phase });
-            socket.emit(
-              'error',
-              formatSocketError(
-                'La partida ya comenzó. No se admiten jugadores nuevos.',
-                'game_started',
-              ),
-            );
+            logger.info('[mobile] joinRoom spectator', { roomId: code, playerId, phase: room.state.phase });
+            // Instead of error, let them join as spectator
+            socket.join(code);
+            socket.emit('roomState', room.state.toPlainForPlayer(playerId));
+            logClient('mobile', 'joinRoom spectator', socket.id, { roomId: code, playerId });
             return;
           }
           if (err instanceof Error && err.message.includes('full')) {

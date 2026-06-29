@@ -354,7 +354,8 @@ export class Room extends EventEmitter {
         eliminatedPlayerIds: [player.id],
         disconnected: [player.id],
       });
-      this.emit('playerEliminated', { roomId: this.id, playerId: player.id, reason: 'abandonment' });
+      const role = player.role;
+      this.emit('playerEliminated', { roomId: this.id, playerId: player.id, reason: 'abandonment', role });
       
       // Chequear si su eliminación termina el juego
       this.maybeEndGame();
@@ -662,7 +663,8 @@ export class Room extends EventEmitter {
           this.state.log(
             `Voted out: ${bestTarget} (${resolution.voteCount} votes, skip: ${resolution.skipVotes})`,
           );
-          this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote' });
+          const role = this.state.getPlayer(bestTarget)?.role;
+          this.emit('playerEliminated', { roomId: this.id, playerId: bestTarget, reason: 'vote', role });
           this.applyHoneypotBanDrag(bestTarget);
           this.maybeEndGame({ justVotedOut: bestTarget });
         }
@@ -693,7 +695,8 @@ export class Room extends EventEmitter {
     if (dragged?.isAlive) {
       dragged.isAlive = false;
       this.state.log(`Honeypot drag on ban: ${dragTarget}`);
-      this.emit('playerEliminated', { roomId: this.id, playerId: dragTarget, reason: 'honeypot_drag' });
+      const role = this.state.getPlayer(dragTarget)?.role;
+      this.emit('playerEliminated', { roomId: this.id, playerId: dragTarget, reason: 'honeypot_drag', role });
       this.maybeEndGame();
     }
   }

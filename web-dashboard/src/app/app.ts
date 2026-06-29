@@ -265,13 +265,13 @@ export class App implements OnInit, OnDestroy {
           }, 8_000);
         }
       }),
-      this.gameSocket.playerEliminated$.subscribe(({ playerId, reason }) => {
+      this.gameSocket.playerEliminated$.subscribe(({ playerId, reason, role }) => {
         if (!this.inRoom || this.gameOverActive) return;
         const isVote = reason === 'vote';
         this.gameSound.play(isVote ? 'death' : 'node_leave');
         this.patchPlayersAlive([playerId], false);
         this.beginEliminationAnimation([playerId]);
-        this.queueNodeDeathAlerts([playerId], reason);
+        this.queueNodeDeathAlerts([playerId], reason, role);
       }),
       this.gameSocket.playerDisconnected$.subscribe(({ playerId, playerName }) => {
         if (!this.inRoom || this.gameOverActive) return;
@@ -695,10 +695,10 @@ export class App implements OnInit, OnDestroy {
     }, App.ELIMINATION_ANIM_MS);
   }
 
-  private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
+  private queueNodeDeathAlerts(playerIds: string[], reason: string, explicitRole?: string): void {
     const playersData = playerIds.map((id) => {
       const player = this.state?.players.find(p => p.id === id);
-      return { name: player?.name ?? id, role: player?.role };
+      return { name: player?.name ?? id, role: explicitRole ?? player?.role };
     });
     const alert = buildNodeDeathAlert(playersData, reason);
     if (!alert) return;

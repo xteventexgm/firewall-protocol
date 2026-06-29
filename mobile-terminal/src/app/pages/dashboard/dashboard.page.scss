@@ -95,7 +95,8 @@
     0 0 0 1px rgba(0, 240, 255, 0.04),
     0 16px 48px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(14px);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .terminal-shell.interference-shake {
@@ -1308,7 +1309,7 @@ ion-select.terminal-select,
     background: #120408;
     border: none;
     animation: none;
-    overflow: hidden;
+    overflow-y: auto;
 
     .overlay-content {
       position: relative;
@@ -2078,13 +2079,14 @@ ion-select.terminal-select,
   flex-direction: column;
   gap: 0.55rem;
   overflow-y: auto;
-  max-height: calc(100dvh - 13.5rem - var(--app-safe-top, 0px) - var(--app-safe-bottom, 0px));
+  flex: 1;
+  min-height: 0;
   padding-bottom: 0.25rem;
   -webkit-overflow-scrolling: touch;
 }
 
 .tab-pane-comms {
-  max-height: calc(100dvh - 12.5rem - var(--app-safe-top, 0px) - var(--app-safe-bottom, 0px));
+  // specific overrides if needed, now inherits flex: 1
 }
 
 .tab-empty {
@@ -2199,13 +2201,13 @@ ion-select.terminal-select,
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 280px;
+  min-height: 0;
 }
 
 .chat-list-tall {
   flex: 1;
   max-height: none;
-  min-height: 180px;
+  min-height: 0;
 }
 .section-divider { border-color: #334; margin: 1rem 0; }
 .sub-action-title { font-size: 0.85rem; color: #ffaa00; margin: 0 0 0.5rem; }
