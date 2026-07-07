@@ -1,4 +1,33 @@
 <ion-content class="login-content scroll-page" [scrollY]="false">
+  <!-- Boot Sequence Overlay -->
+  <div *ngIf="showBootSequence" class="boot-overlay premium-boot" (click)="skipBootSequence()">
+    <div class="boot-scanline"></div>
+    <div class="boot-vignette"></div>
+    
+    <div class="terminal-boot-text" *ngIf="bootStep === 1">
+      KERNEL INIT...<br/>
+      MOUNTING VFS... [OK]<br/>
+      LOADING MODULES...<br/>
+      AUTH SERVICE... ONLINE<br/>
+      ESTABLISHING SECURE CONNECTION...
+    </div>
+
+    <div class="boot-content" *ngIf="bootStep >= 2">
+      <div class="logo-wrapper">
+        <img src="assets/icon.png" class="boot-logo" alt="Logo" [class.glitch]="bootStep >= 2" />
+        <div class="logo-hologram"></div>
+      </div>
+      
+      <div class="boot-text-container" *ngIf="bootStep >= 3">
+        <h1 class="boot-title">{{ displayedBootText }}<span class="cursor" *ngIf="bootStep === 3">_</span></h1>
+        <p class="boot-subtitle" *ngIf="bootStep >= 4">{{ displayedSubText }}<span class="cursor" *ngIf="bootStep === 4">_</span></p>
+        <p class="boot-decrypt" *ngIf="bootStep >= 5">{{ displayedDecryptText }}<span class="cursor">_</span></p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="boot-flash-overlay" [class.active]="bootFlash"></div>
+
   <app-home-atmosphere />
 
   <app-account-panel
@@ -9,7 +38,7 @@
     (authChanged)="onAuthChanged()"
   />
 
-  <div class="page-scroll login-page">
+  <div class="page-scroll login-page" [class.form-ready]="formReady">
     <div class="login-shell">
       <button
         type="button"

@@ -17,6 +17,15 @@
   align-items: center;
   justify-content: center;
   padding: max(0.75rem, var(--app-safe-top)) 1rem max(1rem, var(--app-safe-bottom));
+  
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+
+  &.form-ready {
+    visibility: visible;
+    animation: form-interference-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 }
 
 .account-fab {
@@ -630,6 +639,227 @@
 @keyframes cta-shimmer {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
+}
+
+/* Premium Boot Sequence Styles */
+.premium-boot {
+  background: radial-gradient(circle at center, #0a111a 0%, #020508 100%);
+  color: #00f0ff;
+  font-family: var(--font-mono);
+}
+
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.boot-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 150px rgba(0,0,0,0.9);
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.terminal-boot-text {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  font-size: 0.65rem;
+  line-height: 1.5;
+  color: #00ffaa;
+  opacity: 0.8;
+  animation: typing-lines 0.8s steps(5, end) forwards;
+  z-index: 10001;
+  text-shadow: 0 0 5px rgba(0, 255, 170, 0.5);
+  font-weight: 700;
+}
+
+@keyframes typing-lines {
+  0% { clip-path: polygon(0 0, 100% 0, 100% 0, 0 0); }
+  100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+
+.boot-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+  animation: scanline-move 2s linear infinite;
+  z-index: 10000;
+}
+
+.boot-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  z-index: 10001;
+}
+
+.logo-wrapper {
+  position: relative;
+}
+
+.boot-logo {
+  width: 9rem;
+  height: 9rem;
+  border-radius: 20px;
+  opacity: 0;
+  transform: scale(0.8) translateY(20px);
+  animation: logo-in-premium 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  
+  &.glitch {
+    animation: 
+      logo-in-premium 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+      glitch-premium 3s infinite;
+  }
+}
+
+.logo-hologram {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0, 240, 255, 0.4) 50%, transparent 60%);
+  background-size: 100% 200%;
+  animation: hologram-scan 2.5s linear infinite;
+  mix-blend-mode: screen;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.boot-text-container {
+  text-align: center;
+}
+
+.boot-title {
+  color: #00f0ff;
+  font-family: var(--font-mono);
+  font-size: clamp(1.2rem, 5vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  margin: 0;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  
+  .cursor {
+    animation: blink 1s step-end infinite;
+  }
+}
+
+.boot-subtitle {
+  color: #22c55e;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  margin: 0.8rem 0 0;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.boot-decrypt {
+  color: #ff2d55;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  margin: 0.5rem 0 0;
+  text-shadow: 0 0 5px rgba(255, 45, 85, 0.6);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.boot-flash-overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9998;
+  
+  &.active {
+    animation: flash-premium 0.6s ease-out forwards;
+  }
+}
+
+@keyframes scanline-move {
+  0% { top: -5%; }
+  100% { top: 105%; }
+}
+
+@keyframes logo-in-premium {
+  0% { opacity: 0; transform: scale(0.8) translateY(20px); filter: brightness(0.5) blur(10px); }
+  50% { filter: brightness(1.5) blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: brightness(1) blur(0); }
+}
+
+@keyframes glitch-premium {
+  0%, 95%, 100% { transform: translate(0); filter: hue-rotate(0deg) contrast(1); }
+  96% { transform: translate(-3px, 2px); filter: hue-rotate(90deg) contrast(1.5); }
+  97% { transform: translate(3px, -2px); filter: hue-rotate(-90deg) contrast(1.5); }
+  98% { transform: translate(-3px, -2px) skewX(5deg); filter: hue-rotate(180deg); }
+  99% { transform: translate(2px, 2px) skewX(-5deg); filter: hue-rotate(0deg); }
+}
+
+@keyframes hologram-scan {
+  0% { background-position: 0 -100%; }
+  100% { background-position: 0 200%; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes flash-premium {
+  0% { opacity: 0.8; background: #00f0ff; mix-blend-mode: screen; }
+  50% { opacity: 0.5; background: #22c55e; }
+  100% { opacity: 0; background: transparent; }
+}
+
+@keyframes form-interference-in {
+  0% { 
+    opacity: 0; 
+    transform: scale(1.1) translateY(20px); 
+    filter: blur(10px) contrast(2) brightness(2) saturate(0);
+    clip-path: polygon(0 40%, 100% 40%, 100% 60%, 0 60%);
+  }
+  20% { 
+    opacity: 1; 
+    transform: scale(1.05) translateY(10px); 
+    filter: blur(5px) contrast(1.5) brightness(1.5) saturate(2);
+    clip-path: polygon(0 20%, 100% 20%, 100% 80%, 0 80%);
+  }
+  40% {
+    transform: scale(1.02) translateY(5px);
+    filter: blur(2px) hue-rotate(90deg);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+  50% {
+    transform: translateX(-10px) skewX(2deg);
+    filter: brightness(1.2);
+  }
+  55% {
+    transform: translateX(10px) skewX(-2deg);
+    filter: brightness(1.2) hue-rotate(-90deg);
+  }
+  60% {
+    transform: translateX(0) skewX(0);
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+    filter: blur(0) contrast(1) brightness(1) saturate(1) hue-rotate(0);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
 }
 
 

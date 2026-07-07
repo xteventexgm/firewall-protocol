@@ -51,6 +51,17 @@ export class LoginPage implements OnInit, OnDestroy {
   showServerConfig = false;
   serverUrlInput = '';
 
+  // Boot sequence variables
+  showBootSequence = false;
+  bootStep = 0;
+  displayedBootText = '';
+  displayedSubText = '';
+  displayedDecryptText = '';
+  fullBootText = 'FIREWALL PROTOCOL';
+  bootFlash = false;
+  formReady = false;
+  private bootTimeouts: any[] = [];
+
   private subs = new Subscription();
 
   constructor(
@@ -107,6 +118,8 @@ export class LoginPage implements OnInit, OnDestroy {
       void this.showToast(formatServerErrorForToast(`error (${joinError})`), 'warning');
     }
 
+    this.checkBootSequence();
+
     this.socketService.connect();
     void this.checkPendingReconnect();
     void this.refreshAccountAvatar();
@@ -140,6 +153,79 @@ export class LoginPage implements OnInit, OnDestroy {
     }
     const blob = await this.authService.loadAvatarBlobUrl(user.avatarUrl);
     this.accountAvatarUrl = blob ?? this.authService.getAvatarBlobUrl();
+  }
+
+  private checkBootSequence(): void {
+    const played = sessionStorage.getItem('boot_played');
+    if (played) {
+      this.formReady = true;
+    } else {
+      this.startBootSequence();
+    }
+  }
+
+  private startBootSequence(): void {
+    this.showBootSequence = true;
+    this.bootStep = 1; // 0s: Pantalla negra, scanline, boot text terminal
+    
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 2; // 1.5s: Aparece Logo con efecto premium y holograma
+    }, 1500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 3; // 3.0s: Typewriter título
+      this.typeWriterEffect(this.fullBootText, 'displayedBootText', 1200);
+    }, 3000));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 4; // 4.5s: Typewriter subtítulo
+      this.typeWriterEffect('[ SYSTEM INITIALIZED ]', 'displayedSubText', 500);
+    }, 4500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 5; // 5.2s: Decrypting payload text
+      this.typeWriterEffect('DECRYPTING PAYLOAD... 100%', 'displayedDecryptText', 600);
+    }, 5200));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 6; // 6.5s: Flash final cyan/verde
+      this.bootFlash = true;
+    }, 6500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.skipBootSequence(); // 7.2s: Fin de secuencia
+    }, 7200));
+  }
+
+  private typeWriterEffect(text: string, targetProp: 'displayedBootText' | 'displayedSubText' | 'displayedDecryptText', duration: number): void {
+    let index = 0;
+    this[targetProp] = '';
+    
+    const intervalTime = duration / text.length;
+    const interval = setInterval(() => {
+      if (!this.showBootSequence) {
+        clearInterval(interval);
+        return;
+      }
+      
+      this[targetProp] += text[index];
+      
+      index++;
+      if (index === text.length) {
+        clearInterval(interval);
+      }
+    }, intervalTime);
+    this.bootTimeouts.push(interval);
+  }
+
+  skipBootSequence(): void {
+    if (!this.showBootSequence) return;
+    this.bootTimeouts.forEach(t => clearTimeout(t));
+    this.bootTimeouts = [];
+    this.showBootSequence = false;
+    this.bootFlash = false;
+    this.formReady = true;
+    sessionStorage.setItem('boot_played', 'true');
   }
 
   get isLoggedIn(): boolean {
