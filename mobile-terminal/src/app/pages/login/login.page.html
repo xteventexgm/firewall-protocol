@@ -39,7 +39,7 @@
   />
 
   <div class="page-scroll login-page" [class.form-ready]="formReady" [class.form-ready-instant]="formReadyInstant">
-    <div class="login-shell">
+    <div class="login-shell" [class.is-transitioning]="transitioning">
       <button
         type="button"
         class="account-fab"

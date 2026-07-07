@@ -302,7 +302,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     try {
       await navigator.clipboard.writeText(this.roomCode);
       const toast = await this.toastCtrl.create({
-        message: '✓ Código copiado',
+        message: '✁ECódigo copiado',
         duration: 2000,
         position: 'top',
         color: 'dark',
@@ -312,6 +312,11 @@ export class DashboardPage implements OnInit, OnDestroy {
     } catch (e) {
       this.setStatus('Error al copiar el código', 'error');
     }
+  }
+
+  ionViewWillEnter(): void {
+    this.roomCode = localStorage.getItem('roomCode') ?? '';
+    this.myPlayerId = localStorage.getItem('myPlayerId') ?? '';
   }
 
   ngOnInit(): void {
@@ -378,6 +383,10 @@ export class DashboardPage implements OnInit, OnDestroy {
             this.isNightActionMinimized = false;
           }
           this.gamePhase = state.phase;
+          if (this.gamePhase === 'LOBBY' || this.gamePhase === 'REPARTO') {
+            this.showGameOver = false;
+            this.gameOverView = null;
+          }
           this.phaseBulletin = phaseBulletin(state.phase);
           this.syncNightSoundPolicy(state.phase);
           this.refreshChatChannelOptions();
@@ -526,8 +535,8 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.myInfectionSource = payload.infectionSource ?? 'worm';
           this.setStatus(
             payload.critical
-              ? '☣ Infección crítica — caerás al amanecer si no te curaron'
-              : `☣ Infectado por ${infectionSourceLabel(payload.infectionSource)} — busca Antivirus`,
+              ? '☣ Infección crítica  Ecaerás al amanecer si no te curaron'
+              : `☣ Infectado por ${infectionSourceLabel(payload.infectionSource)}  Ebusca Antivirus`,
             'error',
           );
         }
@@ -584,7 +593,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           if (!amDead) this.syncChatForPhase({ forceChannel: true });
         }
         if (t.to === 'DIA' && !amDead) {
-          this.setStatus('Amanecer — auditoría diurna iniciada', 'info');
+          this.setStatus('Amanecer  Eauditoría diurna iniciada', 'info');
         }
         if (t.to === 'NOCHE' && !amDead) {
           this.setStatus('Modo sigilo activado', 'warn');
@@ -752,7 +761,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.minigameChallenge = null;
           this.minigameFeedbackType = 'none';
           this.minigameFeedbackMessage = '';
-          this.setStatus(payload.successHint ?? 'Reto superado — acción con precisión máxima', 'success');
+          this.setStatus(payload.successHint ?? 'Reto superado  Eacción con precisión máxima', 'success');
           this.gameSound.playAccepted();
           return;
         }
@@ -769,7 +778,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.minigameFeedbackType = 'none';
           this.minigameFeedbackMessage = '';
           this.setStatus(
-            payload.failHint ?? (payload.result === 'expired' ? 'Tiempo agotado — acción degradada' : 'Reto omitido — acción degradada'),
+            payload.failHint ?? (payload.result === 'expired' ? 'Tiempo agotado  Eacción degradada' : 'Reto omitido  Eacción degradada'),
             'warn',
           );
         }
@@ -1314,7 +1323,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (!this.selectedTarget) return;
 
     if (actionType === 'crypto_bribe' && !canCryptoBribe(this.myRoleMeta)) {
-      this.setStatus('Sin escudos — no puedes sobornar al sistema', 'error');
+      this.setStatus('Sin escudos  Eno puedes sobornar al sistema', 'error');
       return;
     }
 
@@ -1831,3 +1840,4 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.socketService.setPlayerReady(this.myPlayerId, newState);
   }
 }
+

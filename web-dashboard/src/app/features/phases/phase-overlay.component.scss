@@ -50,7 +50,7 @@
   margin: 24px auto 0;
   border: 2px solid #00f0ff44;
   border-radius: 50%;
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: pulse-glow 2s var(--ease-in-out-quint) infinite;
 }
 
 .dawn-flash {
@@ -59,7 +59,7 @@
   background: #ffffff;
   z-index: 25;
   pointer-events: none;
-  animation: dawn-flash 2s ease-out forwards;
+  animation: dawn-flash 2s var(--ease-out-expo) forwards;
 }
 
 @keyframes dawn-flash {
@@ -82,7 +82,7 @@
   padding: 16px;
   z-index: 30;
   box-shadow: 0 0 30px #ff2d5544;
-  animation: slide-in 0.5s ease-out;
+  animation: slide-in 0.5s var(--ease-out-expo);
 }
 
 @keyframes slide-in {
@@ -104,7 +104,7 @@
 }
 
 .glitch-text {
-  animation: glitch 0.5s ease-in-out infinite;
+  animation: glitch 0.5s var(--ease-in-out-quint) infinite;
 }
 
 .incident-sub {
@@ -213,7 +213,7 @@
 }
 
 .verificacion-flash {
-  animation: verificacion-in-out 1.4s ease-out forwards;
+  animation: verificacion-in-out 1.4s var(--ease-out-expo) forwards;
 }
 
 @keyframes verificacion-in-out {
@@ -244,7 +244,7 @@
   justify-content: center;
   pointer-events: none;
   background: radial-gradient(ellipse at center, #ff2d5518 0%, transparent 65%);
-  animation: urgent-pulse 1s ease-in-out infinite;
+  animation: urgent-pulse 1s var(--ease-in-out-quint) infinite;
 }
 
 .vote-urgent-ring {
@@ -254,7 +254,7 @@
   border: 3px solid #ff2d55;
   border-radius: 50%;
   opacity: 0.35;
-  animation: urgent-ring 1s ease-out infinite;
+  animation: urgent-ring 1s var(--ease-out-expo) infinite;
 }
 
 .vote-urgent-label {
@@ -344,7 +344,7 @@
   height: 8px;
   background: #00ff88;
   border-radius: 50%;
-  animation: pulse-glow 1s ease-in-out infinite;
+  animation: pulse-glow 1s var(--ease-in-out-quint) infinite;
 }
 
 .boot-overlay {
@@ -379,7 +379,7 @@
   margin: 6px 0;
   font-size: 12px;
   opacity: 0;
-  animation: boot-line-in 0.35s ease forwards;
+  animation: boot-line-in 0.35s var(--ease-out-expo) forwards;
 }
 
 .boot-cursor {

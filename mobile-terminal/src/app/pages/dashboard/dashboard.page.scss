@@ -87,7 +87,7 @@
   flex: 1;
   font-family: var(--font-mono);
   color: var(--team-text, #c8e6f0);
-  transition: filter 0.55s ease, opacity 0.55s ease;
+  transition: filter 0.55s ease, opacity 0.55s var(--ease-out-expo);
   border-radius: 16px;
   border: 1px solid rgba(0, 240, 255, 0.16);
   background: rgba(5, 10, 18, 0.84);
@@ -100,7 +100,7 @@
 }
 
 .terminal-shell.interference-shake {
-  animation: interference-shake 0.65s ease;
+  animation: interference-shake 0.65s var(--ease-out-expo);
 }
 
 .terminal-shell.interference-shake::after {
@@ -194,7 +194,7 @@
     inset: -6px;
     border-radius: 18px;
     border: 1px solid rgba(0, 240, 255, 0.35);
-    animation: lobby-ring-pulse 2.4s ease-in-out infinite;
+    animation: lobby-ring-pulse 2.4s var(--ease-in-out-quint) infinite;
   }
 }
 
@@ -381,7 +381,7 @@
   &.reconnecting {
     background: #f59e0b;
     box-shadow: 0 0 8px #f59e0b88;
-    animation: reconnect-pulse 1s ease-in-out infinite;
+    animation: reconnect-pulse 1s var(--ease-in-out-quint) infinite;
   }
 }
 
@@ -530,7 +530,7 @@
   background: color-mix(in srgb, var(--color-cyber-accent, #00f0ff) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-cyber-accent, #00f0ff) 20%, transparent);
   border-radius: 6px;
-  animation: pulse-text 1.5s ease-in-out infinite;
+  animation: pulse-text 1.5s var(--ease-in-out-quint) infinite;
 }
 
 .team-badge {
@@ -687,7 +687,7 @@
 .infection-panel {
   border-color: #ff2d5566;
   background: #ff2d550d;
-  animation: pulse-glow 2.5s ease-in-out infinite;
+  animation: pulse-glow 2.5s var(--ease-in-out-quint) infinite;
 }
 
 .infection-title {
@@ -794,7 +794,7 @@
 
 .incident-panel {
   border-color: var(--color-cyber-danger, #ff2d55);
-  animation: glitch 0.3s ease;
+  animation: glitch 0.3s var(--ease-out-expo);
 }
 
 .incident-list {
@@ -843,7 +843,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: lobby-ring-pulse 2.4s ease-in-out infinite;
+  animation: lobby-ring-pulse 2.4s var(--ease-in-out-quint) infinite;
 }
 
 .lobby-signal-core {
@@ -915,7 +915,7 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #006677, var(--color-cyber-accent, #00f0ff));
-  transition: width 0.4s ease;
+  transition: width 0.4s var(--ease-out-expo);
 
   &.ready {
     background: linear-gradient(90deg, #15803d, #22c55e);
@@ -1216,7 +1216,7 @@ ion-select.terminal-select,
   }
 
   &.glitch {
-    animation: glitch 0.3s ease infinite;
+    animation: glitch 0.3s var(--ease-out-expo) infinite;
   }
 }
 
@@ -1357,7 +1357,7 @@ ion-select.terminal-select,
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in 0.3s var(--ease-out-expo);
 }
 .modal-window {
   width: 100%;
@@ -1425,7 +1425,7 @@ ion-select.terminal-select,
       z-index: 1;
       pointer-events: none;
       box-shadow: inset 0 0 0 3px #ff2d55;
-      animation: eliminated-border-pulse 2.8s ease-in-out infinite;
+      animation: eliminated-border-pulse 2.8s var(--ease-in-out-quint) infinite;
     }
   }
 
@@ -1600,7 +1600,7 @@ ion-select.terminal-select,
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  animation: phase-flash 2s ease-out forwards;
+  animation: phase-flash 2s var(--ease-out-expo) forwards;
 }
 
 @keyframes phase-flash {
@@ -1645,7 +1645,7 @@ ion-select.terminal-select,
 }
 
 .pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: pulse-glow 2s var(--ease-in-out-quint) infinite;
 }
 
 @keyframes lobby-ring-pulse {
@@ -1667,7 +1667,7 @@ ion-select.terminal-select,
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s ease;
+  animation: fade-in 0.4s var(--ease-out-expo);
 }
 
 @keyframes fade-in {
@@ -1679,7 +1679,7 @@ ion-select.terminal-select,
 .fullscreen-overlay.role-briefing {
   background: rgba(0, 0, 0, 0.92);
   z-index: 200;
-  animation: fade-in 0.5s ease;
+  animation: fade-in 0.5s var(--ease-out-expo);
 }
 
 .reveal-card,
@@ -1688,7 +1688,7 @@ ion-select.terminal-select,
   padding: 2rem;
   border: 2px solid var(--color-cyber-accent, #00f0ff);
   border-radius: 8px;
-  animation: card-flip 0.8s ease;
+  animation: card-flip 0.8s var(--ease-out-expo);
   max-width: min(420px, 92vw);
   max-height: 88vh;
   overflow-y: auto;
@@ -1725,14 +1725,14 @@ ion-select.terminal-select,
 .fullscreen-overlay.threat-briefing {
   background: rgba(4, 8, 14, 0.94);
   z-index: 210;
-  animation: threat-brief-in 0.75s ease-out;
+  animation: threat-brief-in 0.75s var(--ease-out-expo);
 }
 
 .threat-briefing-card {
   text-align: left;
   padding: 1.35rem 1.4rem;
   border-radius: 8px;
-  animation: card-flip 0.85s ease;
+  animation: card-flip 0.85s var(--ease-out-expo);
   max-width: min(420px, 92vw);
 }
 
@@ -2005,7 +2005,7 @@ ion-select.terminal-select,
   font-size: 0.8rem !important;
 }
 
-// 笏笏笏 Panel de control (pestaﾃｱas en partida) 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+// 笏笏笏 Panel de control (pesta�E�E��as en partida) 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
 
 .terminal-shell.in-game {
   padding-bottom: 0.35rem;
@@ -2277,7 +2277,7 @@ ion-select.terminal-select,
   justify-content: center;
   pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(255, 45, 85, 0.14) 0%, transparent 68%);
-  animation: vote-urgent-pulse 1s ease-in-out infinite;
+  animation: vote-urgent-pulse 1s var(--ease-in-out-quint) infinite;
 }
 
 .vote-urgent-ring {
@@ -2287,7 +2287,7 @@ ion-select.terminal-select,
   border: 3px solid #ff2d55;
   border-radius: 50%;
   opacity: 0.35;
-  animation: vote-urgent-ring 1s ease-out infinite;
+  animation: vote-urgent-ring 1s var(--ease-out-expo) infinite;
 }
 
 .vote-urgent-label {
@@ -2341,7 +2341,7 @@ ion-select.terminal-select,
   background: rgba(5, 8, 14, 0.78);
   backdrop-filter: blur(5px);
   pointer-events: none;
-  animation: node-death-backdrop-in 0.35s ease-out;
+  animation: node-death-backdrop-in 0.35s var(--ease-out-expo);
 
   &--exit {
     animation: node-death-backdrop-out 0.45s ease-in forwards;
@@ -2460,7 +2460,7 @@ ion-select.terminal-select,
   flex-direction: column;
   flex: 1;
   overflow: hidden;
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in 0.3s var(--ease-out-expo);
 }
 
 .static-window {
@@ -2554,7 +2554,7 @@ ion-select.terminal-select,
   text-transform: uppercase;
   letter-spacing: 0.1em;
   box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
-  transition: all 0.3s ease;
+  transition: all 0.3s var(--ease-out-expo);
 }
 .action-btn:active {
   transform: scale(0.96);

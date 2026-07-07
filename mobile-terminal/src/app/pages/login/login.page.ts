@@ -71,6 +71,9 @@ export class LoginPage implements OnInit, OnDestroy {
   roomValidationState: 'idle' | 'checking' | 'valid' | 'invalid' = 'idle';
   roomValidationMessage = '';
   recentRooms: RecentRoom[] = [];
+  animState: 0 | 1 | 2 = 0;
+  private readonly RECONNECT_DELAY = 1200;
+  transitioning = false;
   private roomCodeSubject = new Subject<string>();
   
   private bootTimeouts: any[] = [];
@@ -628,7 +631,10 @@ export class LoginPage implements OnInit, OnDestroy {
               this.connecting = false;
               void this.gameSound.unlockAudio();
               this.saveRecentRoom(this.roomCode.toUpperCase());
-              this.router.navigate(['/dashboard']);
+              this.transitioning = true;
+              setTimeout(() => {
+                this.router.navigate(['/dashboard']);
+              }, 800);
             },
             error: () => {
               this.connecting = false;

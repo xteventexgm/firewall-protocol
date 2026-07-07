@@ -131,7 +131,7 @@
 }
 
 .animate-slide-in {
-  animation: slide-in-left 0.45s ease-out;
+  animation: slide-in-left 0.45s var(--ease-out-expo);
 }
 
 @keyframes slide-in-left {

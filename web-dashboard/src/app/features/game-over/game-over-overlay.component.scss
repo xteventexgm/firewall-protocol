@@ -7,12 +7,12 @@
   background: rgba(5, 10, 18, 0.94);
   z-index: 60;
   backdrop-filter: blur(6px);
-  animation: gameover-fade-in 0.45s ease-out;
+  animation: gameover-fade-in 0.45s var(--ease-out-expo);
 
   &[data-outcome='win'] .gameover-content {
     border-color: #00ff88;
     box-shadow: 0 0 48px #00ff8822;
-    animation: gameover-win-pulse 2.4s ease-in-out infinite;
+    animation: gameover-win-pulse 2.4s var(--ease-in-out-quint) infinite;
   }
 
   &[data-outcome='loss'] .gameover-content {

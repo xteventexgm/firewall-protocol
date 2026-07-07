@@ -3,7 +3,7 @@
   width: 100%;
   height: 100%;
   min-height: 400px;
-  transition: filter 1.5s ease, opacity 1.5s ease, background 1.2s ease;
+  transition: filter 1.5s ease, opacity 1.5s ease, background 1.2s var(--ease-out-expo);
   background:
     radial-gradient(ellipse 80% 60% at 50% 45%, #0c1a28 0%, transparent 55%),
     radial-gradient(ellipse at center, #0a1520 0%, #050a12 70%);
@@ -15,7 +15,7 @@
   }
 
   &.phase-shifting .topology-phase-glow {
-    animation: phase-flash 0.9s ease-out forwards;
+    animation: phase-flash 0.9s var(--ease-out-expo) forwards;
   }
 
   &[data-phase='NOCHE'],
@@ -50,22 +50,22 @@
 
   &.network-boot-fading {
     .topology-particles {
-      animation: boot-particles-out 2.4s ease-in-out forwards;
+      animation: boot-particles-out 2.4s var(--ease-in-out-quint) forwards;
     }
 
     .network-boot-grid {
-      animation: network-grid-out 2.4s ease-in-out forwards;
+      animation: network-grid-out 2.4s var(--ease-in-out-quint) forwards;
     }
   }
 
   &.network-boot-flash {
     .slot-guide:not(.slot-guide-branch) {
-      animation: boot-line-flash 0.65s ease-out;
+      animation: boot-line-flash 0.65s var(--ease-out-expo);
     }
 
     .ghost-slot .node-hex-outer,
     .ghost-slot .ghost-wire {
-      animation: boot-node-flash 0.65s ease-out;
+      animation: boot-node-flash 0.65s var(--ease-out-expo);
     }
   }
 
@@ -86,11 +86,11 @@
   opacity: 0;
   background:
     radial-gradient(ellipse 74% 56% at 50% 46%, rgba(0, 240, 255, 0.09) 0%, rgba(0, 190, 210, 0.035) 40%, transparent 68%);
-  animation: boot-finish-glow-in 1s ease-out forwards;
+  animation: boot-finish-glow-in 1s var(--ease-out-expo) forwards;
 }
 
 .network-boot-fading .network-boot-finish-glow {
-  animation: boot-finish-glow-out 2.4s ease-in-out forwards;
+  animation: boot-finish-glow-out 2.4s var(--ease-in-out-quint) forwards;
 }
 
 @keyframes boot-finish-glow-in {
@@ -113,7 +113,7 @@
     linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 48%, black 10%, transparent 72%);
-  animation: network-grid-in 1.4s ease-out forwards;
+  animation: network-grid-in 1.4s var(--ease-out-expo) forwards;
 }
 
 .boot-spoke {
@@ -196,15 +196,15 @@
   }
 
   &.slot-guide-reveal {
-    animation: slot-guide-reveal 0.62s ease-out forwards;
+    animation: slot-guide-reveal 0.62s var(--ease-out-expo) forwards;
   }
 
   &.slot-guide-fading {
-    animation: boot-guide-settle 2.4s ease-in-out forwards;
+    animation: boot-guide-settle 2.4s var(--ease-in-out-quint) forwards;
   }
 
   &.slot-guide-branch.slot-guide-fading {
-    animation: boot-guide-branch-settle 2.4s ease-in-out forwards;
+    animation: boot-guide-branch-settle 2.4s var(--ease-in-out-quint) forwards;
   }
 }
 
@@ -239,7 +239,7 @@
   }
 
   &.orbit-boot-fading .orbit-ring {
-    animation: boot-orbit-settle 2.4s ease-in-out forwards;
+    animation: boot-orbit-settle 2.4s var(--ease-in-out-quint) forwards;
   }
 }
 
@@ -248,7 +248,7 @@
 }
 
 .hub-boot-fading {
-  animation: boot-hub-settle 2.4s ease-in-out forwards;
+  animation: boot-hub-settle 2.4s var(--ease-in-out-quint) forwards;
 }
 
 @keyframes boot-hub-settle {
@@ -407,7 +407,7 @@
   height: 8px;
   border-radius: 50%;
   background: #ffd000;
-  animation: pulse-glow 1.2s ease-in-out infinite;
+  animation: pulse-glow 1.2s var(--ease-in-out-quint) infinite;
 }
 
 .orbit-ring {
@@ -443,14 +443,14 @@
     stroke: #00c8e8;
     stroke-width: 2;
     opacity: 0.9;
-    animation: link-glow 3s ease-in-out infinite;
+    animation: link-glow 3s var(--ease-in-out-quint) infinite;
   }
 
   &.hub-link-connecting {
     stroke: #00e8ff;
     stroke-width: 2.5;
     opacity: 1;
-    animation: link-connecting-glow 0.8s ease-in-out infinite;
+    animation: link-connecting-glow 0.8s var(--ease-in-out-quint) infinite;
   }
 
   &.hub-link-canvas-extend {
@@ -462,7 +462,7 @@
     stroke-width: 2.5;
     opacity: 1;
     stroke-dasharray: none;
-    animation: link-handshake 1.2s ease-out forwards;
+    animation: link-handshake 1.2s var(--ease-out-expo) forwards;
 
     &.hub-link-branch {
       stroke: #66ccff;
@@ -545,7 +545,7 @@
     fill: none;
     stroke: #00f0ff33;
     stroke-width: 1;
-    animation: hub-radar-pulse 2.8s ease-out infinite;
+    animation: hub-radar-pulse 2.8s var(--ease-out-expo) infinite;
   }
 
   .hub-radar-ring-2 {
@@ -576,7 +576,7 @@
 
 .hub-aura {
   fill: url(#hub-radial);
-  animation: hub-breathe 4s ease-in-out infinite;
+  animation: hub-breathe 4s var(--ease-in-out-quint) infinite;
   pointer-events: none;
 }
 
@@ -612,7 +612,7 @@
   stroke: #00f0ff66;
   stroke-width: 2;
   stroke-dasharray: 3 5;
-  animation: hub-junction-pulse 3s ease-in-out infinite;
+  animation: hub-junction-pulse 3s var(--ease-in-out-quint) infinite;
 }
 
 .hub-core-ring {
@@ -649,12 +649,12 @@
 
   &.hub-port-pulse {
     .hub-port-socket {
-      animation: hub-port-handshake 1.2s ease-out infinite;
+      animation: hub-port-handshake 1.2s var(--ease-out-expo) infinite;
     }
 
     .hub-port-pin {
       fill: #ffc832;
-      animation: hub-port-handshake 1.2s ease-out infinite;
+      animation: hub-port-handshake 1.2s var(--ease-out-expo) infinite;
     }
   }
 }
@@ -727,41 +727,41 @@
     }
 
     .ghost-wire-outer {
-      animation: hex-wire-draw 0.58s ease-out forwards;
+      animation: hex-wire-draw 0.58s var(--ease-out-expo) forwards;
     }
 
     .ghost-wire-inner {
-      animation: hex-wire-draw 0.48s ease-out 0.32s forwards;
+      animation: hex-wire-draw 0.48s var(--ease-out-expo) 0.32s forwards;
     }
 
     .ghost-hex-fill {
       fill: transparent;
       stroke: none;
       opacity: 0;
-      animation: ghost-hex-fill-in 0.4s ease-out 0.62s forwards;
+      animation: ghost-hex-fill-in 0.4s var(--ease-out-expo) 0.62s forwards;
     }
 
     .ghost-wire-label {
       opacity: 0;
-      animation: label-fade-in 0.28s ease-out 0.78s forwards;
+      animation: label-fade-in 0.28s var(--ease-out-expo) 0.78s forwards;
     }
   }
 
   &.ghost-slot-return {
-    animation: ghost-slot-return 0.65s ease-out forwards;
+    animation: ghost-slot-return 0.65s var(--ease-out-expo) forwards;
   }
 
   &.ghost-slot-fading {
     .node-hex-outer {
-      animation: boot-ghost-outer-settle 2.4s ease-in-out forwards;
+      animation: boot-ghost-outer-settle 2.4s var(--ease-in-out-quint) forwards;
     }
 
     .node-hex-inner {
-      animation: boot-ghost-inner-settle 2.4s ease-in-out forwards;
+      animation: boot-ghost-inner-settle 2.4s var(--ease-in-out-quint) forwards;
     }
 
     .ghost-slot-label {
-      animation: boot-ghost-label-settle 2.4s ease-in-out forwards;
+      animation: boot-ghost-label-settle 2.4s var(--ease-in-out-quint) forwards;
     }
   }
 
@@ -771,7 +771,7 @@
     stroke-width: 1.5;
     stroke-dasharray: 4 6;
     opacity: 0.72;
-    animation: ghost-pulse 2.8s ease-in-out infinite;
+    animation: ghost-pulse 2.8s var(--ease-in-out-quint) infinite;
   }
 
   .node-hex-inner {
@@ -872,7 +872,7 @@
 .player-node {
   .node-hex {
     stroke-width: 2;
-    transition: stroke 0.3s ease, fill 0.3s ease;
+    transition: stroke 0.3s ease, fill 0.3s var(--ease-out-expo);
   }
 
   .node-hex-outer {
@@ -932,19 +932,19 @@
     fill: none;
     stroke-width: 1;
     pointer-events: none;
-    animation: node-ring-pulse 2.5s ease-out infinite;
+    animation: node-ring-pulse 2.5s var(--ease-out-expo) infinite;
   }
 
   &.node-blinking {
     .node-hex-outer {
       stroke: #00f0ff;
-      animation: node-signal-blink 0.32s ease-in-out infinite;
+      animation: node-signal-blink 0.32s var(--ease-in-out-quint) infinite;
     }
 
     .node-hex-inner {
       stroke: #00f0ff;
       fill: transparent;
-      animation: node-signal-blink 0.32s ease-in-out infinite reverse;
+      animation: node-signal-blink 0.32s var(--ease-in-out-quint) infinite reverse;
     }
   }
 
@@ -956,7 +956,7 @@
       fill: none;
       stroke-dasharray: 1;
       stroke-dashoffset: 1;
-      animation: hex-wire-draw 0.38s ease-out forwards;
+      animation: hex-wire-draw 0.38s var(--ease-out-expo) forwards;
     }
 
     .node-hex-wire {
@@ -970,42 +970,42 @@
     }
 
     .node-hex-wire-outer {
-      animation: hex-wire-draw 0.52s ease-out 0.18s forwards;
+      animation: hex-wire-draw 0.52s var(--ease-out-expo) 0.18s forwards;
     }
 
     .node-hex-wire-inner {
-      animation: hex-wire-draw 0.42s ease-out 0.58s forwards;
+      animation: hex-wire-draw 0.42s var(--ease-out-expo) 0.58s forwards;
     }
 
     .node-hex-spawn-fill {
       fill: transparent;
       stroke: none;
       opacity: 0;
-      animation: hex-fill-in 0.38s ease-out 0.88s forwards;
+      animation: hex-fill-in 0.38s var(--ease-out-expo) 0.88s forwards;
     }
 
     .node-build-tip {
       fill: #ffc832;
       opacity: 0;
       transform-origin: center;
-      animation: build-tip-pulse 0.5s ease-out 0.06s forwards;
+      animation: build-tip-pulse 0.5s var(--ease-out-expo) 0.06s forwards;
     }
 
     .node-spawn-label {
       opacity: 0;
-      animation: label-fade-in 0.32s ease-out 0.96s forwards;
+      animation: label-fade-in 0.32s var(--ease-out-expo) 0.96s forwards;
     }
   }
 
   &.node-connected-blink {
     .node-hex-outer,
     .node-hex-inner {
-      animation: node-connect-blink 0.24s ease-in-out 0s 3;
+      animation: node-connect-blink 0.24s var(--ease-in-out-quint) 0s 3;
     }
 
     .node-initial,
     .node-name {
-      animation: node-connect-blink 0.24s ease-in-out 0s 3;
+      animation: node-connect-blink 0.24s var(--ease-in-out-quint) 0s 3;
     }
   }
 
@@ -1042,7 +1042,7 @@
   &.node-infected {
     .node-hex-outer {
       stroke: #ff2d5566;
-      animation: infect-pulse 2s ease-in-out infinite;
+      animation: infect-pulse 2s var(--ease-in-out-quint) infinite;
     }
     .node-hex-inner { stroke: #ff4466; fill: #1a0810; }
     .node-status { fill: #ff8899; }
@@ -1074,7 +1074,7 @@
   &.team-chaotic .node-hex-outer { stroke: #cc66ff88; }
 
   &.glitch {
-    animation: glitch 0.35s ease-in-out infinite;
+    animation: glitch 0.35s var(--ease-in-out-quint) infinite;
   }
 
   &.node-failover-promote {
@@ -1085,7 +1085,7 @@
   }
 
   &.node-banning {
-    animation: node-ban-sequence 1.1s ease-out forwards;
+    animation: node-ban-sequence 1.1s var(--ease-out-expo) forwards;
 
     .node-hex-outer {
       stroke: #ff2d55;
@@ -1096,7 +1096,7 @@
     .node-hex-inner {
       stroke: #ff4466;
       fill: #2a0818;
-      animation: ban-inner-flash 0.25s ease-in-out 4;
+      animation: ban-inner-flash 0.25s var(--ease-in-out-quint) 4;
     }
 
     .node-initial {
@@ -1280,10 +1280,10 @@
     font-size: 13px;
     color: #8ec8dc;
     box-shadow: 0 0 24px #00f0ff18;
-    animation: boot-console-in 0.5s ease-out;
+    animation: boot-console-in 0.5s var(--ease-out-expo);
 
     &.boot-console-fading {
-      animation: boot-console-out 2.2s ease-in-out forwards;
+      animation: boot-console-out 2.2s var(--ease-in-out-quint) forwards;
     }
   }
 
@@ -1361,6 +1361,7 @@
 }
 
 .node-kick-popover {
+  animation: popover-bounce var(--duration-modal) var(--ease-bounce) forwards;
   position: absolute;
   z-index: 40;
   transform: translate(-50%, calc(-100% - 14px));
@@ -1429,3 +1430,9 @@
   0%, 100% { stroke: #00f0ff; filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6)); }
   50% { stroke: #00a0ff; filter: drop-shadow(0 0 3px rgba(0, 240, 255, 0.3)); }
 }
+
+@keyframes popover-bounce {
+  0% { opacity: 0; transform: translate(-50%, calc(-100% - 4px)) scale(0.9); }
+  100% { opacity: 1; transform: translate(-50%, calc(-100% - 14px)) scale(1); }
+}
+
