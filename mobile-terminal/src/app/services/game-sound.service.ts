@@ -171,9 +171,17 @@ export class GameSoundService {
       role_reveal: [500, 0.2],
       chat: [700, 0.04],
       skill_fail: [330, 0.12],
+      ui_click: [800, 0.03],
     };
     const t = tones[event];
     if (t) this.playTone(ctx, t[0], t[1]);
+    if (event === 'ui_confirm') this.playSweep(ctx, 400, 800, 0.15);
+    if (event === 'scan_safe') this.playSweep(ctx, 500, 1000, 0.3);
+    if (event === 'scan_malicious') this.playSweep(ctx, 300, 150, 0.4);
+    if (event === 'vote_tie') {
+      this.playTone(ctx, 350, 0.2);
+      setTimeout(() => this.playTone(ctx!, 300, 0.3), 150);
+    }
     if (event === 'game_over_system') this.playSweep(ctx, 400, 900, 0.5);
     if (event === 'game_over_hacker') this.playSweep(ctx, 900, 200, 0.5);
     if (event === 'game_over_solo') this.playTone(ctx, 200, 0.35);

@@ -702,6 +702,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
+        this.gameSound.play('vote_tie');
       }),
     );
 
@@ -1601,11 +1602,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   private async runScanHaptic(result?: string): Promise<void> {
     if (result === 'malicious') {
       await this.hapticService.playScanMalicious();
-      this.gameSound.play('skill_fail');
+      this.gameSound.play('scan_malicious');
     } else if (result === 'suspicious') {
       await this.hapticService.playError();
     } else {
       await this.hapticService.playScanSafe();
+      this.gameSound.play('scan_safe');
     }
   }
 

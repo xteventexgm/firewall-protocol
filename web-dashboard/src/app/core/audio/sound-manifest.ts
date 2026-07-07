@@ -30,4 +30,7 @@ export const SOUND_FILES: Record<string, string | string[]> = {
   defeat: `${SFX_BASE}/victory/defeat.mp3`,
   node_join: `${SFX_BASE}/ui/button-confirm.mp3`,
   node_leave: `${SFX_BASE}/ui/toast-warning.mp3`,
+  scan_safe: `${SFX_BASE}/phase/scan-safe.mp3`,
+  scan_malicious: `${SFX_BASE}/phase/scan-malicious.mp3`,
+  vote_tie: `${SFX_BASE}/combat/vote-tie.mp3`,
 };

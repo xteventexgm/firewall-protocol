@@ -248,6 +248,7 @@ export class App implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
+        this.gameSound.play('vote_tie');
       }),
       this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
         if (!this.inRoom || this.gameOverActive) return;

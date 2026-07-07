@@ -26,7 +26,10 @@ export type SoundEvent =
   | 'night_ambient'
   | 'defeat'
   | 'node_join'
-  | 'node_leave';
+  | 'node_leave'
+  | 'vote_tie'
+  | 'scan_safe'
+  | 'scan_malicious';
 
 type AmbientMode = 'lobby' | 'night' | null;
 
@@ -250,6 +253,16 @@ export class GameSoundService {
         break;
       case 'vote':
         this.playTone(ctx, 520, 0.06, 'square', 0.03);
+        break;
+      case 'vote_tie':
+        this.playTone(ctx, 350, 0.2, 'square', 0.04);
+        setTimeout(() => this.playTone(ctx!, 300, 0.3, 'square', 0.05), 150);
+        break;
+      case 'scan_safe':
+        this.playSweep(ctx, 500, 1000, 0.3);
+        break;
+      case 'scan_malicious':
+        this.playSweep(ctx, 300, 150, 0.4);
         break;
       case 'kill':
       case 'incident':
