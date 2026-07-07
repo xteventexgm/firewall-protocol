@@ -1422,3 +1422,10 @@
     color: #a8c4d4;
   }
 }
+
+.player-node.node-ready .node-hex-outer { stroke: #00f0ff !important; stroke-width: 2.5 !important; filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6)) !important; animation: readyPulse 2s infinite !important; }
+
+@keyframes readyPulse {
+  0%, 100% { stroke: #00f0ff; filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6)); }
+  50% { stroke: #00a0ff; filter: drop-shadow(0 0 3px rgba(0, 240, 255, 0.3)); }
+}

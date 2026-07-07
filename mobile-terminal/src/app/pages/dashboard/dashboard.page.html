@@ -32,7 +32,9 @@
           <img src="assets/icon.png" alt="" class="room-app-icon" width="56" height="56" />
         </div>
         <div class="room-brand-text">
-          <span class="room-eyebrow">{{ roomCode }} · D{{ dayNumber }} N{{ nightNumber }}</span>
+          <button type="button" class="room-eyebrow tap-to-copy" (click)="copyRoomCode()" aria-label="Copiar código de sala">
+            {{ roomCode }} <span class="copy-icon">⎘</span> · D{{ dayNumber }} N{{ nightNumber }}
+          </button>
           <h1 class="room-player-name">{{ playerName }}</h1>
           <span class="phase-pill" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
         </div>
@@ -119,8 +121,20 @@
         <p class="pending-cred-sub">
           {{ gamePhase === 'REPARTO'
             ? 'El host está repartiendo credenciales de acceso a cada nodo.'
-            : 'Tu rol se revelará cuando el host inicie la partida.' }}
+            : 'Confirma que estás listo para que el host inicie la partida.' }}
         </p>
+
+        <div *ngIf="isLobbyPhase" class="ready-action-wrap" style="margin-top: 1rem;">
+          <button
+            type="button"
+            class="action-btn"
+            [style.background]="amIReady ? 'var(--ion-color-success, #2dd36f)' : ''"
+            [style.color]="amIReady ? '#000' : ''"
+            (click)="toggleReady()"
+          >
+            {{ amIReady ? 'CANCELAR (NO LISTO)' : 'MARCAR COMO LISTO' }}
+          </button>
+        </div>
       </section>
 
       <section class="panel role-panel role-panel-compact" *ngIf="showRolePanel">
@@ -177,7 +191,7 @@
           <span class="lobby-nodes-label">Nodos conectados</span>
           <ul class="lobby-node-chips">
             <li
-              *ngFor="let p of players"
+              *ngFor="let p of players; trackBy: trackByPlayerId"
               class="lobby-node-chip"
               [class.self]="p.id === myPlayerId"
               [class.offline]="p.isConnected === false">

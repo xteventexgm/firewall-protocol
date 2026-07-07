@@ -5,6 +5,7 @@ export interface ActiveRoomStatus {
   phase: string | null;
   playerCount: number;
   connectedCount: number;
+  maxPlayers?: number;
   canJoin: boolean;
   canReconnect: boolean;
 }

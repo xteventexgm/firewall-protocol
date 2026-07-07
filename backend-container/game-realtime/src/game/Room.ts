@@ -163,6 +163,16 @@ export class Room extends EventEmitter {
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving phaseConfig', e); }
   }
 
+  setPlayerReady(playerId: string, isReady: boolean) {
+    const player = this.state.getPlayer(playerId);
+    if (!player) return { ok: false, reason: 'Jugador no encontrado' };
+    if (this.sm.getPhase() !== GamePhase.LOBBY) return { ok: false, reason: 'Solo en LOBBY' };
+    player.isReady = isReady;
+    this.emit('actionAccepted'); // To trigger broadcast
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving playerReady', e); }
+    return { ok: true };
+  }
+
   requestMinigame(playerId: string) {
     const player = this.state.getPlayer(playerId);
     if (!player?.role || this.sm.getPhase() !== GamePhase.NOCHE) return null;

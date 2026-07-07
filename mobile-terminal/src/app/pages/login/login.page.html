@@ -38,7 +38,7 @@
     (authChanged)="onAuthChanged()"
   />
 
-  <div class="page-scroll login-page" [class.form-ready]="formReady">
+  <div class="page-scroll login-page" [class.form-ready]="formReady" [class.form-ready-instant]="formReadyInstant">
     <div class="login-shell">
       <button
         type="button"
@@ -134,14 +134,34 @@
             <label class="field-label">Código de sala</label>
             <input
               type="text"
-              [(ngModel)]="roomCode"
+              [ngModel]="roomCode"
+              (ngModelChange)="onRoomCodeChange($event)"
               (keyup.enter)="goToAliasStep()"
-              class="terminal-input code-input"
+              class="terminal-input code-input state-{{ roomValidationState }}"
               placeholder="FIRE-XXXX"
               [disabled]="connecting || scanning"
               autocomplete="off"
               autocapitalize="characters"
+              maxlength="9"
             />
+            <p class="validation-message" [ngClass]="'message-' + roomValidationState" *ngIf="roomValidationMessage">
+              {{ roomValidationMessage }}
+            </p>
+          </div>
+
+          <div class="recent-rooms-container" *ngIf="recentRooms.length > 0 && !validatingRoom && !connecting && !scanning && step === 'room'">
+            <div class="recent-rooms-scroll">
+              <button
+                type="button"
+                *ngFor="let room of recentRooms"
+                class="recent-room-chip"
+                (click)="selectRecentRoom(room.roomId)"
+              >
+                <span class="recent-room-code">{{ room.roomId }}</span>
+                <span class="recent-room-time">· {{ timeAgo(room.timestamp) }}</span>
+                <span class="recent-room-remove" (click)="$event.stopPropagation(); removeRecentRoom(room.roomId)" aria-label="Eliminar">✕</span>
+              </button>
+            </div>
           </div>
 
           <button

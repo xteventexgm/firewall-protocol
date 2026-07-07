@@ -158,8 +158,9 @@
       [class.node-banning]="isBanAnimating(node.id)" [class.node-spawn]="isSpawning(node.id)"
       [class.node-connected-blink]="isConnectedBlink(node.id)"
       [class.node-failover-promote]="isFailoverPromoting(node.id)" [class.node-kickable]="kickEnabled"
+      [class.node-ready]="phase === 'LOBBY' && node.player.isReady"
       [attr.transform]="'translate(' + nodeX(node) + ',' + nodeY(node) + ')'"
-      [attr.filter]="isSpawning(node.id) || isConnectedBlink(node.id) ? 'url(#node-glow-strong)' : 'url(#node-glow)'">
+      [attr.filter]="isSpawning(node.id) || isConnectedBlink(node.id) || (phase === 'LOBBY' && node.player.isReady) ? 'url(#node-glow-strong)' : 'url(#node-glow)'">
 
       @if (isSpawning(node.id)) {
       @for (line of hexScaffoldLines(node, nodeMetrics.outer); track $index) {

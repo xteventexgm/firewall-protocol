@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, Platform, AlertController } from '@ionic/angular';
+import { IonicModule, Platform, AlertController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -78,7 +78,7 @@ import {
 } from '../../core/utils/node-death-alert.utils';
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { HapticService } from '../../services/haptic.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -224,7 +224,9 @@ export class DashboardPage implements OnInit, OnDestroy {
     private gameSound: GameSoundService,
     private platform: Platform,
     private alertCtrl: AlertController,
-    private authService: AuthService
+    private toastCtrl: ToastController,
+    private authService: AuthService,
+    private hapticService: HapticService
   ) {}
 
   private backButtonSub?: Subscription;
@@ -295,8 +297,26 @@ export class DashboardPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  async copyRoomCode() {
+    if (!this.roomCode) return;
+    try {
+      await navigator.clipboard.writeText(this.roomCode);
+      const toast = await this.toastCtrl.create({
+        message: '✓ Código copiado',
+        duration: 2000,
+        position: 'top',
+        color: 'dark',
+        cssClass: 'cyber-toast',
+      });
+      await toast.present();
+    } catch (e) {
+      this.setStatus('Error al copiar el código', 'error');
+    }
+  }
+
   ngOnInit(): void {
     this.roomCode = localStorage.getItem('roomCode') ?? '';
+    this.myPlayerId = localStorage.getItem('myPlayerId') ?? '';
 
     if (!this.socketService.reconnectFromStorage()) {
       this.router.navigate(['/login']);
@@ -696,14 +716,22 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.playerConnected$.subscribe(({ playerId, playerName }) => {
         const name = playerName ?? this.players.find((p) => p.id === playerId)?.name ?? playerId;
-        this.setStatus(`Nodo conectado: ${name}`, 'success');
+        this.setStatus(`${name} conectado [OK]`, 'success');
+        if (this.gamePhase === 'LOBBY') {
+          this.gameSound.playAccepted();
+          void this.hapticService.playConfirm();
+        }
       }),
     );
 
     this.subs.add(
       this.socketService.playerReconnected$.subscribe(({ playerId, playerName }) => {
         const name = playerName ?? this.players.find((p) => p.id === playerId)?.name ?? playerId;
-        this.setStatus(`Nodo reconectado: ${name}`, 'success');
+        this.setStatus(`${name} reconectado [OK]`, 'success');
+        if (this.gamePhase === 'LOBBY') {
+          this.gameSound.playAccepted();
+          void this.hapticService.playConfirm();
+        }
       }),
     );
 
@@ -1036,12 +1064,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   private async runThreatBriefingHaptic(): Promise<void> {
-    try {
-      await Haptics.vibrate({ duration: 420 });
-      await Haptics.impact({ style: ImpactStyle.Heavy });
-    } catch {
-      /* Web / emulador sin motor háptico */
-    }
+    await this.hapticService.playPhaseTransition();
   }
 
   private closeRoleBriefing(): void {
@@ -1551,15 +1574,13 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   private async runScanHaptic(result?: string): Promise<void> {
-    try {
-      if (result === 'malicious') {
-        await Haptics.impact({ style: ImpactStyle.Heavy });
-        this.gameSound.play('skill_fail');
-      } else if (result === 'suspicious') {
-        await Haptics.impact({ style: ImpactStyle.Medium });
-      }
-    } catch {
-      /* sin motor háptico */
+    if (result === 'malicious') {
+      await this.hapticService.playScanMalicious();
+      this.gameSound.play('skill_fail');
+    } else if (result === 'suspicious') {
+      await this.hapticService.playError();
+    } else {
+      await this.hapticService.playScanSafe();
     }
   }
 
@@ -1648,14 +1669,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   private async runPhaseHaptic(phase: GamePhase): Promise<void> {
-    try {
-      if (phase === 'NOCHE') {
-        await Haptics.impact({ style: ImpactStyle.Heavy });
-      } else if (phase === 'DIA') {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      }
-    } catch {
-      /* Web / emulador sin motor háptico */
+    if (phase === 'NOCHE') {
+      await this.hapticService.playPhaseTransition();
+    } else if (phase === 'DIA') {
+      await this.hapticService.playConfirm();
     }
   }
 
@@ -1663,12 +1680,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (this.deathHapticTriggered) return;
     this.deathHapticTriggered = true;
     this.gameSound.playDeath();
-    try {
-      await Haptics.vibrate({ duration: 750 });
-      await Haptics.impact({ style: ImpactStyle.Heavy });
-    } catch {
-      /* Web / emulador sin motor háptico */
-    }
+    await this.hapticService.playDeath();
   }
 
   private queueNodeDeathAlerts(playerIds: string[], reason: string): void {
@@ -1722,13 +1734,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   private async runNodeDisconnectHaptic(): Promise<void> {
-    try {
-      await Haptics.vibrate({ duration: 520 });
-      await Haptics.impact({ style: ImpactStyle.Heavy });
-      await Haptics.impact({ style: ImpactStyle.Medium });
-    } catch {
-      /* Web / emulador sin motor háptico */
-    }
+    await this.hapticService.playConnectionError();
   }
 
   private showGameOverScreen(
@@ -1810,5 +1816,18 @@ export class DashboardPage implements OnInit, OnDestroy {
   /** Jugador eliminado: fondo de alerta roja (no durante overlay de victoria). */
   get isPlayerDead(): boolean {
     return this.gamePhase === 'ELIMINATED' && !this.showGameOver;
+  }
+
+  get amIReady(): boolean {
+    const me = this.players.find(p => p.id === this.myPlayerId);
+    return me?.isReady ?? false;
+  }
+
+  toggleReady(): void {
+    if (this.gamePhase !== 'LOBBY') return;
+    this.hapticService.playTap();
+    this.gameSound.play('ui_click');
+    const newState = !this.amIReady;
+    this.socketService.setPlayerReady(this.myPlayerId, newState);
   }
 }

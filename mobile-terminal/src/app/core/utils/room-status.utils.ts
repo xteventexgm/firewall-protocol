@@ -5,8 +5,10 @@ export interface RoomStatusResponse {
   phase: string | null;
   playerCount: number;
   connectedCount?: number;
+  maxPlayers?: number;
   canJoin: boolean;
   canReconnect: boolean;
+
   /** true si la API no respondió (CORS/red); el join por socket sigue siendo la validación real. */
   unavailable?: boolean;
 }

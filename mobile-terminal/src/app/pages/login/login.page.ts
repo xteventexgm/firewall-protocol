@@ -18,7 +18,13 @@ import {
   setStoredApiUrl,
 } from '../../core/utils/api-base.utils';
 import { environment } from '../../../environments/environment';
-import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
+import { Subscription, filter, take, timeout, catchError, of, Subject, debounceTime } from 'rxjs';
+
+export interface RecentRoom {
+  roomId: string;
+  timestamp: number;
+}
+
 
 @Component({
   selector: 'app-login',
@@ -60,6 +66,13 @@ export class LoginPage implements OnInit, OnDestroy {
   fullBootText = 'FIREWALL PROTOCOL';
   bootFlash = false;
   formReady = false;
+  formReadyInstant = false;
+  
+  roomValidationState: 'idle' | 'checking' | 'valid' | 'invalid' = 'idle';
+  roomValidationMessage = '';
+  recentRooms: RecentRoom[] = [];
+  private roomCodeSubject = new Subject<string>();
+  
   private bootTimeouts: any[] = [];
 
   private subs = new Subscription();
@@ -96,6 +109,14 @@ export class LoginPage implements OnInit, OnDestroy {
         }
       }),
     );
+    
+    this.subs.add(
+      this.roomCodeSubject.pipe(
+        debounceTime(500)
+      ).subscribe((code) => {
+        void this.validateRoomCode(code);
+      })
+    );
   }
 
   ngOnInit(): void {
@@ -123,7 +144,46 @@ export class LoginPage implements OnInit, OnDestroy {
     this.socketService.connect();
     void this.checkPendingReconnect();
     void this.refreshAccountAvatar();
+    this.loadRecentRooms();
     if (this.isLoggedIn) void this.bootstrapAccountSession();
+  }
+
+  loadRecentRooms(): void {
+    try {
+      const stored = localStorage.getItem('recent_rooms_firewall');
+      if (stored) {
+        this.recentRooms = JSON.parse(stored);
+      }
+    } catch {
+      this.recentRooms = [];
+    }
+  }
+
+  saveRecentRoom(roomId: string): void {
+    const newRoom: RecentRoom = { roomId, timestamp: Date.now() };
+    const filtered = this.recentRooms.filter(r => r.roomId !== roomId);
+    this.recentRooms = [newRoom, ...filtered].slice(0, 5);
+    localStorage.setItem('recent_rooms_firewall', JSON.stringify(this.recentRooms));
+  }
+
+  removeRecentRoom(roomId: string): void {
+    this.recentRooms = this.recentRooms.filter(r => r.roomId !== roomId);
+    localStorage.setItem('recent_rooms_firewall', JSON.stringify(this.recentRooms));
+  }
+
+  selectRecentRoom(roomId: string): void {
+    this.onRoomCodeChange(roomId);
+  }
+
+  timeAgo(timestamp: number): string {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'hace un momento';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `hace ${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `hace ${days}d`;
   }
 
   private async bootstrapAccountSession(): Promise<void> {
@@ -158,7 +218,7 @@ export class LoginPage implements OnInit, OnDestroy {
   private checkBootSequence(): void {
     const played = sessionStorage.getItem('boot_played');
     if (played) {
-      this.formReady = true;
+      this.formReadyInstant = true;
     } else {
       this.startBootSequence();
     }
@@ -356,9 +416,76 @@ export class LoginPage implements OnInit, OnDestroy {
     }
   }
 
+  onRoomCodeChange(val: string): void {
+    let cleaned = val.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    
+    if (cleaned && !cleaned.startsWith('FIRE-') && cleaned.length > 0) {
+      const prefix = 'FIRE-';
+      if (!prefix.startsWith(cleaned)) {
+        cleaned = 'FIRE-' + cleaned.replace(/FIRE-/g, '');
+      }
+    }
+    
+    if (cleaned.length > 9) {
+      cleaned = cleaned.substring(0, 9);
+    }
+    
+    if (cleaned === 'FIRE') {
+      cleaned = 'FIRE-';
+    }
+
+    this.roomCode = cleaned;
+    
+    if (cleaned.length === 9) {
+      this.roomValidationState = 'checking';
+      this.roomValidationMessage = 'Buscando...';
+      this.roomCodeSubject.next(cleaned);
+    } else {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+      this.roomCodeSubject.next('');
+    }
+  }
+
+  private async validateRoomCode(code: string): Promise<void> {
+    if (!code || code.length < 9) {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+      return;
+    }
+    
+    try {
+      const status = await fetchRoomStatus(code);
+      if (isRoomStatusUnavailable(status)) {
+        this.roomValidationState = 'idle';
+        this.roomValidationMessage = '';
+        return;
+      }
+      
+      if (!status.exists) {
+        this.roomValidationState = 'invalid';
+        this.roomValidationMessage = '✕ Sala no existe';
+        this.removeRecentRoom(code);
+      } else if (status.phase === 'FIN') {
+        this.roomValidationState = 'invalid';
+        this.roomValidationMessage = '✕ Partida finalizada';
+      } else {
+        this.roomValidationState = 'valid';
+        const count = status.connectedCount ?? status.playerCount ?? 0;
+        const max = status.maxPlayers ?? 10;
+        this.roomValidationMessage = `✓ Sala encontrada · ${count}/${max}`;
+      }
+    } catch {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+    }
+  }
+
   backToRoomStep(): void {
     this.step = 'room';
     this.errorMessage = '';
+    this.roomValidationState = 'idle';
+    this.roomValidationMessage = '';
   }
 
   async scanQr(): Promise<void> {
@@ -500,6 +627,7 @@ export class LoginPage implements OnInit, OnDestroy {
             next: () => {
               this.connecting = false;
               void this.gameSound.unlockAudio();
+              this.saveRecentRoom(this.roomCode.toUpperCase());
               this.router.navigate(['/dashboard']);
             },
             error: () => {

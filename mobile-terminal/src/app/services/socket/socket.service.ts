@@ -304,6 +304,12 @@ export class SocketService {
     return true;
   }
 
+  setPlayerReady(playerId: string, isReady: boolean): void {
+    const roomId = localStorage.getItem('roomCode');
+    if (!this.socket?.connected || !roomId) return;
+    this.socket.emit('setPlayerReady', roomId, { playerId, isReady });
+  }
+
   submitChat(text: string, channel: 'public' | 'dead' | 'hacker' = 'public'): boolean {
     const roomId = localStorage.getItem('roomCode');
     const playerId = localStorage.getItem('myPlayerId');

@@ -68,9 +68,11 @@ export interface RoomPlayer {
   avatarUrl?: string;
   isAlive: boolean;
   isConnected: boolean;
+  isBot?: boolean;
   silenced?: boolean;
   infected?: boolean;
   frozen?: boolean;
+  isReady?: boolean;
   infectionMaturesAfterNight?: number;
   joinedAt?: number;
   role?: string;
