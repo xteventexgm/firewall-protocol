@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { GameOverSummary } from '../../core/models/game-state.model';
 

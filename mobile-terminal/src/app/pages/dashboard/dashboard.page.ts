@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, Platform, AlertController, ToastController } from '@ionic/angular';
@@ -85,9 +86,21 @@ import { HapticService } from '../../services/haptic.service';
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
-  imports: [IonicModule, FormsModule, CommonModule, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent, NodePickerComponent],
+  imports: [IonicModule, FormsModule, CommonModule, TextChallengeComponent, LobbyClosedOverlayComponent, HomeAtmosphereComponent, NodePickerComponent, LucideAngularModule],
 })
 export class DashboardPage implements OnInit, OnDestroy {
+  getReportIcon(line: string): string | null {
+    if (line.includes('⚠') || line.includes('☣')) return 'alert-triangle';
+    if (line.includes('✓') || line.includes('✅')) return 'check-circle';
+    if (line.includes('🛡️')) return 'shield-check';
+    if (line.includes('🩸') || line.includes('💀')) return 'skull';
+    return null;
+  }
+
+  getReportText(line: string): string {
+    return line.replace(/[⚠☣✓✅🛡️🩸💀]/g, '').trim();
+  }
+
   readonly minPlayers = MIN_PLAYERS_TO_START;
   readonly playersPerChaotic = PLAYERS_PER_CHAOTIC_ROLE;
   maxPlayers = MAX_PLAYERS;
@@ -373,6 +386,13 @@ export class DashboardPage implements OnInit, OnDestroy {
 
         if (gameEnded) {
           this.handleGameOver(state.winner, state.soloWinner);
+        } else if (state.phase === 'LOBBY' || state.phase === 'REPARTO') {
+          if (this.gamePhase !== state.phase) {
+            this.isNightActionMinimized = false;
+          }
+          this.gamePhase = state.phase;
+          this.showGameOver = false;
+          this.gameOverView = null;
         } else if (me && !me.isAlive) {
           this.gamePhase = 'ELIMINATED';
           this.phaseBulletin = phaseBulletin('ELIMINATED');
@@ -383,10 +403,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             this.isNightActionMinimized = false;
           }
           this.gamePhase = state.phase;
-          if (this.gamePhase === 'LOBBY' || this.gamePhase === 'REPARTO') {
-            this.showGameOver = false;
-            this.gameOverView = null;
-          }
           this.phaseBulletin = phaseBulletin(state.phase);
           this.syncNightSoundPolicy(state.phase);
           this.refreshChatChannelOptions();

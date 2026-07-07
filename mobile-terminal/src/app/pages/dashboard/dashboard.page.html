@@ -19,7 +19,7 @@
         </div>
         <div class="hero-actions">
           <button type="button" class="icon-btn" (click)="toggleSound()" [title]="soundMuted ? 'Modo discreto — activar sonido' : 'Silenciar terminal'">
-            {{ soundMuted ? '🔇' : '🔊' }}
+            <lucide-icon [name]="soundMuted ? 'volume-x' : 'volume-2'" class="inline-icon"></lucide-icon>
           </button>
           <button type="button" class="exit-room-btn" (click)="exitRoomCompletely()" title="Salir de la sala">
             Salir
@@ -394,10 +394,13 @@
         </div>
         <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
         <ul class="report-details">
-          <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
+          <li *ngFor="let line of nightActionReport.details">
+              <lucide-icon *ngIf="getReportIcon(line)" [name]="getReportIcon(line)!" class="inline-icon report-icon" [class.alert]="getReportIcon(line) === 'alert-triangle'"></lucide-icon>
+              <span>{{ getReportText(line) }}</span>
+            </li>
         </ul>
         <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
-          ⏳ Pendiente de resolución al amanecer
+          <lucide-icon name="moon" class="inline-icon"></lucide-icon> Pendiente de resolución al amanecer
         </p>
       </section>
 

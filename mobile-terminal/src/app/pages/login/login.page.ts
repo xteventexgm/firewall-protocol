@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController } from '@ionic/angular';
@@ -37,8 +38,7 @@ export interface RecentRoom {
     CommonModule,
     LobbyClosedOverlayComponent,
     HomeAtmosphereComponent,
-    AccountPanelComponent,
-  ],
+    AccountPanelComponent, LucideAngularModule],
 })
 export class LoginPage implements OnInit, OnDestroy {
   roomCode = '';

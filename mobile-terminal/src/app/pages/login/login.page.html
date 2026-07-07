@@ -47,7 +47,7 @@
         [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
       >
         <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
-        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true">👤</span>
+        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true"><lucide-icon name="user" class="inline-icon"></lucide-icon></span>
         <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
       </button>
 
@@ -159,7 +159,7 @@
               >
                 <span class="recent-room-code">{{ room.roomId }}</span>
                 <span class="recent-room-time">· {{ timeAgo(room.timestamp) }}</span>
-                <span class="recent-room-remove" (click)="$event.stopPropagation(); removeRecentRoom(room.roomId)" aria-label="Eliminar">✕</span>
+                <span class="recent-room-remove" (click)="$event.stopPropagation(); removeRecentRoom(room.roomId)" aria-label="Eliminar"><lucide-icon name="x"></lucide-icon></span>
               </button>
             </div>
           </div>
@@ -217,7 +217,7 @@
         </section>
 
         <div *ngIf="errorMessage" class="error-banner">
-          <span>⚠</span> {{ errorMessage }}
+          <lucide-icon name="alert-triangle" class="inline-icon"></lucide-icon> {{ errorMessage }}
         </div>
       </div>
 

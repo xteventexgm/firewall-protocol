@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import {
   Component,
   EventEmitter,
@@ -22,7 +23,7 @@ import { estimateTeamComposition, TeamComposition } from '../../core/utils/balan
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, LucideAngularModule],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
   host: {
