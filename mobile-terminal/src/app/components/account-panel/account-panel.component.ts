@@ -29,6 +29,7 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Input() initialAuthMode: AuthMode | null = null;
   @Output() closed = new EventEmitter<void>();
   @Output() authChanged = new EventEmitter<void>();
+  @Output() openTutorial = new EventEmitter<void>();
 
   readonly passwordHint = PASSWORD_HINT;
 

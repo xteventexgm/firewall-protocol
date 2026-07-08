@@ -36,6 +36,7 @@
     [initialAuthMode]="accountPanelAuthMode"
     (closed)="onAccountPanelClosed()"
     (authChanged)="onAuthChanged()"
+    (openTutorial)="showTutorial = true; onAccountPanelClosed()"
   />
 
   <div class="page-scroll login-page" [class.form-ready]="formReady" [class.form-ready-instant]="formReadyInstant">
@@ -230,5 +231,10 @@
   <app-lobby-closed-overlay
     *ngIf="showLobbyClosedOverlay"
     (dismissed)="onLobbyClosedDismiss()"
+  />
+
+  <app-tutorial-slider
+    *ngIf="showTutorial"
+    (dismissed)="onTutorialDismissed()"
   />
 </ion-content>

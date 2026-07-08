@@ -1,7 +1,7 @@
 import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, ViewWillEnter } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
@@ -10,6 +10,7 @@ import { formatServerErrorForToast, parseServerErrorMessage } from '../../core/u
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import { AccountPanelComponent } from '../../components/account-panel/account-panel.component';
+import { TutorialSliderComponent } from '../../components/tutorial-slider/tutorial-slider.component';
 import { GameSoundService } from '../../services/game-sound.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
@@ -38,9 +39,13 @@ export interface RecentRoom {
     CommonModule,
     LobbyClosedOverlayComponent,
     HomeAtmosphereComponent,
-    AccountPanelComponent, LucideAngularModule],
+    AccountPanelComponent,
+    TutorialSliderComponent,
+    LucideAngularModule
+  ],
 })
-export class LoginPage implements OnInit, OnDestroy {
+export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
+  showTutorial = false;
   roomCode = '';
   playerName = '';
   connecting = false;
@@ -149,6 +154,16 @@ export class LoginPage implements OnInit, OnDestroy {
     void this.refreshAccountAvatar();
     this.loadRecentRooms();
     if (this.isLoggedIn) void this.bootstrapAccountSession();
+
+    if (!localStorage.getItem('has_seen_tutorial')) {
+      this.showTutorial = true;
+    }
+  }
+
+  onTutorialDismissed(): void {
+    this.showTutorial = false;
+    // ensure the flag is set just in case the component didn't set it (though it does)
+    localStorage.setItem('has_seen_tutorial', 'true');
   }
 
   loadRecentRooms(): void {
@@ -371,6 +386,12 @@ export class LoginPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     void this.qrScanner.stop();
     this.subs.unsubscribe();
+  }
+
+  ionViewWillEnter(): void {
+    this.transitioning = false;
+    this.connecting = false;
+    this.scanning = false;
   }
 
   get canProceedToAlias(): boolean {
