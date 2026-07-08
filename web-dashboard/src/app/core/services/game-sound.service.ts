@@ -33,6 +33,12 @@ export type SoundEvent =
 
 type AmbientMode = 'lobby' | 'night' | null;
 
+interface WebAudioTrack {
+  audio: HTMLAudioElement;
+  source: MediaElementAudioSourceNode;
+  gain: GainNode;
+}
+
 const STOPS_AMBIENT = new Set<SoundEvent>([
   'day',
   'game_start',
@@ -53,7 +59,8 @@ const NODE_SFX_VOLUME = 0.62;
 export class GameSoundService {
   private muted = false;
   private cache = new Map<string, HTMLAudioElement>();
-  private ambientAudio: HTMLAudioElement | null = null;
+  private trackCache = new Map<string, WebAudioTrack>();
+  private activeTrack: WebAudioTrack | null = null;
   private activeAmbient: AmbientMode = null;
   private ctx: AudioContext | null = null;
   private ambienceOsc: OscillatorNode | null = null;
@@ -208,30 +215,72 @@ export class GameSoundService {
   }
 
   private async playAmbientFile(path: string, mode: AmbientMode, volume: number): Promise<void> {
+    const ctx = this.ensureCtx();
+    if (!ctx) {
+      this.playProceduralAmbient(mode);
+      return;
+    }
+    
     try {
-      let audio = this.cache.get(path);
-      if (!audio) {
-        audio = new Audio(path);
+      let track = this.trackCache.get(path);
+      if (!track) {
+        const audio = new Audio(path);
         audio.preload = 'auto';
-        this.cache.set(path, audio);
+        audio.loop = true;
+        audio.crossOrigin = 'anonymous'; // Important for Web Audio API
+        const source = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        track = { audio, source, gain };
+        this.trackCache.set(path, track);
       }
-      this.stopAmbience();
-      this.ambientAudio = audio;
+
+      if (this.activeTrack && this.activeTrack !== track) {
+        this.fadeOutTrack(this.activeTrack, ctx);
+      }
+
+      this.stopProceduralAmbienceFade(ctx);
+      
+      this.activeTrack = track;
       this.activeAmbient = mode;
-      audio.loop = true;
-      audio.volume = volume;
-      audio.currentTime = 0;
-      await audio.play();
-    } catch {
+      track.audio.volume = 1;
+      
+      // Fade in
+      track.gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      track.gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.5);
+      
+      if (track.audio.paused) {
+        track.audio.currentTime = 0;
+        await track.audio.play();
+      }
+    } catch (e) {
+      console.warn('Audio fallback due to Web Audio error:', e);
       this.playProceduralAmbient(mode);
     }
   }
 
+  private fadeOutTrack(track: WebAudioTrack, ctx: AudioContext): void {
+    const currentGain = track.gain.gain.value || 0.001;
+    track.gain.gain.setValueAtTime(currentGain, ctx.currentTime);
+    track.gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    setTimeout(() => {
+      try { track.audio.pause(); } catch { /* noop */ }
+    }, 500);
+  }
+
   private playProceduralAmbient(mode: AmbientMode): void {
     if (!mode) return;
-    this.stopAmbience();
+    const ctx = this.ensureCtx();
+    
+    if (this.activeTrack && ctx) {
+      this.fadeOutTrack(this.activeTrack, ctx);
+      this.activeTrack = null;
+    }
+    this.stopProceduralAmbienceFade(ctx);
+    
     this.activeAmbient = mode;
-    this.startProceduralAmbience(this.ensureCtx());
+    this.startProceduralAmbience(ctx);
   }
 
   private playProcedural(event: SoundEvent): void {
@@ -369,21 +418,37 @@ export class GameSoundService {
     this.ambienceGain = ctx.createGain();
     this.ambienceOsc.type = 'sine';
     this.ambienceOsc.frequency.value = this.activeAmbient === 'night' ? 55 : 72;
-    this.ambienceGain.gain.value = this.activeAmbient === 'night' ? 0.036 : 0.03;
+    
+    const targetVol = this.activeAmbient === 'night' ? 0.036 : 0.03;
+    this.ambienceGain.gain.setValueAtTime(0.001, ctx.currentTime);
+    this.ambienceGain.gain.linearRampToValueAtTime(targetVol, ctx.currentTime + 0.5);
+    
     this.ambienceOsc.connect(this.ambienceGain);
     this.ambienceGain.connect(ctx.destination);
     this.ambienceOsc.start();
   }
 
+  private stopProceduralAmbienceFade(ctx: AudioContext | null): void {
+    if (this.ambienceGain && ctx) {
+      const currentGain = this.ambienceGain.gain.value || 0.001;
+      this.ambienceGain.gain.setValueAtTime(currentGain, ctx.currentTime);
+      this.ambienceGain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      const osc = this.ambienceOsc;
+      setTimeout(() => {
+        try { osc?.stop(); } catch { /* noop */ }
+      }, 500);
+      this.ambienceOsc = null;
+      this.ambienceGain = null;
+    }
+  }
+
   private stopAmbience(): void {
-    try {
-      this.ambientAudio?.pause();
-    } catch { /* noop */ }
-    this.ambientAudio = null;
-    try {
-      this.ambienceOsc?.stop();
-    } catch { /* noop */ }
-    this.ambienceOsc = null;
-    this.ambienceGain = null;
+    const ctx = this.ctx;
+    if (this.activeTrack && ctx) {
+      this.fadeOutTrack(this.activeTrack, ctx);
+      this.activeTrack = null;
+    }
+    this.stopProceduralAmbienceFade(ctx);
+    this.activeAmbient = null;
   }
 }
