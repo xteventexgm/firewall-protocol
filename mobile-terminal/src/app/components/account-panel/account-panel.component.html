@@ -126,17 +126,36 @@
             <span class="stat-val">{{ bundle.user.stats.mvpCount }}</span>
             <span class="stat-lbl">MVP</span>
           </div>
-          <div class="stat-card">
-            <span class="stat-val">{{ teamWins('system') }}</span>
-            <span class="stat-lbl">Victorias System</span>
+          <div class="stat-card streak-card" [ngClass]="getStreakClass(bundle.user.stats.currentStreak)">
+            <span class="stat-val streak-val">
+              {{ bundle.user.stats.currentStreak || 0 }} 
+              <span class="streak-icon" *ngIf="(bundle.user.stats.currentStreak || 0) > 1">🔥</span>
+              <span class="streak-icon" *ngIf="!(bundle.user.stats.currentStreak) || bundle.user.stats.currentStreak <= 1">❄️</span>
+            </span>
+            <span class="stat-lbl">Racha Actual</span>
           </div>
           <div class="stat-card">
-            <span class="stat-val">{{ teamWins('black_hat') }}</span>
-            <span class="stat-lbl">Victorias Black Hat</span>
+            <span class="stat-val">{{ bundle.user.stats.maxStreak || 0 }}</span>
+            <span class="stat-lbl">Mejor Racha</span>
           </div>
-          <div class="stat-card stat-card-wide">
-            <span class="stat-val">{{ teamWins('chaotic') }}</span>
-            <span class="stat-lbl">Victorias Caóticas</span>
+        </div>
+
+        <div class="profile-block cyber-block">
+          <h4>Victorias por Equipo</h4>
+          <div class="cyber-chart-container">
+            <div class="cyber-donut"
+                 [style.--sys]="teamPercents.system + '%'"
+                 [style.--bh]="(teamPercents.system + teamPercents.blackHat) + '%'">
+              <div class="donut-hole">
+                <span class="donut-total">{{ totalWins }}</span>
+                <span class="donut-label">Victorias</span>
+              </div>
+            </div>
+            <div class="cyber-legend">
+               <span class="leg-item"><i class="dot sys"></i> System ({{ teamWins('system') }})</span>
+               <span class="leg-item"><i class="dot bh"></i> Black Hat ({{ teamWins('black_hat') }})</span>
+               <span class="leg-item"><i class="dot ch"></i> Chaotic ({{ teamWins('chaotic') }})</span>
+            </div>
           </div>
         </div>
 
@@ -154,11 +173,17 @@
             </div>
           </div>
 
-        <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles.length">
-          <h4>Roles frecuentes</h4>
-          <p class="chip-row">
-            <span class="chip" *ngFor="let role of bundle.user.stats.favoriteRoles">{{ role }}</span>
-          </p>
+        <div class="profile-block cyber-block" *ngIf="topRoles.length">
+          <h4>Roles Destacados</h4>
+          <div class="top-roles-list">
+            <div class="role-bar" *ngFor="let role of topRoles">
+               <span class="role-name">{{ role.name }}</span>
+               <div class="role-track">
+                 <div class="role-fill" [style.width.%]="(role.count / maxRoleCount) * 100"></div>
+               </div>
+               <span class="role-count">{{ role.count }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="profile-block">
@@ -171,6 +196,7 @@
             </div>
             <div class="hist-meta">
               <span [class.win]="g.won">{{ formatParticipationLine(g) }}</span>
+              <span *ngIf="g.durationMs" class="duration-pill">⏱ {{ formatDuration(g.durationMs) }}</span>
               <span *ngIf="g.isMvp" class="mvp">MVP</span>
             </div>
           </div>
@@ -207,6 +233,7 @@
           </div>
           <div class="hist-meta">
             <span [class.win]="g.won">{{ formatParticipationLine(g) }}</span>
+            <span *ngIf="g.durationMs" class="duration-pill">⏱ {{ formatDuration(g.durationMs) }}</span>
             <span *ngIf="g.isMvp" class="mvp">MVP</span>
           </div>
         </li>
@@ -225,6 +252,7 @@
         <dl class="detail-grid">
           <div><dt>Jugador</dt><dd>{{ g.playerName }}</dd></div>
           <div><dt>Partida</dt><dd [class.win]="g.won">{{ formatParticipationLine(g) }}</dd></div>
+          <div *ngIf="g.durationMs"><dt>Duración</dt><dd>{{ formatDuration(g.durationMs) }}</dd></div>
           <div><dt>MVP</dt><dd>{{ g.isMvp ? 'Sí' : 'No' }}</dd></div>
           <div *ngIf="g.eliminatedOnDay"><dt>Eliminado día</dt><dd>{{ g.eliminatedOnDay }}</dd></div>
         </dl>
@@ -238,45 +266,51 @@
       <ng-container *ngIf="profile as bundle">
         <button type="button" class="back-link" (click)="cancelEdit()">← Volver al perfil</button>
 
-        <div class="profile-block avatar-block">
-          <h4>Foto de perfil</h4>
-          <p class="muted small">Solo visible aquí — no aparece en la partida.</p>
-          <div class="edit-avatar-preview">
-            <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
-            <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
+        <div class="edit-profile-grid">
+          <div class="profile-block avatar-block cyber-block edit-box">
+            <h4>Identidad Visual</h4>
+            <p class="muted small">Solo visible aquí — no aparece en la partida.</p>
+            <div class="edit-avatar-preview">
+              <img *ngIf="displayAvatarUrl" [src]="displayAvatarUrl" alt="" class="avatar-img" (error)="onAvatarImgError()" />
+              <span *ngIf="!displayAvatarUrl" class="avatar-initials">{{ initials }}</span>
+            </div>
+            <div class="upload-btn" (click)="pickAvatar()">
+              <span><lucide-icon name="upload" class="icon-sm"></lucide-icon> Cambiar foto (máx. 2 MB)</span>
+            </div>
+            <details class="url-fallback">
+              <summary>O usar enlace externo</summary>
+              <input type="url" class="terminal-input cyber-input" [(ngModel)]="avatarUrlInput" placeholder="https://…" />
+            </details>
+            <button *ngIf="displayAvatarUrl || bundle.user.avatarUrl" type="button" class="ghost-btn danger-text remove-avatar-btn" (click)="markRemoveAvatar()">
+              Quitar avatar
+            </button>
           </div>
-          <div class="upload-btn" (click)="pickAvatar()">
-            <span>Elegir foto de la galería (máx. 2 MB)</span>
+
+          <div class="profile-block cyber-block edit-box">
+            <h4>Credenciales</h4>
+            <label class="input-label">Nombre de usuario (Visible en partidas)</label>
+            <input type="text" class="terminal-input cyber-input" [(ngModel)]="usernameInput" placeholder="Ej. node_alpha" maxlength="24" />
           </div>
-          <details class="url-fallback">
-            <summary>O usar enlace externo</summary>
-            <input type="url" class="terminal-input" [(ngModel)]="avatarUrlInput" placeholder="https://…" />
-          </details>
-          <button *ngIf="displayAvatarUrl || bundle.user.avatarUrl" type="button" class="ghost-btn danger-text" (click)="markRemoveAvatar()">
-            Quitar avatar
-          </button>
         </div>
 
-        <div class="profile-block">
-          <h4>Nombre de usuario</h4>
-          <p class="muted small">Es el nombre visible en las partidas. Para cambiarlo necesitas tu contraseña actual.</p>
-          <input type="text" class="terminal-input" [(ngModel)]="usernameInput" placeholder="Ej. node_alpha" maxlength="24" />
-        </div>
-
-        <div class="profile-block" *ngIf="bundle.user.authProvider === 'local'">
+        <div class="profile-block cyber-block edit-box" *ngIf="bundle.user.authProvider === 'local'">
           <h4>Seguridad</h4>
-          <input type="password" class="terminal-input" [(ngModel)]="currentPassword" placeholder="Contraseña actual (requerida para cambios)" />
-          <input type="password" class="terminal-input" [(ngModel)]="newPassword" placeholder="Nueva contraseña (opcional)" />
-          <input type="password" class="terminal-input" [(ngModel)]="newPasswordConfirm" placeholder="Confirmar nueva contraseña" />
+          <div class="security-grid">
+            <input type="password" class="terminal-input cyber-input" [(ngModel)]="currentPassword" placeholder="Contraseña actual (requerida para cambios)" />
+            <input type="password" class="terminal-input cyber-input" [(ngModel)]="newPassword" placeholder="Nueva contraseña (opcional)" />
+            <input type="password" class="terminal-input cyber-input" [(ngModel)]="newPasswordConfirm" placeholder="Confirmar nueva contraseña" />
+          </div>
           <p class="muted small">{{ passwordHint }}</p>
         </div>
 
-        <button type="button" class="primary-btn" (click)="saveProfileEdits()" [disabled]="saving">
-          {{ saving ? 'Guardando…' : 'Guardar cambios' }}
-        </button>
-        <button type="button" class="ghost-btn" (click)="cancelEdit()" [disabled]="saving">Cancelar</button>
+        <div class="edit-actions">
+          <button type="button" class="ghost-btn" (click)="cancelEdit()" [disabled]="saving">Cancelar</button>
+          <button type="button" class="primary-btn glow-btn" (click)="saveProfileEdits()" [disabled]="saving">
+            {{ saving ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+        </div>
 
-        <div *ngIf="bundle.user.authProvider === 'local'" class="profile-block danger-zone">
+        <div *ngIf="bundle.user.authProvider === 'local'" class="profile-block danger-zone cyber-block edit-box danger-box">
           <h4>Zona peligrosa</h4>
           <p class="muted small">
             Eliminar la cuenta borra perfil, historial de partidas y avatar (incluido almacenamiento en la nube).

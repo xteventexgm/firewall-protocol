@@ -17,7 +17,10 @@ export type UserDocument = {
     gamesPlayed: number;
     winsByTeam: Record<string, number>;
     mvpCount: number;
-    favoriteRoles: string[];
+    favoriteRoles: string[]; // Legacy
+    rolesCount?: Record<string, number>;
+    currentStreak?: number;
+    maxStreak?: number;
   };
   achievements?: string[];
   linkedGuestIds: string[];
@@ -93,7 +96,15 @@ export async function registerUser(input: {
     passwordHash: hashPassword(input.password),
     authProvider: 'local',
     preferredLocale: input.preferredLocale || 'es',
-    stats: { gamesPlayed: 0, winsByTeam: {}, mvpCount: 0, favoriteRoles: [] },
+    stats: {
+      gamesPlayed: 0,
+      winsByTeam: {},
+      mvpCount: 0,
+      favoriteRoles: [],
+      rolesCount: {},
+      currentStreak: 0,
+      maxStreak: 0,
+    },
     achievements: [],
     linkedGuestIds: [],
     createdAt: now,

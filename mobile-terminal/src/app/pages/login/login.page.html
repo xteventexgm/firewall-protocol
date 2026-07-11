@@ -48,7 +48,8 @@
         [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
       >
         <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
-        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true"><lucide-icon name="user" class="inline-icon"></lucide-icon></span>
+        <span *ngIf="!accountAvatarUrl && !accountInitials" class="account-fab-icon" aria-hidden="true"><lucide-icon name="user" class="inline-icon"></lucide-icon></span>
+        <span *ngIf="!accountAvatarUrl && accountInitials" class="account-fab-initials" aria-hidden="true">{{ accountInitials }}</span>
         <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
       </button>
 

@@ -14,6 +14,7 @@ export type ParticipationDocument = {
   isMvp: boolean;
   eliminatedOnDay?: number;
   finishedAt: Date;
+  durationMs?: number;
 };
 
 function participations() {
@@ -44,12 +45,21 @@ export async function recordGameParticipations(
     isAlive?: boolean;
     userId?: string;
     isBot?: boolean;
+    isWinner?: boolean;
+    isMvp?: boolean;
+    eliminatedOnDay?: number;
   }>;
+
   const winner = state.winner as string | null | undefined;
   const soloWinner = state.soloWinner as { playerId?: string } | null | undefined;
   const mvpPlayerId = (state.gameStats as { mvpPlayerId?: string } | undefined)?.mvpPlayerId;
   const dayNumber = Number(state.dayNumber ?? 0);
+
   const finishedAt = new Date();
+  let durationMs: number | undefined;
+  if (typeof state.gameStartedAt === 'number') {
+    durationMs = finishedAt.getTime() - state.gameStartedAt;
+  }
 
   const docs: ParticipationDocument[] = players
     .filter((p) => !p.isBot)
@@ -64,6 +74,7 @@ export async function recordGameParticipations(
       isMvp: mvpPlayerId === p.id,
       eliminatedOnDay: p.isAlive === false ? dayNumber : undefined,
       finishedAt,
+      durationMs,
     }));
 
   if (!docs.length) return 0;
@@ -94,14 +105,33 @@ export async function incrementUserStatsAfterGame(
 ): Promise<void> {
   if (!ObjectId.isValid(userId)) return;
   const users = getDb().collection('users');
+
+  // Primero obtenemos el user actual para calcular racha
+  const user = await users.findOne({ _id: new ObjectId(userId) }, { projection: { 'stats.currentStreak': 1, 'stats.maxStreak': 1 } });
+  const currentStreak = (user?.stats?.currentStreak ?? 0) + (participation.won ? 1 : 0);
+  const maxStreak = Math.max(user?.stats?.maxStreak ?? 0, currentStreak);
+  const nextStreak = participation.won ? currentStreak : 0;
+
   const inc: Record<string, number> = { 'stats.gamesPlayed': 1 };
   if (participation.isMvp) inc['stats.mvpCount'] = 1;
   if (participation.won && participation.team) {
     inc[`stats.winsByTeam.${participation.team}`] = 1;
   }
-  const update: Record<string, unknown> = { $inc: inc };
+  
+  const update: Record<string, unknown> = {
+    $inc: inc,
+    $set: {
+      'stats.currentStreak': nextStreak,
+      'stats.maxStreak': maxStreak
+    }
+  };
+
   if (participation.role) {
+    // Add to legacy
     update.$addToSet = { 'stats.favoriteRoles': participation.role };
+    // Increment specific role count
+    inc[`stats.rolesCount.${participation.role}`] = 1;
   }
+
   await users.updateOne({ _id: new ObjectId(userId) }, update);
 }

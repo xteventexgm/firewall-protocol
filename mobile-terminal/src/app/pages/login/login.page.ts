@@ -229,6 +229,17 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
     this.accountAvatarUrl = blob ?? this.authService.getAvatarBlobUrl();
   }
 
+  get accountInitials(): string | null {
+    if (!this.authService.isLoggedIn()) return null;
+    const name = (this.authService.getUser()?.username ?? '').trim();
+    if (!name) return '?';
+    const parts = name.split(/[\s_\-]+/);
+    if (parts.length > 1 && parts[0] && parts[1]) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+
   private checkBootSequence(): void {
     const played = sessionStorage.getItem('boot_played');
     if (played) {

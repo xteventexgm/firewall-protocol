@@ -545,6 +545,7 @@ router.get('/participations', async (req, res) => {
       won: p.won,
       isMvp: p.isMvp,
       finishedAt: p.finishedAt.toISOString(),
+      durationMs: p.durationMs,
     })),
   });
 });
