@@ -58,6 +58,11 @@ export class LobbyComponent implements OnChanges {
   autoAdvance = false;
   nightMinutes = 1.5;
   dayMinutes = 2;
+  voteMinutes = 1.5;
+  minigamesEnabled = true;
+
+  isConfigModalOpen = false;
+  configModalMode: 'create' | 'edit' = 'create';
 
   constructor(private readonly gameSound: GameSoundService) {}
 
@@ -235,23 +240,54 @@ export class LobbyComponent implements OnChanges {
     }
   }
 
+  openConfigModal(mode: 'create' | 'edit'): void {
+    this.gameSound.playUi('click');
+    this.configModalMode = mode;
+    this.isConfigModalOpen = true;
+  }
+
+  closeConfigModal(): void {
+    this.gameSound.playUi('click');
+    this.isConfigModalOpen = false;
+  }
+
+  onConfirmConfig(): void {
+    this.gameSound.playUi('confirm');
+    this.isConfigModalOpen = false;
+    
+    if (this.configModalMode === 'create') {
+      this.createLobby.emit(this.selectedMaxPlayers);
+      // Wait for room to be created before sending config
+      setTimeout(() => this.onApplyPhaseConfig(), 500);
+    } else {
+      this.onApplyPhaseConfig();
+    }
+  }
+
   onApplyPhaseConfig(): void {
+    this.setPhaseConfig.emit({
+      autoAdvance: this.autoAdvance,
+      nightDurationMs: Math.round(this.nightMinutes * 60_000),
+      dayDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.voteMinutes * 60_000),
+      minigamesEnabled: this.minigamesEnabled,
+    });
+  }
+
+  onCreateLobby(): void {
+    // Redirigido a openConfigModal('create')
+    this.openConfigModal('create');
+  }
+
+  onStartGame(): void {
     this.gameSound.playUi('confirm');
     this.setPhaseConfig.emit({
       autoAdvance: this.autoAdvance,
       nightDurationMs: Math.round(this.nightMinutes * 60_000),
       dayDurationMs: Math.round(this.dayMinutes * 60_000),
-      voteDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.voteMinutes * 60_000),
+      minigamesEnabled: this.minigamesEnabled,
     });
-  }
-
-  onCreateLobby(): void {
-    this.gameSound.playUi('confirm');
-    this.createLobby.emit(this.selectedMaxPlayers);
-  }
-
-  onStartGame(): void {
-    this.gameSound.playUi('confirm');
     this.startGame.emit();
   }
 

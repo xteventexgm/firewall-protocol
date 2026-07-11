@@ -114,5 +114,78 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     description: 'Gana la partida sin haber votado por la eliminación de nadie.',
     icon: '🕊️',
     secret: true,
+  },
+  // --- M16 NUEVOS LOGROS ---
+  // Progresión
+  {
+    id: 'net_veteran',
+    name: 'Veterano de Red',
+    description: 'Juega 10 partidas en la plataforma.',
+    icon: '🎖️',
+  },
+  {
+    id: 'soc_elite',
+    name: 'Elite SOC',
+    description: 'Juega 50 partidas en la plataforma.',
+    icon: '🏅',
+  },
+  {
+    id: 'legend',
+    name: 'Leyenda',
+    description: 'Juega 100 partidas en la plataforma.',
+    icon: '👑',
+  },
+  // Roles específicos
+  {
+    id: 'net_surgeon',
+    name: 'Cirujano de Red',
+    description: 'Cura con éxito la infección de un jugador.',
+    icon: '⚕️',
+  },
+  {
+    id: 'death_trap',
+    name: 'Trampa mortal',
+    description: 'Como Honeypot, arrastra contigo a la tumba a un atacante.',
+    icon: '🪤',
+  },
+  {
+    id: 'zero_day_exploit',
+    name: '0-Day exploit',
+    description: 'Gana la partida en solitario como el Zero-Day.',
+    icon: '☢️',
+  },
+  {
+    id: 'ice_penguin',
+    name: 'Pingüino de Hielo',
+    description: 'Sobrevive a la partida después de haber sido congelado por Deep Freeze.',
+    icon: '🐧',
+  },
+  // Sociales
+  {
+    id: 'diplomat',
+    name: 'Diplomático',
+    description: 'Envía más de 20 mensajes de chat en una partida.',
+    icon: '🤝',
+  },
+  {
+    id: 'radio_silence',
+    name: 'Silencio de Radio',
+    description: 'Gana una partida sin enviar ni un solo mensaje al chat global.',
+    icon: '🤐',
+  },
+  // Secretos
+  {
+    id: 'error_418',
+    name: 'Error 418: I\'m a teapot',
+    description: 'Intenta realizar acciones imposibles 5 veces.',
+    icon: '🫖',
+    secret: true,
+  },
+  {
+    id: 'trojan_horse',
+    name: 'Caballo de Troya',
+    description: 'Gana como Rootkit sin haber sido escaneado nunca como MALICIOSO.',
+    icon: '🐴',
+    secret: true,
   }
 ];

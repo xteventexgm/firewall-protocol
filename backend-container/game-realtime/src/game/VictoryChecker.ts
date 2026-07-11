@@ -120,10 +120,24 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 
+  // Mutually Assured Destruction: everyone is dead
+  if (H === 0 && S === 0 && C === 0) {
+    // Si todos mueren, System falla en proteger la red, BlackHat muere. 
+    // Podemos declararlo empate o victoria por defecto a BlackHat (ya que destruyeron la red). 
+    // Lo marcaremos como Black Hat gana por destrucción total.
+    return { over: true, type: 'team', winner: Team.BLACK_HAT };
+  }
+
+  // Solo caóticos vivos
   if (H === 0 && S === 0 && C > 0) {
     const soloOnly = checkSoloWin(state);
     if (soloOnly.over) return soloOnly;
-    return { over: false };
+    // Si no hay un win solitario explícito (ej. Gusano/Minero), pero solo quedan caóticos, 
+    // se fuerza la victoria del caótico más viable.
+    const chaoticOnly = pickChaoticStalemateWinner(state.getAlivePlayers());
+    if (chaoticOnly.over) return chaoticOnly;
+    // Fallback absoluto si algo falla
+    return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
   return { over: false };

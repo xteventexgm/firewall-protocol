@@ -23,7 +23,7 @@ async function bootstrap(): Promise<void> {
     }
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, "0.0.0.0", () => {
     logger.info(`Media service listening on port ${PORT}`, { avatarStorage: getAvatarStorageMode() });
   });
 }

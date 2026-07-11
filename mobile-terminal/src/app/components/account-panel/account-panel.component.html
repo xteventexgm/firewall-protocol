@@ -144,9 +144,14 @@
             <button type="button" class="primary-btn" (click)="openAchievements()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.5); color: #00f0ff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.1); margin-bottom: 0.75rem;">
               <span style="font-size: 1.2rem;">🏆</span> Mis Logros
             </button>
-            <button type="button" class="primary-btn" (click)="openTutorial.emit()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white;">
-              <lucide-icon name="book-open" class="icon-sm"></lucide-icon> Cómo jugar
-            </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="primary-btn" (click)="openTutorial.emit()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white;">
+                <lucide-icon name="book-open" class="icon-sm"></lucide-icon> Cómo jugar
+              </button>
+              <button type="button" class="primary-btn" (click)="openEncyclopedia()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); color: white;">
+                <lucide-icon name="search" class="icon-sm"></lucide-icon> Enciclopedia
+              </button>
+            </div>
           </div>
 
         <div class="profile-block" *ngIf="bundle.user.stats.favoriteRoles.length">

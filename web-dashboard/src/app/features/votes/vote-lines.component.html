@@ -23,6 +23,13 @@
       [attr.stroke-width]="line.strokeWidth"
       marker-end="url(#arrowhead-skip)"
     />
+    
+    <!-- Laser particle for skip vote -->
+    <circle r="3" class="vote-laser-particle" fill="#ffd000" filter="drop-shadow(0 0 6px #ffd000)">
+      <animate attributeName="cx" [attr.values]="line.x1 + ';' + line.x2" dur="0.4s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.25 0.1 0.25 1" />
+      <animate attributeName="cy" [attr.values]="line.y1 + ';' + line.y2" dur="0.4s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.25 0.1 0.25 1" />
+      <animate attributeName="opacity" values="0;1;0" dur="0.4s" fill="freeze" keyTimes="0;0.1;1" />
+    </circle>
   }
 
   @for (line of lines; track line.from + '-' + line.to) {
@@ -36,5 +43,12 @@
       [attr.stroke-width]="line.strokeWidth"
       marker-end="url(#arrowhead)"
     />
+    
+    <!-- Laser particle for M27 -->
+    <circle r="3" class="vote-laser-particle">
+      <animate attributeName="cx" [attr.values]="line.x1 + ';' + line.x2" dur="0.4s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.25 0.1 0.25 1" />
+      <animate attributeName="cy" [attr.values]="line.y1 + ';' + line.y2" dur="0.4s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.25 0.1 0.25 1" />
+      <animate attributeName="opacity" values="0;1;0" dur="0.4s" fill="freeze" keyTimes="0;0.1;1" />
+    </circle>
   }
 </svg>

@@ -105,9 +105,12 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() kickEnabled = false;
 
   @Output() kickPlayer = new EventEmitter<PublicPlayer>();
+  
+  @ViewChild('topologyContainer') topologyContainer!: ElementRef<HTMLElement>;
 
   kickMenu: { player: PublicPlayer; x: number; y: number } | null = null;
   avatarErrors = new Set<string>();
+  eventPulseClass = '';
 
   // Devuelve la URL pública del avatar basándose en el ID del jugador
   getAvatarUrl(player: PublicPlayer): string {
@@ -584,6 +587,30 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (changed) {
       this.rebuildMeshLinks();
     }
+  }
+
+  triggerEventPulse(type: 'kill' | 'vote' | 'victory', targetNodeId?: string): void {
+    let px = 50, py = 50;
+    if (targetNodeId) {
+      const node = this.nodes.find(n => n.player.id === targetNodeId);
+      if (node) {
+        px = node.x;
+        py = node.y;
+      }
+    }
+    
+    if (this.topologyContainer?.nativeElement) {
+      this.topologyContainer.nativeElement.style.setProperty('--pulse-origin-x', `${px}%`);
+      this.topologyContainer.nativeElement.style.setProperty('--pulse-origin-y', `${py}%`);
+    }
+
+    this.eventPulseClass = '';
+    this.cdr.detectChanges(); // Reset class immediately
+    
+    setTimeout(() => {
+      this.eventPulseClass = `pulse-${type}`;
+      this.cdr.detectChanges();
+    }, 10);
   }
 
   private computeLinkHandshakeMs(node: NodePosition): number {
@@ -1105,6 +1132,14 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       );
       this.paintPacket(
         ctx,
+        link.x1 + (link.x2 - link.x1) * ((phase.out + 0.5) % 1),
+        link.y1 + (link.y2 - link.y1) * ((phase.out + 0.5) % 1),
+        2.5,
+        '#ffc832',
+        8,
+      );
+      this.paintPacket(
+        ctx,
         link.x2 + (link.x1 - link.x2) * phase.in,
         link.y2 + (link.y1 - link.y2) * phase.in,
         2.5,
@@ -1144,6 +1179,14 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
       );
       this.paintPacket(
         ctx,
+        link.x1 + (link.x2 - link.x1) * ((phase.out + 0.5) % 1),
+        link.y1 + (link.y2 - link.y1) * ((phase.out + 0.5) % 1),
+        2,
+        '#ffc832',
+        6,
+      );
+      this.paintPacket(
+        ctx,
         link.x2 + (link.x1 - link.x2) * phase.in,
         link.y2 + (link.y1 - link.y2) * phase.in,
         2.2,
@@ -1151,8 +1194,58 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
         7,
       );
     }
-  }
 
+    // M28: Node VFX
+    for (const node of this.nodes) {
+      const p = node.player;
+      const x = this.nodeX(node);
+      const y = this.nodeY(node);
+
+      if (!p.isAlive) {
+        // Dead nodes: Sporadic sparks at connection point
+        const hash = Math.floor(x + y + p.id.charCodeAt(0));
+        const sparkTime = now + hash * 1234;
+        if (sparkTime % 3000 < 150) {
+          const numSparks = 2 + (hash % 3);
+          for (let i = 0; i < numSparks; i++) {
+            const sx = x + (Math.random() - 0.5) * 20;
+            const sy = y + 30 + (Math.random() - 0.5) * 20; // Bottom of node
+            this.paintPacket(ctx, sx, sy, 1.5 + Math.random() * 2, '#fff14d', 8);
+          }
+        }
+      } else if (p.infected) {
+        // Infected: Orbiting red/green particles
+        const orbitSpeed = 0.0025;
+        const radius = 28;
+        const angle1 = now * orbitSpeed + (x % 100);
+        const angle2 = angle1 + Math.PI;
+        const angle3 = angle1 + Math.PI / 2;
+        
+        this.paintPacket(ctx, x + Math.cos(angle1) * radius, y + Math.sin(angle1) * radius * 0.5, 2.5, '#00ff44', 10);
+        this.paintPacket(ctx, x + Math.cos(angle2) * radius, y + Math.sin(angle2) * radius * 0.5, 2.5, '#ff0044', 10);
+        this.paintPacket(ctx, x + Math.cos(angle3) * radius * 0.5, y + Math.sin(angle3) * radius, 2, '#00ff44', 8);
+      }
+      
+      if (p.silenced && p.isAlive) {
+        // Silenced: Interference rings
+        const cycle = (now % 2000) / 2000;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, 20 + cycle * 35, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(100, 150, 255, ${0.6 * (1 - cycle)})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        const cycle2 = ((now + 1000) % 2000) / 2000;
+        ctx.beginPath();
+        ctx.arc(x, y, 20 + cycle2 * 35, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(100, 150, 255, ${0.6 * (1 - cycle2)})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
   private paintExtendCable(
     ctx: CanvasRenderingContext2D,
     x1: number,
@@ -1745,4 +1838,10 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     canvas.width = this.width;
     canvas.height = this.height;
   }
+
+  getVoteCount(id: string): number {
+    if (!this.state || this.phase !== 'DIA' || !this.state.votes) return 0;
+    return this.state.votes[id]?.length || 0;
+  }
 }
+

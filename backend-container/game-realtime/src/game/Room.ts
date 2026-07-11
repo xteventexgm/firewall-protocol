@@ -159,6 +159,18 @@ export class Room extends EventEmitter {
     this.options.nightDurationMs = this.state.phaseConfig.nightDurationMs;
     this.options.dayDurationMs = this.state.phaseConfig.dayDurationMs;
     this.updatePhaseEndsAt(this.sm.getPhase());
+    
+    const currentPhase = this.sm.getPhase();
+    if (currentPhase !== GamePhase.LOBBY && currentPhase !== GamePhase.FIN) {
+      if (this.state.phaseConfig.autoAdvance) {
+        this.schedulePhaseTimeout(currentPhase);
+      } else if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = null;
+        this.state.phaseEndsAt = null;
+      }
+    }
+
     this.emit('phaseConfigChanged', { roomId: this.id, config: this.state.phaseConfig });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving phaseConfig', e); }
   }
@@ -223,6 +235,24 @@ export class Room extends EventEmitter {
     this.emit('chatMessage', { roomId: this.id, message: result.message });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving chat', e); }
     return result;
+  }
+
+  pushSystemMessage(content: string, channel: 'public' | 'dead' = 'public') {
+    const message = {
+      id: crypto.randomUUID(),
+      playerId: 'SYSTEM',
+      playerName: 'SYSTEM',
+      text: content,
+      channel,
+      timestamp: Date.now(),
+      phase: this.sm.getPhase(),
+    };
+    this.state.chatMessages.push(message);
+    if (this.state.chatMessages.length > 120) {
+      this.state.chatMessages.shift();
+    }
+    this.emit('chatMessage', { roomId: this.id, message });
+    try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving chat (sys)', e); }
   }
 
   submitDayAction(actorId: string, type: string, targetId?: string): ActionSubmitResult {
@@ -764,6 +794,7 @@ export class Room extends EventEmitter {
     if (current === GamePhase.VERIFICACION) {
       if (this.maybeEndGame()) return GamePhase.FIN;
       this.sm.transitionTo(GamePhase.NOCHE);
+      this.pushSystemMessage('⚡ Fase nocturna iniciada');
       return GamePhase.NOCHE;
     }
 
@@ -800,6 +831,17 @@ export class Room extends EventEmitter {
           disconnected: eliminated,
         };
         this.emit('incidentReport', report);
+
+        if (eliminated.length > 0) {
+          const names = eliminated.map(id => this.state.getPlayer(id)?.name).join(', ');
+          this.pushSystemMessage(`La red amaneció con heridas. <b>${names}</b> fue eliminado.`);
+        } else {
+          this.pushSystemMessage(`Noche tranquila. La red permanece intacta.`);
+        }
+
+        if (resolution.infections && resolution.infections.length > 0) {
+          this.pushSystemMessage(`☣ Una amenaza biológica fue detectada. ${resolution.infections.length} nodo(s) infectado(s).`);
+        }
       }
       return nextPhase;
     }
@@ -819,6 +861,7 @@ export class Room extends EventEmitter {
         const voteLog = buildVoteLog(null, voteResult.voteCount, this.state.dayNumber);
         this.state.publicLogs.push(voteLog);
         this.emit('publicLog', { roomId: this.id, entry: voteLog });
+        this.pushSystemMessage(`🤁 Empate — nadie fue eliminado`);
         this.sm.transitionTo(GamePhase.NOCHE);
         return GamePhase.NOCHE;
       }
@@ -826,6 +869,13 @@ export class Room extends EventEmitter {
       const voteLog = buildVoteLog(voteResult.eliminated ?? null, voteResult.voteCount, this.state.dayNumber);
       this.state.publicLogs.push(voteLog);
       this.emit('publicLog', { roomId: this.id, entry: voteLog });
+
+      if (voteResult.eliminated) {
+        const actor = this.state.getPlayer(voteResult.eliminated);
+        if (actor) {
+          this.pushSystemMessage(`🗳 <b>${actor.name}</b> fue expulsado por mayoría`);
+        }
+      }
 
       const soloAfterVote = checkAnyWin(this.state, { justVotedOut: voteResult.eliminated ?? undefined });
       if (this.endGame(soloAfterVote)) return GamePhase.FIN;

@@ -151,7 +151,7 @@ export class GameSoundService {
   private async playFile(path: string): Promise<boolean> {
     try {
       const audio = new Audio(path);
-      audio.volume = 0.82;
+      audio.volume = 1.0;
       await audio.play();
       return true;
     } catch {

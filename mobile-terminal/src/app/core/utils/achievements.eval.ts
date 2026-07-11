@@ -69,5 +69,24 @@ export function evaluateEndOfGameAchievements(
     }
   }
 
+  // M16: Roles & Specifics
+  const me = state.players.find(p => p.id === myPlayerId);
+  if (me) {
+    if (gameOverView.didWin && me.role === 'zero_day' && !unlockedAchievements.includes('zero_day_exploit')) {
+      newUnlocks.add('zero_day_exploit');
+    }
+    // We cannot fully evaluate "Cirujano de red", "Trampa mortal", "Pingüino de hielo", "Caballo de Troya" 
+    // or "Error 418" just from the final GameState without the full action log. 
+    // Usually these would be triggered server-side or by specific client action logs.
+    // However, if the info exists in a local log, it could be evaluated here.
+    // For M16, we add the structure for them. 
+
+    // Silencio de radio: Won without chatting (hard to evaluate accurately without chat log in state, but we provide the hook)
+    if (gameOverView.didWin && !unlockedAchievements.includes('radio_silence')) {
+      // Stub: assumes a hypothetical `me.messagesSent` or similar if added in future
+      // if (me.messagesSent === 0) newUnlocks.add('radio_silence');
+    }
+  }
+
   return Array.from(newUnlocks);
 }

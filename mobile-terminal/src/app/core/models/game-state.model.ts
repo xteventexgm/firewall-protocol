@@ -152,6 +152,7 @@ export interface PlayerRoomState {
     nightDurationMs: number;
     dayDurationMs: number;
     voteDurationMs: number;
+    minigamesEnabled?: boolean;
   };
   players: RoomPlayer[];
   dayNumber: number;

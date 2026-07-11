@@ -1059,6 +1059,7 @@
   }
 
   &.node-dead {
+    animation: fade-to-red-dead 1.5s ease-out forwards;
     .node-hex-outer { stroke: #ff2d5533; }
     .node-hex-inner {
       stroke: #ff2d55;
@@ -1436,3 +1437,67 @@
   100% { opacity: 1; transform: translate(-50%, calc(-100% - 14px)) scale(1); }
 }
 
+
+
+/* M26: Topology Zoom Pulse */
+.topology-container {
+  /* Use custom properties to dynamically set the transform origin */
+  transform-origin: var(--pulse-origin-x, 50%) var(--pulse-origin-y, 50%);
+  transition: filter 0.5s ease;
+}
+
+.pulse-kill {
+  animation: topology-pulse-kill 300ms ease-in-out;
+}
+
+@keyframes topology-pulse-kill {
+  0% { transform: scale(1.0); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1.0); }
+}
+
+.pulse-vote {
+  animation: topology-pulse-vote 500ms ease-out;
+}
+
+@keyframes topology-pulse-vote {
+  0% { transform: scale(1.03); }
+  100% { transform: scale(1.0); }
+}
+
+.pulse-victory {
+  animation: topology-pulse-victory 2s ease-out forwards;
+}
+
+@keyframes topology-pulse-victory {
+  0% { transform: scale(1.0); filter: hue-rotate(0deg) brightness(1); }
+  20% { transform: scale(1.05); filter: hue-rotate(90deg) brightness(1.5); }
+  100% { transform: scale(1.02); filter: hue-rotate(0deg) brightness(1); }
+}
+
+/* M27: Node Voted Highlight */
+.node-voted {
+  .node-icon-bg {
+    fill: #00ffcc;
+    fill-opacity: calc(0.1 + (var(--vote-count, 1) * 0.15));
+    transition: fill-opacity 0.3s ease;
+  }
+  .node-outline {
+    stroke: #00ffcc;
+    stroke-width: calc(2px + (var(--vote-count, 1) * 1px));
+    filter: drop-shadow(0 0 calc(2px + (var(--vote-count, 1) * 2px)) #00ffcc);
+    transition: all 0.3s ease;
+  }
+}
+
+@keyframes fade-to-red-dead {
+  0% {
+    filter: drop-shadow(0 0 15px #ff0000) brightness(1.5);
+  }
+  20% {
+    filter: drop-shadow(0 0 30px #ff0000) brightness(2.0);
+  }
+  100% {
+    filter: drop-shadow(0 0 0px #ff0000) brightness(1.0);
+  }
+}

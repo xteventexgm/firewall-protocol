@@ -1,4 +1,4 @@
-<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg" [class.lobby-only]="!inRoom">
+<div class="dashboard h-screen w-screen flex overflow-hidden bg-cyber-bg" [class.lobby-only]="!inRoom" [attr.data-phase]="state?.phase">
   @if (!inRoom) {
     <app-home-atmosphere />
   }
@@ -170,3 +170,5 @@
     </main>
   }
 </div>
+
+

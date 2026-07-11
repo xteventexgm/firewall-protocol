@@ -1,85 +1,102 @@
 <div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
-  <div class="gameover-content">
-    <div class="gameover-badge">
-      @switch (summary.outcome) {
-        @case ('win') { ✓ VICTORIA }
-        @case ('loss') { ✕ DERROTA }
-        @default { ◈ FIN }
-      }
+  
+  @if (currentStep === 0) {
+    <div class="protocolo-finalizado glitch-text" data-text="PROTOCOLO FINALIZADO">
+      PROTOCOLO FINALIZADO
     </div>
-    <h2 class="gameover-title">PARTIDA TERMINADA</h2>
-    <p class="gameover-headline">{{ summary.headline }}</p>
+  }
 
-    @if (summary.message) {
-      <p class="gameover-message">{{ summary.message }}</p>
-    }
-
-    @if (summary.winners.length) {
-      <ul class="winner-list">
-        @for (winner of summary.winners; track winner.playerName) {
-          <li class="winner-item">
-            <span class="winner-name">{{ winner.playerName }}</span>
-            <span class="winner-role">{{ winner.role }}</span>
-          </li>
+  @if (currentStep >= 1) {
+    <div class="gameover-content scale-in-center">
+      <div class="gameover-badge">
+        @switch (summary.outcome) {
+          @case ('win') { ?EVICTORIA }
+          @case ('loss') { ?EDERROTA }
+          @default { ?EFIN }
         }
-      </ul>
-    }
+      </div>
+      <h2 class="gameover-title">PARTIDA TERMINADA</h2>
+      <p class="gameover-headline">{{ summary.headline }}</p>
 
-    @if (summary.reveals?.length) {
-      <div class="reveal-sections">
-        @for (reveal of summary.reveals; track reveal.title) {
-          <section class="reveal-block">
-            <h3 class="reveal-title">{{ reveal.title }}</h3>
-            <ul class="reveal-list">
-              @for (item of reveal.items; track item) {
-                <li class="reveal-item">{{ item }}</li>
+      @if (summary.message) {
+        <p class="gameover-message">{{ summary.message }}</p>
+      }
+
+      @if (currentStep >= 2) {
+        @if (summary.winners.length) {
+          <ul class="winner-list staggered-fade">
+            @for (winner of summary.winners; track winner.playerName) {
+              <li class="winner-item">
+                <span class="winner-name">{{ winner.playerName }}</span>
+                <span class="winner-role">{{ winner.role }}</span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (summary.reveals?.length) {
+          <div class="reveal-sections staggered-fade">
+            @for (reveal of summary.reveals; track reveal.title) {
+              <section class="reveal-block">
+                <h3 class="reveal-title">{{ reveal.title }}</h3>
+                <ul class="reveal-list">
+                  @for (item of reveal.items; track item) {
+                    <li class="reveal-item">{{ item }}</li>
+                  }
+                </ul>
+              </section>
+            }
+          </div>
+        }
+      }
+
+      @if (currentStep >= 3) {
+        @if (summary.stats?.length) {
+          <section class="stats-section fade-in-up">
+            <h3 class="reveal-title">Estadisticas</h3>
+            <ul class="stats-list">
+              @for (stat of summary.stats; track stat.label) {
+                <li class="stat-item" [class.stat-mvp]="stat.label === 'MVP' && currentStep >= 4">
+                  <span class="stat-label">{{ stat.label }}</span>
+                  <span class="stat-value animate-count">{{ stat.value }}</span>
+                  @if (stat.detail) {
+                    <span class="stat-detail">{{ stat.detail }}</span>
+                  }
+                </li>
               }
             </ul>
           </section>
         }
-      </div>
-    }
+      }
 
-    @if (summary.stats?.length) {
-      <section class="stats-section">
-        <h3 class="reveal-title">Estadísticas</h3>
-        <ul class="stats-list">
-          @for (stat of summary.stats; track stat.label) {
-            <li class="stat-item" [class.stat-mvp]="stat.label === 'MVP'">
-              <span class="stat-label">{{ stat.label }}</span>
-              <span class="stat-value">{{ stat.value }}</span>
-              @if (stat.detail) {
-                <span class="stat-detail">{{ stat.detail }}</span>
-              }
-            </li>
+      @if (currentStep >= 4) {
+        <div class="gameover-actions fade-in-up">
+          <button type="button" class="btn-exit-room" (click)="onExitRoom()">
+            Volver al lobby
+          </button>
+          <button type="button" class="btn-new-game" (click)="onStartNewGame()">
+            Iniciar nueva partida
+          </button>
+          @if (roomId) {
+            <button
+              type="button"
+              class="btn-export-replay"
+              (click)="onExportReplay()"
+              [disabled]="exportingReplay"
+            >
+              {{ exportingReplay ? 'Exportando�c' : 'Descargar replay JSON' }}
+            </button>
+            <button
+              type="button"
+              class="btn-export-replay"
+              (click)="onExportSessionLog()"
+              [disabled]="exportingSessionLog"
+            >
+              {{ exportingSessionLog ? 'Exportando�c' : 'Descargar registro .log' }}
+            </button>
           }
-        </ul>
-      </section>
-    }
-
-    <button type="button" class="btn-exit-room" (click)="onExitRoom()">
-      Volver al lobby
-    </button>
-    <button type="button" class="btn-new-game" (click)="onStartNewGame()">
-      Iniciar nueva partida
-    </button>
-    @if (roomId) {
-      <button
-        type="button"
-        class="btn-export-replay"
-        (click)="onExportReplay()"
-        [disabled]="exportingReplay"
-      >
-        {{ exportingReplay ? 'Exportando…' : 'Descargar replay JSON' }}
-      </button>
-      <button
-        type="button"
-        class="btn-export-replay"
-        (click)="onExportSessionLog()"
-        [disabled]="exportingSessionLog"
-      >
-        {{ exportingSessionLog ? 'Exportando…' : 'Descargar registro .log' }}
-      </button>
-    }
-  </div>
+        </div>
+      }
+    </div>
+  }
 </div>

@@ -115,6 +115,7 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  minigamesEnabled?: boolean;
   /** Modo QA: avance automático hasta FIN cuando hay bots (solo dev). */
   botQaAutoRun?: boolean;
 }

@@ -75,6 +75,7 @@ export class GameStateModel implements GameState {
     nightDurationMs: 90_000,
     dayDurationMs: 120_000,
     voteDurationMs: 90_000,
+    minigamesEnabled: true,
     botQaAutoRun: false,
   };
   phaseEndsAt: number | null = null;
@@ -190,8 +191,12 @@ export class GameStateModel implements GameState {
         const plain = this.playerToPlain(p);
         const frozen = frozenIds.has(p.id);
         const withFrozen = { ...plain, frozen };
-        if (hideRoles && p.id !== viewerId) {
+        const isDead = !p.isAlive;
+        if (hideRoles && p.id !== viewerId && !isDead) {
           return { ...withFrozen, role: undefined, team: undefined, metadata: this.sanitizeMetadata(plain.metadata) };
+        }
+        if (hideRoles && p.id !== viewerId && isDead) {
+          return { ...withFrozen, metadata: this.sanitizeMetadata(plain.metadata) };
         }
         if (hideRoles && p.id === viewerId) {
           return { ...withFrozen, metadata: this.sanitizeMetadata(plain.metadata, true) };

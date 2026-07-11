@@ -167,6 +167,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   phaseBulletin = '';
   voteUrgentSeconds = 0;
   phaseCountdown = '';
+  phaseRemainingSeconds = 0;
+  phaseTotalSeconds = 0;
   matchElapsed = '';
   nightProgress: NightProgress | null = null;
   minigameChallenge: MinigameChallenge | null = null;
@@ -174,6 +176,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   minigameFeedbackType: 'none' | 'success' | 'error' = 'none';
   minigameFeedbackMessage = '';
   interferenceShake = false;
+  deathShake = false;
+  miniShake = false;
+  showDeathFlash = false;
   challengeAnswer: string | number | null = null;
   chatMessages: ChatMessage[] = [];
   chatInput = '';
@@ -193,6 +198,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   readonly trollMessages = TROLL_PROVOKE_MESSAGES;
   readonly canCryptoBribe = canCryptoBribe;
   isNightActionMinimized = false;
+  voteCeremonyActive = false;
+  selectedEmergencyTarget = '';
+  gameOverStep = 0;
+  myDeathReason: string | null = null;
   lastGameState: PlayerRoomState | null = null;
 
   private subs = new Subscription();
@@ -221,6 +230,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   private interferenceTimer?: ReturnType<typeof setTimeout>;
   private phaseTimerInterval?: ReturnType<typeof setInterval>;
   private phaseEndsAt: number | null = null;
+  private lastPhase: GamePhase | '' = '';
+  private lastHapticSecond = -1;
+  private timerExpiredPlayed = false;
   private deathAlertQueue: NodeDeathAlertData[] = [];
   private deathAlertTimer?: ReturnType<typeof setTimeout>;
   private deathAlertExitTimer?: ReturnType<typeof setTimeout>;
@@ -393,11 +405,9 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.gamePhase = state.phase;
           this.showGameOver = false;
           this.gameOverView = null;
+          this.gameOverStep = 0;
         } else if (me && !me.isAlive) {
-          this.gamePhase = 'ELIMINATED';
-          this.phaseBulletin = phaseBulletin('ELIMINATED');
-          void this.runDeathHaptic();
-          this.syncChatForPhase({ forceChannel: true });
+          this.transitionToEliminated();
         } else if (state.phase) {
           if (this.gamePhase !== state.phase) {
             this.isNightActionMinimized = false;
@@ -492,9 +502,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (player.roleDescription) this.roleDescription = formatRoleCopy(player.roleDescription);
         if (player.nightActionHint) this.nightActionHint = player.nightActionHint;
         if (player.isDead && !this.showGameOver && this.gamePhase !== 'FIN') {
-          this.gamePhase = 'ELIMINATED';
-          void this.runDeathHaptic();
-          this.syncChatForPhase({ forceChannel: true });
+          this.transitionToEliminated();
         }
         this.isSilenced = !!player.silenced;
         this.isFrozen = !!player.frozen;
@@ -599,15 +607,19 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.phaseEndsAt = null;
         }
         if (t.to === 'DIA' && !amDead) this.gameSound.playDay();
-        if (t.to === 'NOCHE') {
-          this.minigameChallenge = null;
-          this.challengeAnswer = null;
-          this.minigamePending = false;
-          this.minigameFeedbackType = 'none';
-          this.minigameFeedbackMessage = '';
-          if (!amDead && this.canActAtNight) this.socketService.requestMinigame();
-          if (!amDead) this.syncChatForPhase({ forceChannel: true });
+        if (t.to !== this.lastPhase) {
+          this.lastHapticSecond = -1;
+          this.timerExpiredPlayed = false;
         }
+        this.lastPhase = t.to;
+        this.minigameChallenge = null;
+        this.challengeAnswer = null;
+        this.minigamePending = false;
+        this.minigameFeedbackType = 'none';
+        this.minigameFeedbackMessage = '';
+        if (!amDead && this.canActAtNight) this.socketService.requestMinigame();
+        if (!amDead) this.syncChatForPhase({ forceChannel: true });
+        
         if (t.to === 'DIA' && !amDead) {
           this.setStatus('Amanecer  Eauditoría diurna iniciada', 'info');
         }
@@ -626,6 +638,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (t.to === 'VOTACION' && !amDead) {
           this.myVoteConfirmed = false;
           this.selectedTarget = '';
+          this.selectedEmergencyTarget = '';
           this.voteTiedMessage = '';
         }
         if (t.to === 'VERIFICACION' && !amDead) {
@@ -644,11 +657,16 @@ export class DashboardPage implements OnInit, OnDestroy {
           .map((id) => this.players.find((p) => p.id === id)?.name ?? id)
           .filter(Boolean);
         this.queueNodeDeathAlerts(ids, 'night_kill');
-        this.showIncidentReport = true;
+        
+        // Retrasar el reporte de incidentes para que no bloquee el "NodeDeathAlert"
+        // NodeDeathAlert = 1600ms + 4200ms = 5800ms
         clearTimeout(this.incidentTimer);
         this.incidentTimer = setTimeout(() => {
-          this.showIncidentReport = false;
-        }, 8000);
+          this.showIncidentReport = true;
+          this.incidentTimer = setTimeout(() => {
+            this.showIncidentReport = false;
+          }, 8000);
+        }, 5800);
       }),
     );
 
@@ -677,6 +695,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
 
         if (resolution.infectionKills?.includes(this.myPlayerId)) {
+          this.myDeathReason = 'infection';
           this.setStatus(
             `Tu nodo cayó por infección de ${infectionSourceLabel(this.myInfectionSource ?? 'worm')}`,
             'error',
@@ -723,9 +742,9 @@ export class DashboardPage implements OnInit, OnDestroy {
         const name = this.players.find((p) => p.id === playerId)?.name ?? playerId;
         const reasonLabel = translateEliminationReason(reason);
         if (playerId === this.myPlayerId && !this.showGameOver) {
-          this.gamePhase = 'ELIMINATED';
+          this.myDeathReason = reason;
           this.setStatus(`Eliminado por ${reasonLabel}`, 'error');
-          void this.runDeathHaptic();
+          this.transitionToEliminated();
         } else {
           this.queueNodeDeathAlerts([playerId], reason);
         }
@@ -811,6 +830,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.chatMessage$.subscribe((m) => {
         if (!this.chatMessages.some((existing) => existing.id === m.id)) {
+          this.chatMessages.push(m);
           this.gameSound.playChat();
         }
       }),
@@ -877,25 +897,76 @@ export class DashboardPage implements OnInit, OnDestroy {
 
       if (!this.phaseStartedAt) {
         this.phaseCountdown = '';
+        this.phaseRemainingSeconds = 0;
         this.voteUrgentSeconds = 0;
         return;
       }
       const endsAt = this.resolvePhaseEndsAt();
       if (!endsAt || !this.phaseConfig?.autoAdvance) {
         this.phaseCountdown = '';
+        this.phaseRemainingSeconds = 0;
         this.voteUrgentSeconds = 0;
         return;
       }
+
+      this.phaseTotalSeconds = this.resolvePhaseDurationSeconds();
       const remaining = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
+      this.phaseRemainingSeconds = remaining;
+
       const rm = Math.floor(remaining / 60);
       const rs = remaining % 60;
       this.phaseCountdown = `${rm}:${rs.toString().padStart(2, '0')}`;
+
+      if (remaining <= 5 && remaining > 0 && this.lastHapticSecond !== remaining) {
+        this.lastHapticSecond = remaining;
+        void this.hapticService.playTimerTick();
+      }
+
+      if (remaining === 0 && !this.timerExpiredPlayed) {
+        this.timerExpiredPlayed = true;
+        this.gameSound.play('timer_warning');
+      }
+
       if (this.gamePhase === 'VOTACION' && remaining > 0 && remaining <= 10) {
         this.voteUrgentSeconds = remaining;
       } else {
         this.voteUrgentSeconds = 0;
       }
-    }, 1000);
+    }, 250);
+  }
+
+  get timerState(): 'normal' | 'warning' | 'critical' | 'expired' {
+    if (!this.phaseRemainingSeconds || !this.phaseTotalSeconds) return 'normal';
+    if (this.phaseRemainingSeconds === 0) return 'expired';
+    if (this.phaseRemainingSeconds <= 10) return 'critical';
+    if (this.phaseRemainingSeconds <= this.phaseTotalSeconds * 0.4) return 'warning';
+    return 'normal';
+  }
+
+  get totalVoters(): number {
+    return this.players.filter((p) => p.isAlive).length;
+  }
+
+  get votesEmitted(): number {
+    if (!this.lastGameState || !this.lastGameState.votes) return 0;
+    let count = 0;
+    for (const key of Object.keys(this.lastGameState.votes)) {
+      count += this.lastGameState.votes[key].length;
+    }
+    return count;
+  }
+
+  get majorityThreshold(): number {
+    return Math.floor(this.totalVoters / 2) + 1;
+  }
+
+  get majorityReached(): boolean {
+    return this.votesEmitted >= this.majorityThreshold;
+  }
+
+  get voteProgressPercent(): number {
+    if (this.totalVoters === 0) return 0;
+    return Math.min(100, (this.votesEmitted / this.totalVoters) * 100);
   }
 
   private resolveMatchStartedAt(): number | null {
@@ -1257,6 +1328,21 @@ export class DashboardPage implements OnInit, OnDestroy {
     return Math.max(0, this.maxPlayers - this.players.length);
   }
 
+  get lobbySummaryText(): string[] {
+    if (!this.phaseConfig) return [];
+    const texts: string[] = [];
+    if (this.phaseConfig.autoAdvance) {
+      const nMin = this.phaseConfig.nightDurationMs / 60_000;
+      const dMin = this.phaseConfig.dayDurationMs / 60_000;
+      const vMin = this.phaseConfig.voteDurationMs / 60_000;
+      texts.push(`Temporizador: Noche ${nMin}m / Día ${dMin}m / Voto ${vMin}m`);
+    } else {
+      texts.push('Avance manual (Sin temporizador)');
+    }
+    texts.push(this.phaseConfig.minigamesEnabled !== false ? 'Minijuegos Nocturnos: ACTIVADOS' : 'Minijuegos Nocturnos: DESACTIVADOS');
+    return texts;
+  }
+
   get showRolePanel(): boolean {
     return this.gamePhase !== 'LOBBY' && this.gamePhase !== 'REPARTO' && this.playerRole !== 'Desconocido';
   }
@@ -1264,6 +1350,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   get isInfected(): boolean {
     const me = this.players.find((p) => p.id === this.myPlayerId);
     return !!me?.infected;
+  }
+
+  get infectionSeverity(): 'none' | 'early' | 'critical' {
+    if (!this.isInfected || this.myInfectionMaturesAfterNight == null) return 'none';
+    if (this.dayNumber >= this.myInfectionMaturesAfterNight || this.nightNumber >= this.myInfectionMaturesAfterNight) return 'critical';
+    return 'early';
   }
 
   executeNightAction(): void {
@@ -1417,6 +1509,34 @@ export class DashboardPage implements OnInit, OnDestroy {
     }, 700);
   }
 
+  private triggerDeathShake(): void {
+    this.deathShake = true;
+    this.showDeathFlash = true;
+    setTimeout(() => {
+      this.deathShake = false;
+    }, 300);
+    setTimeout(() => {
+      this.showDeathFlash = false;
+    }, 150);
+  }
+
+  private triggerMiniShake(): void {
+    this.miniShake = true;
+    setTimeout(() => {
+      this.miniShake = false;
+    }, 150);
+  }
+
+  private transitionToEliminated(): void {
+    if (this.gamePhase === 'ELIMINATED' || this.deathHapticTriggered) return;
+    this.phaseBulletin = phaseBulletin('ELIMINATED');
+    void this.runDeathHaptic();
+    setTimeout(() => {
+      this.gamePhase = 'ELIMINATED';
+      this.syncChatForPhase({ forceChannel: true });
+    }, 550);
+  }
+
   private get effectiveTeam(): string {
     return this.myTeam || this.socketService.getMyTeam() || '';
   }
@@ -1464,6 +1584,16 @@ export class DashboardPage implements OnInit, OnDestroy {
       return;
     }
     this.chatChannelOptions = [{ value: 'public', label: 'Público' }];
+  }
+
+  private resolvePhaseDurationSeconds(): number {
+    if (!this.phaseConfig) return 0;
+    switch (this.gamePhase) {
+      case 'NOCHE': return Math.floor(this.phaseConfig.nightDurationMs / 1000);
+      case 'DIA': return Math.floor(this.phaseConfig.dayDurationMs / 1000);
+      case 'VOTACION': return Math.floor(this.phaseConfig.voteDurationMs / 1000);
+      default: return 0;
+    }
   }
 
   private getEffectiveChatChannel(): 'public' | 'dead' | 'hacker' {
@@ -1522,9 +1652,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   get visibleChatMessages(): ChatMessage[] {
     const channel = this.getEffectiveChatChannel();
     const filtered = this.chatMessages.filter((m) => {
-      if (channel === 'dead') return m.channel === 'dead';
-      if (channel === 'hacker') return m.channel === 'hacker';
-      return m.channel === 'public';
+      if (channel === 'dead') {
+        return m.channel === 'dead';
+      }
+      if (m.channel === 'public') return true;
+      return m.channel === channel;
     });
     return filtered.slice(-25);
   }
@@ -1576,13 +1708,13 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   executeEmergencyPatch(): void {
-    if (!this.selectedTarget) return;
+    if (!this.selectedEmergencyTarget) return;
     this.showPatchConfirm = true;
   }
 
   confirmEmergencyPatch(): void {
-    if (!this.selectedTarget) return;
-    if (this.socketService.submitDayAction('emergency_patch', this.selectedTarget)) {
+    if (!this.selectedEmergencyTarget) return;
+    if (this.socketService.submitDayAction('emergency_patch', this.selectedEmergencyTarget)) {
       this.showPatchConfirm = false;
       this.setStatus('Parche de emergencia aplicado', 'success');
       this.gameSound.playAction();
@@ -1612,9 +1744,15 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   executeVote(): void {
-    if (!this.selectedTarget) return;
-    this.socketService.submitVote(this.selectedTarget);
+    if (!this.selectedTarget || this.voteCeremonyActive) return;
+    this.voteCeremonyActive = true;
     this.gameSound.playVote();
+    void this.hapticService.playVoteConfirmed();
+    
+    setTimeout(() => {
+      this.socketService.submitVote(this.selectedTarget);
+      this.voteCeremonyActive = false;
+    }, 500);
   }
 
   executeSkipVote(): void {
@@ -1706,6 +1844,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private async runDeathHaptic(): Promise<void> {
     if (this.deathHapticTriggered) return;
     this.deathHapticTriggered = true;
+    this.triggerDeathShake();
     this.gameSound.playDeath();
     await this.hapticService.playDeath();
   }
@@ -1716,6 +1855,9 @@ export class DashboardPage implements OnInit, OnDestroy {
       const p = this.players.find((x) => x.id === id);
       return { name: p?.name ?? id, role: p?.role };
     });
+    if (others.length > 0) {
+      this.triggerMiniShake();
+    }
     const alert = buildNodeDeathAlert(playersData, reason);
     if (!alert) return;
     this.deathAlertQueue.push(alert);
@@ -1732,21 +1874,26 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (!this.nodeDeathAlert) return;
 
     this.nodeDeathAlertExiting = false;
-    this.showNodeDeathAlert = true;
-    this.gameSound.playDeath();
-    void this.runNodeDisconnectHaptic();
+    
+    // Retraso de 1600ms para mantener sincronía con el dashboard web y 
+    // permitir que las animaciones visuales ocurran primero en la pantalla grande
+    setTimeout(() => {
+      this.showNodeDeathAlert = true;
+      this.gameSound.playDeath();
+      void this.runNodeDisconnectHaptic();
 
-    this.deathAlertTimer = setTimeout(() => {
-      this.nodeDeathAlertExiting = true;
-      this.deathAlertExitTimer = setTimeout(() => {
-        this.showNodeDeathAlert = false;
-        this.nodeDeathAlert = null;
-        this.nodeDeathAlertExiting = false;
-        this.deathAlertTimer = undefined;
-        this.deathAlertExitTimer = undefined;
-        this.pumpNodeDeathAlertQueue();
-      }, 420);
-    }, DashboardPage.DEATH_ALERT_MS);
+      this.deathAlertTimer = setTimeout(() => {
+        this.nodeDeathAlertExiting = true;
+        this.deathAlertExitTimer = setTimeout(() => {
+          this.showNodeDeathAlert = false;
+          this.nodeDeathAlert = null;
+          this.nodeDeathAlertExiting = false;
+          this.deathAlertTimer = undefined;
+          this.deathAlertExitTimer = undefined;
+          this.pumpNodeDeathAlertQueue();
+        }, 420);
+      }, DashboardPage.DEATH_ALERT_MS);
+    }, 1600);
   }
 
   private clearNodeDeathAlerts(): void {
@@ -1770,6 +1917,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   ): void {
     this.showGameOver = true;
     this.gamePhase = 'FIN';
+    this.gameOverStep = 0;
+    
+    // Stagger the game over reveal
+    setTimeout(() => this.gameOverStep = 1, 2000);
+    setTimeout(() => this.gameOverStep = 2, 4000);
+
     this.gameOverView = buildGameOverView(
       this.myTeam || this.socketService.getMyTeam(),
       this.myPlayerId,
@@ -1779,6 +1932,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
 
     if (this.gameOverView.didWin) {
+      this.hapticService.playVictory();
       if (soloWinner) {
         this.gameSound.play('game_over_solo');
       } else if (winner === 'black_hat') {
@@ -1787,6 +1941,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.gameSound.play('game_over_system');
       }
     } else {
+      this.hapticService.playDefeat();
       this.gameSound.play('defeat');
     }
 

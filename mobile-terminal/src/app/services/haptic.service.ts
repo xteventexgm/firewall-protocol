@@ -123,8 +123,8 @@ export class HapticService {
   async playVoteConfirmed() {
     if (!this.enabled) return;
     try {
-      await Haptics.impact({ style: ImpactStyle.Medium });
-      await this.sleep(50);
+      await Haptics.impact({ style: ImpactStyle.Heavy });
+      await this.sleep(150);
       await Haptics.impact({ style: ImpactStyle.Medium });
     } catch {}
   }
@@ -132,6 +132,15 @@ export class HapticService {
   async playTap() {
     if (!this.enabled) return;
     try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch {}
+  }
+
+  async playTimerTick() {
+    if (!this.enabled) return;
+    try {
+      await Haptics.impact({ style: ImpactStyle.Medium });
+      await this.sleep(100);
       await Haptics.impact({ style: ImpactStyle.Light });
     } catch {}
   }

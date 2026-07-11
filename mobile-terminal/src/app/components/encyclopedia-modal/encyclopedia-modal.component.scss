@@ -1,0 +1,433 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.encyclopedia-overlay {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 5, 10, 0.95);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  animation: modalFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.encyclopedia-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.header {
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-cyber-accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  }
+
+  .close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:active {
+      transform: scale(0.9);
+      background: rgba(255, 50, 50, 0.3);
+      border-color: rgba(255, 50, 50, 0.5);
+    }
+    
+    .icon-sm {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 8px;
+  padding: 0 1rem;
+  height: 44px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+  
+  .search-icon {
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-right: 10px;
+  }
+  
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 0.95rem;
+    outline: none;
+    font-family: inherit;
+    
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+  }
+  
+  &:focus-within {
+    border-color: var(--color-cyber-accent);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 10px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.team-filters {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .filter-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &.active {
+      color: white;
+    }
+    
+    &.filter-all.active {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    &.filter-system.active {
+      background: rgba(0, 255, 170, 0.2);
+      border-color: var(--color-team-system);
+      box-shadow: 0 0 10px rgba(0, 255, 170, 0.3);
+    }
+    &.filter-hacker.active {
+      background: rgba(255, 50, 50, 0.2);
+      border-color: var(--color-team-hacker);
+      box-shadow: 0 0 10px rgba(255, 50, 50, 0.3);
+    }
+    &.filter-chaos.active {
+      background: rgba(255, 150, 0, 0.2);
+      border-color: var(--color-team-chaos);
+      box-shadow: 0 0 10px rgba(255, 150, 0, 0.3);
+    }
+  }
+}
+
+.roles-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 240, 255, 0.3);
+    border-radius: 3px;
+  }
+}
+
+.role-card {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+  
+  &.team-system {
+    border-left: 3px solid var(--color-team-system);
+    &.expanded { background: linear-gradient(90deg, rgba(0, 255, 170, 0.1) 0%, rgba(0, 0, 0, 0) 100%); }
+  }
+  &.team-black_hat {
+    border-left: 3px solid var(--color-team-hacker);
+    &.expanded { background: linear-gradient(90deg, rgba(255, 50, 50, 0.1) 0%, rgba(0, 0, 0, 0) 100%); }
+  }
+  &.team-chaotic {
+    border-left: 3px solid var(--color-team-chaos);
+    &.expanded { background: linear-gradient(90deg, rgba(255, 150, 0, 0.1) 0%, rgba(0, 0, 0, 0) 100%); }
+  }
+  
+  .card-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    
+    &:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+  
+  .role-icon-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    margin-right: 1rem;
+    flex-shrink: 0;
+    
+    .role-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      ::ng-deep svg { width: 20px !important; height: 20px !important; }
+    }
+    
+    &.glow-system { color: var(--color-team-system); box-shadow: 0 0 10px rgba(0, 255, 170, 0.2); border: 1px solid rgba(0, 255, 170, 0.3); }
+    &.glow-black_hat { color: var(--color-team-hacker); box-shadow: 0 0 10px rgba(255, 50, 50, 0.2); border: 1px solid rgba(255, 50, 50, 0.3); }
+    &.glow-chaotic { color: var(--color-team-chaos); box-shadow: 0 0 10px rgba(255, 150, 0, 0.2); border: 1px solid rgba(255, 150, 0, 0.3); }
+  }
+  
+  .role-info {
+    flex: 1;
+    
+    .role-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .role-name {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+    }
+    
+    .played-badge {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      
+      .star-icon {
+        width: 10px;
+        height: 10px;
+        color: gold;
+        ::ng-deep svg { width: 10px !important; height: 10px !important; }
+      }
+      
+      span {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: gold;
+        text-transform: uppercase;
+      }
+    }
+    
+    .role-desc {
+      margin: 0;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+  
+  .expand-icon {
+    width: 24px;
+    height: 24px;
+    color: rgba(255, 255, 255, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .chevron {
+      width: 20px;
+      height: 20px;
+    }
+  }
+  
+  .card-body {
+    padding: 0 1rem 1rem 4.5rem;
+    animation: fadeIn 0.3s;
+    
+    .guide-content {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      
+      .skill-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(0, 240, 255, 0.15);
+        border: 1px solid rgba(0, 240, 255, 0.4);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+        color: #00f0ff;
+        
+        .skill-name {
+          text-transform: uppercase;
+          font-size: 0.8rem;
+        }
+        
+        .skill-cmd {
+          background: rgba(0, 0, 0, 0.5);
+          padding: 0.1rem 0.4rem;
+          border-radius: 4px;
+          font-family: monospace;
+          color: white;
+        }
+      }
+      
+      .win-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        
+        &.system-win {
+          background: rgba(0, 255, 170, 0.15);
+          border: 1px solid rgba(0, 255, 170, 0.4);
+          color: var(--color-team-system);
+        }
+        
+        &.hacker-win {
+          background: rgba(255, 50, 50, 0.15);
+          border: 1px solid rgba(255, 50, 50, 0.4);
+          color: var(--color-team-hacker);
+        }
+        
+        &.chaos-win {
+          background: rgba(255, 150, 0, 0.15);
+          border: 1px solid rgba(255, 150, 0, 0.4);
+          color: var(--color-team-chaos);
+        }
+      }
+      
+      .skill-desc, .win-desc {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.85);
+      }
+      
+      .inline-cmd {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 0 4px;
+        font-family: monospace;
+        color: rgba(255, 255, 255, 0.9);
+      }
+      
+      .inline-icon {
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        svg { width: 16px !important; height: 16px !important; }
+      }
+      
+      strong {
+        color: white;
+      }
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 1rem;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

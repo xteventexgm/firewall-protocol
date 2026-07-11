@@ -87,6 +87,7 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  minigamesEnabled?: boolean;
   botQaAutoRun?: boolean;
 }
 

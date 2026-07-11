@@ -288,7 +288,7 @@ Toggle global de vibración on/off en `localStorage`.
 **Problema:** Iconos son mezcla de emojis Unicode que se renderizan diferente en cada dispositivo/OS.
 
 **Propuesta:**
-1. Usar subset de Phosphor Icons o Lucide Icons (SVG inline o icon font).
+1. Usar subset de Phosphor Icons o Lucide Icons (SVG inli   ne o icon font).
 2. Reemplazar emojis en UI por iconos consistentes:
    - Equipos: shield-check (System), skull (Black Hat), bolt (Caótico)
    - Fases: moon, sun, vote, check-circle

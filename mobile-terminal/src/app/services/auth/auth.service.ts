@@ -69,6 +69,21 @@ export class AuthService {
   /** Emite cuando el blob del avatar en memoria cambia (recarga tras fetch). */
   readonly avatarBlobChanged$ = this.avatarBlobChanged.asObservable();
 
+  // Track achievements unlocked in the current session to show "NEW" badges
+  private _newAchievements = new Set<string>();
+
+  markAchievementsAsNew(ids: string[]): void {
+    ids.forEach(id => this._newAchievements.add(id));
+  }
+
+  getNewAchievements(): Set<string> {
+    return this._newAchievements;
+  }
+
+  clearNewAchievements(): void {
+    this._newAchievements.clear();
+  }
+
   private apiBase(): string {
     return resolveApiBase();
   }

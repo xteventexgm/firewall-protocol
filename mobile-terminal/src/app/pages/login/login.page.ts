@@ -154,10 +154,6 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
     void this.refreshAccountAvatar();
     this.loadRecentRooms();
     if (this.isLoggedIn) void this.bootstrapAccountSession();
-
-    if (!localStorage.getItem('has_seen_tutorial')) {
-      this.showTutorial = true;
-    }
   }
 
   onTutorialDismissed(): void {
@@ -237,6 +233,9 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
     const played = sessionStorage.getItem('boot_played');
     if (played) {
       this.formReadyInstant = true;
+      if (!localStorage.getItem('has_seen_tutorial')) {
+        this.showTutorial = true;
+      }
     } else {
       this.startBootSequence();
     }
@@ -304,6 +303,12 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
     this.bootFlash = false;
     this.formReady = true;
     sessionStorage.setItem('boot_played', 'true');
+    
+    if (!localStorage.getItem('has_seen_tutorial')) {
+      setTimeout(() => {
+        this.showTutorial = true;
+      }, 500); // slight delay after boot finishes for smooth transition
+    }
   }
 
   get isLoggedIn(): boolean {

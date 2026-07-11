@@ -30,7 +30,7 @@ server.on('upgrade', (req, socket, head) => {
   gameRealtimeSocketProxy.upgrade(req, socket as Socket, head);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   logger.info(`Gateway listening on port ${PORT}`, {
     identity: IDENTITY_URL,
     gameRealtime: GAME_REALTIME_URL,

@@ -59,26 +59,10 @@
             </p>
           </div>
 
-          <label class="home-field">
-            <span class="home-field-label">Capacidad máxima</span>
-            <div class="home-select-wrap">
-              <select
-                class="home-select"
-                [(ngModel)]="selectedMaxPlayers"
-                [disabled]="!connected"
-              >
-                @for (n of [5,6,7,8,9,10,11,12,13,14,15,16]; track n) {
-                  <option [value]="n">{{ n }} jugadores</option>
-                }
-              </select>
-              <span class="home-select-chevron" aria-hidden="true">▾</span>
-            </div>
-          </label>
-
           <button
             type="button"
             class="home-cta"
-            (click)="onCreateLobby()"
+            (click)="openConfigModal('create')"
             [disabled]="!connected"
           >
             <span class="home-cta-glow" aria-hidden="true"></span>
@@ -309,24 +293,14 @@
     <div class="actions flex flex-col gap-2">
       @if (isHost) {
         @if (!compactMode) {
-        <section class="phase-config border border-cyber-border rounded p-2 text-xs">
-          <p class="text-cyber-muted uppercase tracking-widest mb-2">Ritmo de partida</p>
-          <label class="flex items-center gap-2 mb-2">
-            <input type="checkbox" [(ngModel)]="autoAdvance" />
-            <span>Auto-avance con timer</span>
-          </label>
-          <label class="flex flex-col gap-1 mb-1">
-            <span>Noche (min)</span>
-            <input type="number" min="0.5" max="10" step="0.5" [(ngModel)]="nightMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
-          </label>
-          <label class="flex flex-col gap-1 mb-2">
-            <span>Día (min)</span>
-            <input type="number" min="0.5" max="15" step="0.5" [(ngModel)]="dayMinutes" class="rounded border border-cyber-border bg-cyber-bg px-2 py-1" />
-          </label>
-          <button type="button" class="btn-secondary btn-sm w-full" (click)="onApplyPhaseConfig()">
-            Aplicar timers
-          </button>
-        </section>
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="openConfigModal('edit')"
+          title="Configurar timers y reglas de la sala"
+        >
+          ⚙ Configuración de Partida
+        </button>
         <button
           type="button"
           class="btn-secondary"
@@ -430,4 +404,70 @@
       </ul>
     }
   </aside>
+}
+
+@if (isConfigModalOpen) {
+<div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); z-index: 1000; display: flex; justify-content: center; align-items: center;">
+  <div class="modal-content border border-cyber-border rounded p-6 bg-cyber-bg w-full max-w-md relative" style="box-shadow: 0 0 20px rgba(0,255,255,0.2);">
+    <button type="button" class="absolute top-2 right-4 text-cyber-muted hover:text-cyber-accent text-2xl" (click)="closeConfigModal()">
+      &times;
+    </button>
+    <h2 class="text-cyber-accent uppercase tracking-widest mb-4 border-b border-cyber-border pb-2">
+      {{ configModalMode === 'create' ? 'Nueva Sala' : 'Configurar Sala' }}
+    </h2>
+
+    @if (configModalMode === 'create') {
+    <div class="mb-4">
+      <label class="flex flex-col gap-1">
+        <span class="text-cyber-muted uppercase text-xs">Capacidad máxima</span>
+        <select class="rounded border border-cyber-border bg-cyber-bg px-3 py-2 text-white" [(ngModel)]="selectedMaxPlayers">
+          @for (n of [5,6,7,8,9,10,11,12,13,14,15,16]; track n) {
+            <option [value]="n">{{ n }} jugadores</option>
+          }
+        </select>
+      </label>
+    </div>
+    }
+
+    <div class="flex items-center gap-2 mb-4">
+      <input type="checkbox" [(ngModel)]="autoAdvance" id="chkAutoAdvanceModal" class="accent-cyber-primary w-4 h-4" />
+      <label for="chkAutoAdvanceModal" class="cursor-pointer font-bold text-white">Avance automático por tiempo</label>
+    </div>
+
+    <div class="flex items-center gap-2 mb-4">
+      <input type="checkbox" [(ngModel)]="minigamesEnabled" id="chkMinigamesModal" class="accent-cyber-primary w-4 h-4" />
+      <label for="chkMinigamesModal" class="cursor-pointer font-bold text-white">Minijuegos Nocturnos</label>
+    </div>
+
+    <div class="sliders-group" [class.opacity-50]="!autoAdvance">
+      <label class="flex flex-col gap-1 mb-4">
+        <div class="flex justify-between">
+          <span class="text-sm text-white">Duración NOCHE</span>
+          <span class="text-cyber-accent font-mono">{{ nightMinutes }} min</span>
+        </div>
+        <input type="range" min="0.5" max="5" step="0.5" [(ngModel)]="nightMinutes" [disabled]="!autoAdvance" class="w-full mt-1" />
+      </label>
+
+      <label class="flex flex-col gap-1 mb-4">
+        <div class="flex justify-between">
+          <span class="text-sm text-white">Duración DÍA</span>
+          <span class="text-cyber-accent font-mono">{{ dayMinutes }} min</span>
+        </div>
+        <input type="range" min="0.5" max="5" step="0.5" [(ngModel)]="dayMinutes" [disabled]="!autoAdvance" class="w-full mt-1" />
+      </label>
+
+      <label class="flex flex-col gap-1 mb-6">
+        <div class="flex justify-between">
+          <span class="text-sm text-white">Duración VOTACIÓN</span>
+          <span class="text-cyber-accent font-mono">{{ voteMinutes }} min</span>
+        </div>
+        <input type="range" min="0.5" max="5" step="0.5" [(ngModel)]="voteMinutes" [disabled]="!autoAdvance" class="w-full mt-1" />
+      </label>
+    </div>
+
+    <button type="button" class="btn-primary w-full py-3" (click)="onConfirmConfig()">
+      {{ configModalMode === 'create' ? 'Confirmar y Crear Sala' : 'Aplicar Cambios' }}
+    </button>
+  </div>
+</div>
 }

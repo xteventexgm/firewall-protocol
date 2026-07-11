@@ -262,9 +262,10 @@
 
   &--bottom {
     top: auto;
-    bottom: 20px;
+    bottom: 80px;
     left: 20px;
     transform: none;
+    z-index: 50;
     max-width: min(380px, 88%);
     animation-name: toast-in-bottom;
   }
@@ -345,4 +346,13 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+
+.dashboard {
+  transition: background-color 0.3s ease;
+}
+
+.dashboard[data-phase="NOCHE"] {
+  background-color: #020508 !important;
 }
