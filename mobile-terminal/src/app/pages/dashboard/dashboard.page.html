@@ -482,7 +482,14 @@
         </div>
         <ul class="node-list node-list-open">
           <li *ngFor="let p of players; trackBy: trackByPlayerId" class="node-item hex-node-row" [class.dead]="!p.isAlive" [class.self]="p.id === myPlayerId">
-            <span class="node-hex-icon" aria-hidden="true">{{ p.name.charAt(0).toUpperCase() }}</span>
+            <span class="node-hex-icon" aria-hidden="true">
+              <ng-container *ngIf="avatarErrors.has(p.id) || (!p.avatarUrl && p.id.startsWith('usr_')); else avatarImg">
+                <span class="hex-inner">{{ initial(p.name) }}</span>
+              </ng-container>
+              <ng-template #avatarImg>
+                <img class="hex-avatar-img" [src]="getAvatarUrl(p)" (error)="handleAvatarError(p.id)" alt="" />
+              </ng-template>
+            </span>
             <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
             <span class="node-name">{{ p.name }}</span>
             <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>

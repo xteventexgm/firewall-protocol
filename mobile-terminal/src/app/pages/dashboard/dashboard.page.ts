@@ -1,5 +1,6 @@
 import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, Platform, AlertController, ToastController, ActionSheetController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
@@ -122,6 +123,28 @@ export class DashboardPage implements OnInit, OnDestroy {
   playerTeamLabel = '';
   roleDescription = '';
   nightActionHint = '';
+  avatarErrors = new Set<string>();
+
+  getAvatarUrl(player: RoomPlayer): string {
+    const base = environment.apiUrl.replace(/\/$/, '');
+    if (player.avatarUrl) {
+      let url = player.avatarUrl;
+      if (url.startsWith('/api/auth/avatars/')) {
+        url = url.replace('/api/auth/avatars/', '/api/media/avatars/');
+      }
+      return url.startsWith('http') ? url : `${base}${url}`;
+    }
+    return `${base}/api/media/avatars/${player.id}`;
+  }
+
+  handleAvatarError(playerId: string): void {
+    this.avatarErrors.add(playerId);
+  }
+
+  initial(name: string): string {
+    return name.trim().slice(0, 2).toUpperCase();
+  }
+
   gamePhase: GamePhase | 'ELIMINATED' = 'LOBBY';
   roomCode = '';
   dayNumber = 0;
@@ -831,10 +854,12 @@ export class DashboardPage implements OnInit, OnDestroy {
           return;
         }
         if (payload.result === 'failed') {
-          this.minigameFeedbackType = 'error';
-          this.minigameFeedbackMessage = payload.failHint ?? 'Respuesta incorrecta. Inténtalo de nuevo.';
+          this.challengeAnswer = null;
+          this.minigameChallenge = null;
+          this.minigameFeedbackType = 'none';
+          this.minigameFeedbackMessage = '';
           this.triggerInterferenceShake();
-          this.setStatus(this.minigameFeedbackMessage, 'error');
+          this.setStatus(payload.failHint ?? 'Respuesta incorrecta. Reto omitido.', 'error');
           return;
         }
         if (payload.result === 'skipped' || payload.result === 'expired') {
@@ -1282,11 +1307,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   get needsSecondary(): boolean {
-    return needsSecondaryTarget(this.playerRole);
+    return needsSecondaryTarget(this.playerRole, this.selectedNightActionType || undefined);
   }
 
   get secondaryLabel(): string {
-    return getSecondaryTargetLabel(this.playerRole);
+    return getSecondaryTargetLabel(this.playerRole, this.selectedNightActionType || undefined);
   }
 
   get nightActionLabel(): string {

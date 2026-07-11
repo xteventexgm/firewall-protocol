@@ -269,14 +269,10 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
     this.deleteAccountSuccess = '';
   }
 
-  async openEncyclopedia() {
-    const modal = await this.modalCtrl.create({
-      component: EncyclopediaModalComponent,
-      cssClass: 'premium-modal',
-      animated: true,
-      mode: 'ios'
-    });
-    return await modal.present();
+  @Output() openEncyclopediaEvent = new EventEmitter<void>();
+
+  openEncyclopedia() {
+    this.openEncyclopediaEvent.emit();
   }
 
   async requestDeleteAccountCode(): Promise<void> {

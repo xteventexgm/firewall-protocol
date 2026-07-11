@@ -39,65 +39,62 @@
       </div>
     </div>
 
-    <ion-content class="roles-list-content" [scrollY]="true">
-      <div class="roles-list">
-        <div 
-          class="role-card" 
-          *ngFor="let role of filteredRoles" 
-          [ngClass]="'team-' + role.team + (expandedRole === role.id ? ' expanded' : '')"
-          (click)="toggleExpand(role)"
-        >
-          <div class="card-header">
-            <div class="role-icon-wrap" [ngClass]="'glow-' + role.team">
-              <lucide-icon *ngIf="role.team === 'system'" name="shield-check" class="role-icon"></lucide-icon>
-              <lucide-icon *ngIf="role.team === 'black_hat'" name="skull" class="role-icon"></lucide-icon>
-              <lucide-icon *ngIf="role.team === 'chaotic'" name="shuffle" class="role-icon"></lucide-icon>
-            </div>
-            <div class="role-info">
-              <div class="role-title-row">
-                <h3 class="role-name">{{ role.displayName }}</h3>
-                <div class="played-badge" *ngIf="hasPlayed(role.id)">
-                  <lucide-icon name="star" class="star-icon"></lucide-icon>
-                  <span>Jugado</span>
-                </div>
-              </div>
-              <p class="role-desc">{{ role.description }}</p>
-            </div>
-            <div class="expand-icon">
-              <lucide-icon [name]="expandedRole === role.id ? 'chevron-up' : 'chevron-down'" class="chevron"></lucide-icon>
-            </div>
+    <div class="roles-list">
+      <div 
+        class="role-card" 
+        *ngFor="let role of filteredRoles" 
+        [ngClass]="'team-' + role.team + (expandedRole === role.id ? ' expanded' : '')"
+        (click)="toggleExpand(role)"
+      >
+        <div class="card-header">
+          <div class="role-icon-wrap" [ngClass]="'glow-' + role.team">
+            <lucide-icon *ngIf="role.team === 'system'" name="shield-check" class="role-icon"></lucide-icon>
+            <lucide-icon *ngIf="role.team === 'black_hat'" name="skull" class="role-icon"></lucide-icon>
+            <lucide-icon *ngIf="role.team === 'chaotic'" name="shuffle" class="role-icon"></lucide-icon>
           </div>
-          
-          <div class="card-body" *ngIf="expandedRole === role.id">
-            <ng-container *ngIf="parseText(role.playerGuide) as info">
-              <div class="guide-content">
-                
-                <div class="skill-badge" *ngIf="info.commandName">
-                  <lucide-icon name="moon" class="inline-icon"></lucide-icon>
-                  <span class="skill-name">Habilidad Nocturna:</span>
-                  <span class="skill-cmd">{{ info.commandName }}</span>
-                </div>
-                
-                <p class="skill-desc">{{ info.skillDescription }}</p>
-
-                <div class="win-section" *ngIf="info.winTitle">
-                  <div class="win-badge" [ngClass]="info.winType + '-win'">
-                    <lucide-icon name="trophy" class="inline-icon"></lucide-icon>
-                    {{ info.winTitle }}
-                  </div>
-                  <p class="win-desc">{{ info.winDescription }}</p>
-                </div>
-
+          <div class="role-info">
+            <div class="role-title-row">
+              <h3 class="role-name">{{ role.displayName }}</h3>
+              <div class="played-badge" *ngIf="hasPlayed(role.id)">
+                <lucide-icon name="star" class="star-icon"></lucide-icon>
+                <span>Jugado</span>
               </div>
-            </ng-container>
+            </div>
+            <p class="role-desc">{{ role.description }}</p>
+          </div>
+          <div class="expand-icon">
+            <lucide-icon [name]="expandedRole === role.id ? 'chevron-up' : 'chevron-down'" class="chevron"></lucide-icon>
           </div>
         </div>
+        
+        <div class="card-body" *ngIf="expandedRole === role.id">
+          <ng-container *ngIf="parseText(role.playerGuide) as info">
+            <div class="guide-content">
+              
+              <div class="skill-badge" *ngIf="info.skillDescription">
+                <lucide-icon name="moon" class="inline-icon"></lucide-icon>
+                <span class="skill-name">Habilidad Nocturna</span>
+              </div>
+              
+              <p class="skill-desc">{{ info.skillDescription }}</p>
 
-        <div class="empty-state" *ngIf="filteredRoles.length === 0">
-          <lucide-icon name="ghost" class="empty-icon"></lucide-icon>
-          <p>No se encontraron roles con esa búsqueda.</p>
+              <div class="win-section" *ngIf="info.winTitle">
+                <div class="win-badge" [ngClass]="info.winType + '-win'">
+                  <lucide-icon name="trophy" class="inline-icon"></lucide-icon>
+                  {{ info.winTitle }}
+                </div>
+                <p class="win-desc">{{ info.winDescription }}</p>
+              </div>
+
+            </div>
+          </ng-container>
         </div>
       </div>
-    </ion-content>
+
+      <div class="empty-state" *ngIf="filteredRoles.length === 0">
+        <lucide-icon name="ghost" class="empty-icon"></lucide-icon>
+        <p>No se encontraron roles con esa búsqueda.</p>
+      </div>
+    </div>
   </div>
 </div>

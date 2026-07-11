@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -23,8 +23,9 @@ export class EncyclopediaModalComponent implements OnInit {
   expandedRole: RoleName | null = null;
   favoriteRoles: string[] = [];
 
+  @Output() closeEncyclopedia = new EventEmitter<void>();
+
   constructor(
-    private modalCtrl: ModalController,
     private authService: AuthService
   ) {}
 
@@ -41,7 +42,7 @@ export class EncyclopediaModalComponent implements OnInit {
   }
 
   close() {
-    this.modalCtrl.dismiss();
+    this.closeEncyclopedia.emit();
   }
 
   filterRoles() {
