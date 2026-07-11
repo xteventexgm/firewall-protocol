@@ -162,8 +162,13 @@ export class App implements OnInit, OnDestroy {
             setTimeout(() => {
               this.pendingDeathIds = this.pendingDeathIds.filter(id => !newlyDeadIds.includes(id));
               if (this.state) {
-                // Forzar re-render con los jugadores ya muertos
-                this.state = { ...this.state };
+                // Forzar re-render con los jugadores ya muertos, restaurando su estado isAlive = false
+                this.state = {
+                  ...this.state,
+                  players: this.state.players.map(p => 
+                    newlyDeadIds.includes(p.id) ? { ...p, isAlive: false } : p
+                  )
+                };
               }
             }, 600);
           }
@@ -225,6 +230,10 @@ export class App implements OnInit, OnDestroy {
         
         this.beginEliminationAnimation(ids);
         this.queueNodeDeathAlerts(ids, 'night_kill');
+        
+        setTimeout(() => {
+          this.patchPlayersAlive(ids, false);
+        }, 600);
         
         // Incident report overlay sale DESPUÉS del nodeDeathAlert
         // nodeDeathAlert toma 1600ms en aparecer + 4200ms de duración = 5800ms

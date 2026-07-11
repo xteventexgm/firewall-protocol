@@ -520,6 +520,14 @@
           </li>
           <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
         </ul>
+        <div class="chat-reactions-scroll" *ngIf="gamePhase !== 'LOBBY' && !isSilenced && !isFrozen">
+          <button class="reaction-btn" (click)="sendReaction('👍 De acuerdo')" [disabled]="chatCooldownSec > 0">👍 De acuerdo</button>
+          <button class="reaction-btn" (click)="sendReaction('👎 En contra')" [disabled]="chatCooldownSec > 0">👎 En contra</button>
+          <button class="reaction-btn" (click)="openTargetActionSheet('🤔 Sospecho de')" [disabled]="chatCooldownSec > 0">🤔 Sospecho</button>
+          <button class="reaction-btn" (click)="openTargetActionSheet('🛡 Inocente')" [disabled]="chatCooldownSec > 0">🛡 Inocente</button>
+          <button class="reaction-btn" (click)="sendReaction('⚠ Alerta')" [disabled]="chatCooldownSec > 0">⚠ Alerta</button>
+          <button class="reaction-btn" (click)="openTargetActionSheet('💀 Acuso a')" [disabled]="chatCooldownSec > 0">💀 Acuso</button>
+        </div>
         <div class="chat-compose">
           <input [(ngModel)]="chatInput" class="chat-input" placeholder="Mensaje (máx 120 chars)" maxlength="120" (keyup.enter)="sendChat()" />
           <button class="terminal-btn primary chat-send" (click)="sendChat()" [disabled]="chatCooldownSec > 0">

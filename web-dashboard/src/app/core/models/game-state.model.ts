@@ -80,6 +80,8 @@ export interface ChatMessage {
   channel: 'public' | 'dead' | 'hacker';
   timestamp: number;
   phase: GamePhase;
+  type?: 'normal' | 'reaction' | 'last_will';
+  targetPlayerId?: string | null;
 }
 
 export interface PhaseConfig {

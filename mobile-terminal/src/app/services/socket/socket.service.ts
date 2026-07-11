@@ -314,11 +314,12 @@ export class SocketService {
     this.socket.emit('setPlayerReady', roomId, { playerId, isReady });
   }
 
-  submitChat(text: string, channel: 'public' | 'dead' | 'hacker' = 'public'): boolean {
+  submitChat(text: string, channel: 'public' | 'dead' | 'hacker' = 'public', type: 'normal'|'reaction'|'last_will' = 'normal', targetPlayerId?: string): boolean {
+    if (!this.socket?.connected) return false;
     const roomId = localStorage.getItem('roomCode');
     const playerId = localStorage.getItem('myPlayerId');
-    if (!roomId || !playerId || !this.socket?.connected) return false;
-    this.socket.emit('submitChat', roomId, { playerId, text, channel });
+    if (!roomId || !playerId) return false;
+    this.socket.emit('submitChat', roomId, { playerId, text, channel, type, targetPlayerId });
     return true;
   }
 

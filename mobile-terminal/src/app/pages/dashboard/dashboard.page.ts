@@ -1,7 +1,7 @@
 import { LucideAngularModule } from 'lucide-angular';
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, Platform, AlertController, ToastController } from '@ionic/angular';
+import { IonicModule, Platform, AlertController, ToastController, ActionSheetController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -80,6 +80,7 @@ import {
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS, PLAYERS_PER_CHAOTIC_ROLE, PlayerRoleMeta } from '../../core/models/game-state.model';
 import { Subscription } from 'rxjs';
 import { HapticService } from '../../services/haptic.service';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 @Component({
   selector: 'app-dashboard',
@@ -157,6 +158,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   showRoleGuide = false;
   showThreatBriefing = false;
   showRoleList = false;
+
+  showLastWillModal = false;
+  lastWillText = '';
+  lastWillSecondsLeft = 10;
+  private lastWillInterval: any;
   roleListLines: string[] = [];
   roleRevealTeam = '';
   roleVictoryHint = '';
@@ -178,6 +184,10 @@ export class DashboardPage implements OnInit, OnDestroy {
   interferenceShake = false;
   deathShake = false;
   miniShake = false;
+
+  @ViewChild('chatList') chatListRef?: ElementRef<HTMLElement>;
+  isChatScrolledUp = false;
+  showNewMessageBadge = false;
   showDeathFlash = false;
   challengeAnswer: string | number | null = null;
   chatMessages: ChatMessage[] = [];
@@ -251,7 +261,8 @@ export class DashboardPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private authService: AuthService,
-    private hapticService: HapticService
+    private hapticService: HapticService,
+    private actionSheetCtrl: ActionSheetController
   ) {}
 
   private backButtonSub?: Subscription;
@@ -354,6 +365,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
 
     this.socketService.ensureConnection();
+    void LocalNotifications.requestPermissions();
 
     this.gameSound.setMuted(this.soundMuted);
     void this.gameSound.unlockAudio();
@@ -625,6 +637,15 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         if (t.to === 'NOCHE' && !amDead) {
           this.setStatus('Modo sigilo activado', 'warn');
+          if (this.canActAtNight) {
+            void LocalNotifications.schedule({
+              notifications: [{
+                id: Date.now(),
+                title: 'Es tu turno',
+                body: 'Ejecuta tu acción nocturna en la red.',
+              }]
+            });
+          }
           this.topologyOpen = false;
           this.selectedTarget = '';
           this.selectedSecondary = '';
@@ -640,6 +661,13 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.selectedTarget = '';
           this.selectedEmergencyTarget = '';
           this.voteTiedMessage = '';
+          void LocalNotifications.schedule({
+            notifications: [{
+              id: Date.now() + 1,
+              title: 'Fase de votación',
+              body: 'La auditoría ha terminado. Elige a quién expulsar de la red.',
+            }]
+          });
         }
         if (t.to === 'VERIFICACION' && !amDead) {
           this.setStatus('Verificando integridad del sistema…', 'info');
@@ -745,6 +773,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.myDeathReason = reason;
           this.setStatus(`Eliminado por ${reasonLabel}`, 'error');
           this.transitionToEliminated();
+          this.showLastWillPrompt();
         } else {
           this.queueNodeDeathAlerts([playerId], reason);
         }
@@ -832,6 +861,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (!this.chatMessages.some((existing) => existing.id === m.id)) {
           this.chatMessages.push(m);
           this.gameSound.playChat();
+          setTimeout(() => this.scrollToBottomIfNeeded(), 50);
         }
       }),
     );
@@ -1343,6 +1373,83 @@ export class DashboardPage implements OnInit, OnDestroy {
     return texts;
   }
 
+  onChatScroll(event: Event): void {
+    const el = event.target as HTMLElement;
+    if (!el) return;
+    const threshold = 20;
+    this.isChatScrolledUp = (el.scrollHeight - el.scrollTop - el.clientHeight) > threshold;
+    if (!this.isChatScrolledUp) {
+      this.showNewMessageBadge = false;
+    }
+  }
+
+  scrollToBottomIfNeeded(): void {
+    if (!this.isChatScrolledUp) {
+      this.scrollToBottom(true);
+    } else {
+      this.showNewMessageBadge = true;
+    }
+  }
+
+  scrollToBottom(smooth = true): void {
+    const el = document.querySelector('.chat-list');
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    this.isChatScrolledUp = false;
+    this.showNewMessageBadge = false;
+  }
+
+  showLastWillPrompt() {
+    this.showLastWillModal = true;
+    this.lastWillSecondsLeft = 10;
+    this.lastWillText = '';
+    
+    if (this.lastWillInterval) clearInterval(this.lastWillInterval);
+    
+    this.lastWillInterval = setInterval(() => {
+      this.lastWillSecondsLeft--;
+      if (this.lastWillSecondsLeft <= 0) {
+        clearInterval(this.lastWillInterval);
+        this.submitLastWill(); // Envía lo que haya escrito o cierra si está vacío
+      }
+    }, 1000);
+  }
+
+  submitLastWill() {
+    if (this.lastWillInterval) clearInterval(this.lastWillInterval);
+    this.showLastWillModal = false;
+    
+    const text = this.lastWillText.trim();
+    if (text) {
+      this.socketService.submitChat(text, 'public', 'last_will');
+    }
+  }
+
+  sendReaction(text: string, targetPlayerId?: string) {
+    this.socketService.submitChat(text, 'public', 'reaction', targetPlayerId);
+  }
+
+  async openTargetActionSheet(prefix: string) {
+    const buttons = this.aliveTargets.map(target => ({
+      text: target.name,
+      handler: () => {
+        this.sendReaction(`${prefix}: ${target.name}`, target.id);
+      }
+    }));
+
+    buttons.push({
+      text: 'Cancelar',
+      role: 'cancel',
+      handler: () => {}
+    } as any);
+
+    const actionSheet = await this.actionSheetCtrl.create({
+      header: `Selecciona objetivo para: ${prefix}`,
+      buttons
+    });
+    await actionSheet.present();
+  }
+
   get showRolePanel(): boolean {
     return this.gamePhase !== 'LOBBY' && this.gamePhase !== 'REPARTO' && this.playerRole !== 'Desconocido';
   }
@@ -1358,11 +1465,30 @@ export class DashboardPage implements OnInit, OnDestroy {
     return 'early';
   }
 
-  executeNightAction(): void {
+  async executeNightAction(): Promise<void> {
     const roleKey = this.socketService.getMyRole() ?? this.playerRole;
     const actionType = getNightActionType(roleKey, this.selectedNightActionType || undefined);
     if (!actionType) return;
 
+    const limitedActions = ['pentester_kill', 'brute_force', 'backup_mark', 'intel_pulse'];
+    if (limitedActions.includes(actionType)) {
+      const alert = await this.alertCtrl.create({
+        header: 'Confirmar acción',
+        message: `¿Usar ${getNightActionLabel(roleKey, actionType)}? Esta acción tiene usos limitados. No se puede deshacer.`,
+        buttons: [
+          { text: 'Cancelar', role: 'cancel' },
+          { text: 'Confirmar', handler: () => this.doExecuteNightAction(roleKey, actionType) }
+        ],
+        cssClass: 'terminal-alert',
+      });
+      await alert.present();
+      return;
+    }
+
+    this.doExecuteNightAction(roleKey, actionType);
+  }
+
+  private doExecuteNightAction(roleKey: string, actionType: string): void {
     if (isTrollProvoke(roleKey, actionType) || isNoiseBurst(roleKey, actionType)) {
       const pool = isNoiseBurst(roleKey, actionType) ? WHITE_NOISE_MESSAGES : this.trollMessages;
       this.nightActionReport = buildPendingReport({

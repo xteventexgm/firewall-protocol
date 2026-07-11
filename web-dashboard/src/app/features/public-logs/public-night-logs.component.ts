@@ -1,9 +1,11 @@
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { PublicLogEntry } from '../../core/models/game-state.model';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-public-night-logs',
   standalone: true,
+  imports: [FormsModule],
   template: `
     <aside class="public-logs" [class.visible]="logs.length > 0" [class.has-critical]="hasCritical">
       <header class="logs-header">
@@ -13,8 +15,11 @@ import { PublicLogEntry } from '../../core/models/game-state.model';
           <span class="logs-alert">ALERTA</span>
         }
       </header>
+      <div class="logs-search">
+        <input type="text" [(ngModel)]="searchQuery" placeholder="Buscar nodos o eventos..." class="logs-search-input" />
+      </div>
       <ul class="logs-list">
-        @for (log of visibleLogs; track log.id) {
+        @for (log of filteredLogs; track log.id) {
           <li
             class="log-entry"
             [attr.data-severity]="log.severity"
@@ -72,6 +77,23 @@ import { PublicLogEntry } from '../../core/models/game-state.model';
       border-bottom: 1px solid rgba(0, 240, 255, 0.15);
       color: #00f0ff;
     }
+    .logs-search {
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+    }
+    .logs-search-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #00f0ff;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      outline: none;
+    }
+    .logs-search-input::placeholder {
+      color: rgba(0, 240, 255, 0.3);
+    }
     .logs-title { font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; font-size: 0.65rem; }
     .logs-list {
       list-style: none;
@@ -117,6 +139,13 @@ export class PublicNightLogsComponent implements OnChanges {
   visibleLogs: PublicLogEntry[] = [];
   hasCritical = false;
   newestCriticalId: string | null = null;
+  searchQuery = '';
+
+  get filteredLogs(): PublicLogEntry[] {
+    if (!this.searchQuery) return this.visibleLogs;
+    const q = this.searchQuery.toLowerCase();
+    return this.visibleLogs.filter(log => log.message.toLowerCase().includes(q));
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['logs']) {

@@ -227,11 +227,20 @@ export class Room extends EventEmitter {
     return { ok: true as const, result };
   }
 
-  submitChat(playerId: string, text: string, channel?: 'public' | 'dead' | 'hacker') {
+  submitChat(playerId: string, text: string, channel?: 'public' | 'dead' | 'hacker', type: 'normal'|'reaction'|'last_will' = 'normal', targetPlayerId?: string) {
     const lastSent = this.state.lastChatSentAt[playerId];
-    const result = submitChatMessage(this.state, playerId, text, channel, lastSent);
+    const result = submitChatMessage(this.state, playerId, text, channel, lastSent, type, targetPlayerId);
     if (!result.ok) return result;
     this.state.lastChatSentAt[playerId] = Date.now();
+    
+    if (type === 'last_will') {
+      const player = this.state.getPlayer(playerId);
+      if (player) {
+        const meta = getMeta(player);
+        meta.hasSentLastWill = true;
+      }
+    }
+
     this.emit('chatMessage', { roomId: this.id, message: result.message });
     try { database.save(this.id, this.state.toPlain()); } catch (e) { logger.error('Failed saving chat', e); }
     return result;
