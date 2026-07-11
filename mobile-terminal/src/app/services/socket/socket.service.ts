@@ -104,7 +104,7 @@ export class SocketService {
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
       ...socketReconnectOptions(),
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
     };
 
     const extraHeaders = this.buildTunnelHeaders();
@@ -234,7 +234,7 @@ export class SocketService {
       try {
         const user = JSON.parse(userRaw);
         if (user?._id) userId = user._id;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     return {

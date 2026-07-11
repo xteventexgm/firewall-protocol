@@ -1,0 +1,40 @@
+
+body.high-contrast-mode {
+  --surface: #0a0a0a !important;
+  --surface-light: #1c1c1c !important;
+  --text-muted: #dcdcdc !important;
+  --text-color: #ffffff !important;
+  --primary: #00f0ff !important;
+  --danger: #ff2d55 !important;
+  --chaotic: #cc66ff !important;
+  
+  .cyber-block {
+    background: rgba(10, 24, 36, 0.95) !important;
+    border: 1px solid var(--primary) !important;
+  }
+  
+  .night-result-box {
+    &.seguro {
+      background: repeating-linear-gradient(45deg, rgba(0,255,136,0.15), rgba(0,255,136,0.15) 10px, rgba(0,0,0,0) 10px, rgba(0,0,0,0) 20px) !important;
+      border-color: #00ff88 !important;
+      color: #ffffff !important;
+    }
+    &.sospechoso {
+      background: repeating-linear-gradient(45deg, rgba(255,204,0,0.15), rgba(255,204,0,0.15) 10px, rgba(0,0,0,0) 10px, rgba(0,0,0,0) 20px) !important;
+      border-color: #ffcc00 !important;
+      color: #ffffff !important;
+    }
+    &.malicioso {
+      background: repeating-linear-gradient(45deg, rgba(255,45,85,0.15), rgba(255,45,85,0.15) 10px, rgba(0,0,0,0) 10px, rgba(0,0,0,0) 20px) !important;
+      border-color: #ff2d55 !important;
+      color: #ffffff !important;
+    }
+  }
+
+  .role-distribution-item {
+    &.team-system { border-left: 4px solid #00f0ff !important; }
+    &.team-black_hat { border-left: 4px solid #ff2d55 !important; }
+    &.team-chaotic { border-left: 4px solid #cc66ff !important; }
+  }
+}
+

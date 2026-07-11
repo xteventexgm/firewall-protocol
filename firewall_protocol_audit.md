@@ -74,8 +74,8 @@ Antes de las propuestas, documento las acciones de limpieza aplicadas sobre el a
 | **M26** | Zoom pulse en la topología (eventos) | Dashboard | ★★★★☆ | Media |
 | **M27** | Animación de voto en la topología | Dashboard | ★★★★☆ | Media |
 | **M28** | Partículas y VFX en nodos de topología | Dashboard | ★★★★☆ | Alta |
-| **M29** | Estadísticas e historial en el perfil | Perfil | ★★★★☆ | Media-alta |
-| **M30** | Fallback de avatar: 2 iniciales | Perfil | ★★★★☆ | Baja |
+| **M29** | Estadísticas e historial en el perfil | Perfil | ✅ | Media-alta |
+| **M30** | Fallback de avatar: 2 iniciales | Perfil | ✅ | Baja |
 | **M31** | Soporte para daltonismo | Accesibilidad | ★★★★☆ | Baja-media |
 | **M32** | Contraste WCAG y fuentes adaptativas | Accesibilidad | ★★★★☆ | Baja |
 | **M33** | Notificación push al inicio de fase | QoL | ★★★★★ | Media |

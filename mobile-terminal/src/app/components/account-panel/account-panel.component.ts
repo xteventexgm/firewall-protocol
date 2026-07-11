@@ -159,8 +159,13 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   get initials(): string {
-    const name = this.profile?.user.username ?? '';
-    return name.slice(0, 2).toUpperCase() || '?';
+    const name = (this.profile?.user.username ?? '').trim();
+    if (!name) return '?';
+    const parts = name.split(/[\s_\-]+/);
+    if (parts.length > 1 && parts[0] && parts[1]) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
   }
 
   openAchievements(): void {
@@ -724,6 +729,52 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  get topRoles(): { name: string, count: number }[] {
+    const counts = this.profile?.user.stats.rolesCount;
+    if (!counts) {
+      // Fallback a favoriteRoles (legacy) si no hay counts
+      return (this.profile?.user.stats.favoriteRoles || []).slice(0, 5).map(r => ({ name: r, count: 1 }));
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+  get maxRoleCount(): number {
+    const roles = this.topRoles;
+    return roles.length ? Math.max(...roles.map(r => r.count)) : 1;
+  }
+
+  get totalWins(): number {
+    return this.teamWins('system') + this.teamWins('black_hat') + this.teamWins('chaotic');
+  }
+
+  get teamPercents(): { system: number, blackHat: number, chaotic: number } {
+    const total = this.totalWins || 1;
+    return {
+      system: (this.teamWins('system') / total) * 100,
+      blackHat: (this.teamWins('black_hat') / total) * 100,
+      chaotic: (this.teamWins('chaotic') / total) * 100
+    };
+  }
+
+  getStreakClass(streak?: number): string {
+    const s = streak || 0;
+    if (s <= 0) return 'streak-none';
+    if (s <= 2) return 'streak-low';
+    if (s <= 4) return 'streak-med';
+    return 'streak-high';
+  }
+
+  formatDuration(ms?: number): string {
+    if (!ms) return '';
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins}m ${secs.toString().padStart(2, '0')}s`;
   }
 
   private wasAvatarTouched(): boolean {

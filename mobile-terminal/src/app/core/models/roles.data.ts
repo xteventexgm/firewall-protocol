@@ -83,7 +83,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'SysAdmin',
     description: 'Administrador del sistema',
     playerGuide:
-      'Sin acción nocturna. Durante VOTACION puedes usar Parche de emergencia (1×/partida): anulas por completo el voto de un jugador elegido. ' +
+      'Sin acción nocturna. Durante VOTACION puedes usar Parche de emergencia (1ÁEpartida): anulas por completo el voto de un jugador elegido. ' +
       SYSTEM_WIN,
     priority: 50,
   },
@@ -93,8 +93,8 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Analista SOC',
     description: 'Monitorea actividad sospechosa',
     playerGuide:
-      'De noche (`scan`): correlacionas un nodo vivo. Resultado privado — SEGURO (System), SOSPECHOSO (caótico) o MALICIOSO (Black Hat). ' +
-      'No revela el rol exacto. Rootkit y nodos enmascarados por Sombra aparecen como SEGURO. ' +
+      'De noche (`scan`): correlacionas un nodo vivo. Resultado privado  E?? SEGURO (System), ? SOSPECHOSO (caótico) o ?? MALICIOSO (Black Hat). ' +
+      'No revela el rol exacto. Rootkit y nodos enmascarados por Sombra aparecen como ?? SEGURO. ' +
       SYSTEM_WIN,
     priority: 40,
   },
@@ -186,7 +186,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Nodo de Respaldo',
     description: 'Salvaguarda única contra un kill',
     playerGuide:
-      '`backup_mark` (1×/partida): marcas un nodo vivo. Si moriría esta noche por un ataque, sobrevive una vez (se consume el respaldo). No bloquea infección madura. ' +
+      '`backup_mark` (1ÁEpartida): marcas un nodo vivo. Si moriría esta noche por un ataque, sobrevive una vez (se consume el respaldo). No bloquea infección madura. ' +
       SYSTEM_WIN,
     priority: 36,
   },
@@ -196,7 +196,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Cazador de Amenazas',
     description: 'Detección binaria de amenaza',
     playerGuide:
-      '`threat_hunt`: sondeas un nodo — resultado privado AMENAZA (hacker o caótico) o LIMPIO (System / enmascarado). No revela el rol exacto. ' +
+      '`threat_hunt`: sondeas un nodo  Eresultado privado AMENAZA (hacker o caótico) o LIMPIO (System / enmascarado). No revela el rol exacto. ' +
       SYSTEM_WIN,
     priority: 37,
   },
@@ -226,7 +226,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Intel de Amenazas',
     description: 'Panorama de bandos vivos',
     playerGuide:
-      '`intel_pulse` (1×/partida): recibes conteo privado de vivos por bando (hackers / system / caóticos). ' +
+      '`intel_pulse` (1ÁEpartida): recibes conteo privado de vivos por bando (hackers / system / caóticos). ' +
       SYSTEM_WIN,
     priority: 34,
   },
@@ -258,7 +258,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Rootkit',
     description: 'Implant oculto al SOC',
     playerGuide:
-      '`hacker_vote`: participas en el consenso nocturno para eliminar un objetivo. Los escaneos SOC te clasifican siempre como SEGURO. Conoces a los demás hackers. ' +
+      '`hacker_vote`: participas en el consenso nocturno para eliminar un objetivo. Los escaneos SOC te clasifican siempre como ?? SEGURO. Conoces a los demás hackers. ' +
       BLACK_HAT_WIN,
     priority: 45,
   },
@@ -389,7 +389,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Troll',
     description: 'Victoria por expulsión',
     playerGuide:
-      '`troll_provoke`: dejas un mensaje anónimo en el feed público. **Victoria solitaria únicamente** si el grupo te expulsa por votación diurna — no ganas por habilidades nocturnas ni por quedar solo.',
+      '`troll_provoke`: dejas un mensaje anónimo en el feed público. **Victoria solitaria únicamente** si el grupo te expulsa por votación diurna  Eno ganas por habilidades nocturnas ni por quedar solo.',
     priority: 5,
   },
   [RoleName.WORM]: {
@@ -407,7 +407,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Minero de Cripto',
     description: 'Escudos y soborno letal',
     playerGuide:
-      'Una acción por noche: `mine_crypto` (+1 escudo, máx. 3, no minar el mismo nodo dos noches seguidas) o `crypto_bribe` (gasta 1 escudo → kill directo). ' +
+      'Una acción por noche: `mine_crypto` (+1 escudo, máx. 3, no minar el mismo nodo dos noches seguidas) o `crypto_bribe` (gasta 1 escudo ↁEkill directo). ' +
       'Escudos bloquean kills directos; infección madura te elimina. **Victoria solitaria** si quedas como único jugador vivo.',
     priority: 12,
   },
@@ -417,7 +417,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Zero-Day',
     description: 'Asume identidad de un muerto',
     playerGuide:
-      '`zero_day_assume` (1×/partida): eliges un jugador **ya eliminado** y asumes su rol, equipo y habilidades. Los escaneos SOC reflejan tu rol asumido. ' +
+      '`zero_day_assume` (1ÁEpartida): eliges un jugador **ya eliminado** y asumes su rol, equipo y habilidades. Los escaneos SOC reflejan tu rol asumido. ' +
       'Ganas con el bando del rol asumido o por victoria solitaria de Gusano/Minero si aplica.',
     priority: 65,
   },
@@ -436,7 +436,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Sombra',
     description: 'Enmascara un nodo ante el SOC',
     playerGuide:
-      '`shadow_mask`: un jugador vivo aparece como SEGURO en escaneos SOC **esta noche** (aunque sea hacker o caótico). No revela tu identidad.',
+      '`shadow_mask`: un jugador vivo aparece como ?? SEGURO en escaneos SOC **esta noche** (aunque sea hacker o caótico). No revela tu identidad.',
     priority: 14,
   },
   [RoleName.LOGIC_BOMB]: {
@@ -455,7 +455,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     description: 'Corrompe votos diurnos',
     playerGuide:
       '`dns_spoof`: envenenas el resolver DNS de un jugador. En la **próxima VOTACION**, su voto se redirige al azar hacia **otro** nodo vivo distinto al que eligió (caos puro, no eliges el destino). ' +
-      'Tú apareces como SEGURO en escaneos SOC la noche que lo usas. Los caóticos deben sobrevivir mientras System y hackers se destruyen.',
+      'Tú apareces como ?? SEGURO en escaneos SOC la noche que lo usas. Los caóticos deben sobrevivir mientras System y hackers se destruyen.',
     priority: 9,
   },
   [RoleName.RANSOM_NOTE]: {
@@ -473,7 +473,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Dropper',
     description: 'Troyano que anula defensas',
     playerGuide:
-      '`rigged_payload`: infectas la cadena de suministro de un nodo — la **próxima noche** ignora protect, cure y respaldo sobre él. ' +
+      '`rigged_payload`: infectas la cadena de suministro de un nodo  Ela **próxima noche** ignora protect, cure y respaldo sobre él. ' +
       'Empiezas con 1 escudo caótico (bloquea un kill directo; infección madura lo atraviesa). Ganas +1 escudo al usar tu habilidad (máx. 2).',
     priority: 18,
   },
@@ -483,7 +483,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Saboteador',
     description: 'Jam de señal personal',
     playerGuide:
-      '`jam_hacker`: jammeas **tu propia señal** esta noche — apareces SEGURO en escaneos SOC, el consenso hacker no puede eliminarte y sobrevives **un linchamiento** al día siguiente aunque tengas mayoría en tu contra.',
+      '`jam_hacker`: jammeas **tu propia señal** esta noche  Eapareces ?? SEGURO en escaneos SOC, el consenso hacker no puede eliminarte y sobrevives **un linchamiento** al día siguiente aunque tengas mayoría en tu contra.',
     priority: 13,
   },
   [RoleName.WHITE_NOISE]: {
@@ -501,7 +501,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Espejismo',
     description: 'Te enmascaras ante el SOC',
     playerGuide:
-      '`mirage_cloak`: te enmascaras a ti mismo — los escaneos SOC te verán como SEGURO esta noche.',
+      '`mirage_cloak`: te enmascaras a ti mismo  Elos escaneos SOC te verán como ?? SEGURO esta noche.',
     priority: 15,
   },
   [RoleName.CHAOS_ROUTER]: {
@@ -510,7 +510,7 @@ export const ROLE_CATALOG: Record<RoleName, Role> = {
     displayName: 'Router del Caos',
     description: 'Desvía ataques unidireccionalmente',
     playerGuide:
-      '`chaos_route`: eliges un **origen** y un **colateral** — todos los ataques nocturnos dirigidos al origen impactan al colateral (sin intercambio mutuo como BGP). ' +
+      '`chaos_route`: eliges un **origen** y un **colateral**  Etodos los ataques nocturnos dirigidos al origen impactan al colateral (sin intercambio mutuo como BGP). ' +
       'Ideal para desviar fuego o perjudicar bandos enemigos.',
     priority: 17,
   },

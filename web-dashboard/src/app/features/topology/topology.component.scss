@@ -1501,3 +1501,19 @@
     filter: drop-shadow(0 0 0px #ff0000) brightness(1.0);
   }
 }
+
+.player-node.node-waiting {
+    .node-hex-outer { 
+      stroke: #8ab4c788; 
+      stroke-dasharray: 4 4; 
+      animation: waiting-dash 2s linear infinite; 
+    }
+    .node-hex-inner { stroke: #8ab4c755; fill: #081118; }
+    .node-pulse-ring { stroke: #8ab4c722; }
+    .node-status { fill: #8ab4c7; }
+  }
+
+@keyframes waiting-dash {
+  to { stroke-dashoffset: -16; }
+}
+

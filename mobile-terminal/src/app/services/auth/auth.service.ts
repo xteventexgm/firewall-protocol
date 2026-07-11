@@ -36,6 +36,17 @@ export interface GameParticipation {
   isMvp: boolean;
   eliminatedOnDay?: number;
   finishedAt: string;
+  durationMs?: number;
+}
+
+export interface UserStats {
+  gamesPlayed: number;
+  winsByTeam: Record<string, number>;
+  mvpCount: number;
+  favoriteRoles: string[];
+  rolesCount?: Record<string, number>;
+  currentStreak?: number;
+  maxStreak?: number;
 }
 
 export interface UserProfileBundle {
