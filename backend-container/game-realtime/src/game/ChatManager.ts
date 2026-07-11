@@ -7,6 +7,7 @@
 import { GamePhase } from '../types';
 import { GameStateModel } from '../models/GameState';
 import { ChatMessage, ChatChannel } from '../types/events.types';
+import { getMeta } from './playerMetadata';
 
 const MAX_MESSAGES = 120;
 const MAX_LENGTH = 120;
@@ -56,6 +57,8 @@ export function submitChatMessage(
   text: string,
   channel: ChatChannel = 'public',
   lastSentAt?: number,
+  type: 'normal' | 'reaction' | 'last_will' = 'normal',
+  targetPlayerId?: string
 ): ChatSubmitResult {
   const phase = state.phase;
   const player = state.getPlayer(playerId);
@@ -70,17 +73,24 @@ export function submitChatMessage(
 
   const isDead = !player.isAlive;
 
-  if (isDead && channel === 'public') {
+  if (isDead && channel === 'public' && type !== 'last_will') {
     return { ok: false, reason: 'Los eliminados solo pueden usar el chat de espectadores (channel_denied)' };
   }
   if (!isDead && channel === 'dead') {
     return { ok: false, reason: 'Solo los eliminados pueden usar el chat de espectadores (channel_denied)' };
   }
 
-  const resolvedChannel: ChatChannel = isDead ? 'dead' : channel;
+  const resolvedChannel: ChatChannel = (isDead && type !== 'last_will') ? 'dead' : channel;
 
-  if (!canChatInPhase(phase, resolvedChannel)) {
+  if (!canChatInPhase(phase, resolvedChannel) && type !== 'last_will') {
     return { ok: false, reason: 'El chat está desactivado en esta fase (chat_disabled)' };
+  }
+
+  if (type === 'last_will') {
+    const meta = getMeta(player);
+    if (meta.hasSentLastWill) {
+      return { ok: false, reason: 'Ya has enviado tu última voluntad' };
+    }
   }
 
   if (resolvedChannel === 'hacker') {
@@ -112,6 +122,8 @@ export function submitChatMessage(
     channel: resolvedChannel,
     timestamp: Date.now(),
     phase,
+    type,
+    targetPlayerId,
   };
 
   if (!state.chatMessages) state.chatMessages = [];

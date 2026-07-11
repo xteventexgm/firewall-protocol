@@ -13,7 +13,7 @@ import { ChatMessage } from '../../core/models/game-state.model';
       @if (!collapsed) {
         <ul class="chat-messages">
           @for (msg of messages.slice(-24); track msg.id) {
-            <li class="chat-msg" [attr.data-channel]="msg.channel">
+            <li class="chat-msg" [attr.data-channel]="msg.channel" [attr.data-type]="msg.type || 'normal'">
               <span class="chat-author">{{ msg.playerName }}</span>
               <span class="chat-text">{{ msg.text }}</span>
             </li>
@@ -82,9 +82,28 @@ import { ChatMessage } from '../../core/models/game-state.model';
       margin-right: 0.35rem;
       font-size: 0.82rem;
     }
-    .chat-text { color: #e8f4fc; font-size: 0.82rem; }
+    .chat-text { 
+      color: #e8f4fc; 
+      font-size: 0.82rem;
+      font-family: var(--font-sans);
+      letter-spacing: 0;
+    }
     .chat-msg[data-channel="dead"] .chat-author { color: #9aa0a8; }
     .chat-msg[data-channel="hacker"] .chat-author { color: #ff4466; }
+    
+    .chat-msg[data-type="reaction"] {
+      background: rgba(0, 240, 255, 0.1);
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .chat-msg[data-type="last_will"] {
+      background: rgba(255, 45, 85, 0.15);
+      border-left: 2px solid #ff2d55;
+      padding: 4px;
+    }
+    .chat-msg[data-type="last_will"] .chat-author {
+      color: #ff2d55;
+    }
     .chat-empty { color: #667; font-style: italic; padding: 0.35rem; font-size: 0.78rem; }
     .chat-panel.collapsed .chat-messages { display: none; }
   `],

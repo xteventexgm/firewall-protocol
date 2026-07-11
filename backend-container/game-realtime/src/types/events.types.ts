@@ -99,6 +99,8 @@ export interface ChatMessage {
   channel: ChatChannel;
   timestamp: number;
   phase: GamePhase;
+  type?: 'normal' | 'reaction' | 'last_will';
+  targetPlayerId?: PlayerId | null;
 }
 
 export interface PublicLogEntry {

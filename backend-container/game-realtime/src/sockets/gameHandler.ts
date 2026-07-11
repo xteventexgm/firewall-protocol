@@ -78,7 +78,7 @@ export default function registerGameHandlers(socket: Socket) {
     }
   });
 
-  socket.on('submitChat', (roomId: string, payload: { playerId: string; text: string; channel?: string }) => {
+  socket.on('submitChat', (roomId: string, payload: { playerId: string; text: string; channel?: string; type?: 'normal'|'reaction'|'last_will'; targetPlayerId?: string }) => {
     try {
       const code = roomId.trim().toUpperCase();
       const authErr = assertSocketActor(socket, payload?.playerId, code);
@@ -89,6 +89,8 @@ export default function registerGameHandlers(socket: Socket) {
         payload.playerId,
         payload.text,
         payload.channel as 'public' | 'dead' | 'hacker' | undefined,
+        payload.type,
+        payload.targetPlayerId
       );
       if (!result.ok) socket.emit('error', result.reason);
     } catch (err: any) {

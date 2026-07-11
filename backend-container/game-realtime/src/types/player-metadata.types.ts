@@ -22,6 +22,7 @@ export interface PlayerInfection {
  */
 export interface PlayerMetadata {
   actedThisNight?: boolean;
+  hasSentLastWill?: boolean;
   /** Voto de consenso hacker enviado esta noche (independiente de la habilidad del rol). */
   hackerVoteTonight?: boolean;
   lastProtectedTarget?: PlayerId | null;
