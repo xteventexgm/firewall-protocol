@@ -5,7 +5,7 @@
 .lobby-closed-overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,7 +35,7 @@
     0 12px 40px rgba(0, 0, 0, 0.55),
     0 0 28px rgba(255, 45, 85, 0.12);
   overflow: hidden;
-  animation: overlay-enter 0.28s ease-out;
+  animation: overlay-enter 0.28s var(--ease-out-expo);
 }
 
 .overlay-scanline {
@@ -157,7 +157,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  transition: transform 0.1s ease, box-shadow 0.2s var(--ease-out-expo);
 
   &:active {
     transform: scale(0.98);

@@ -39,11 +39,13 @@ import {
 } from '../../core/models/game-state.model';
 
 export type { GamePhase, RoomPlayer, TargetOption };
+import { GameSoundService } from '../game-sound.service';
 
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private readonly router = inject(Router);
   private readonly toastCtrl = inject(ToastController);
+  private readonly sound = inject(GameSoundService);
   private socket: Socket | null = null;
   private listenersAttached = false;
   private gameOverNavTimer?: ReturnType<typeof setTimeout>;
@@ -102,6 +104,7 @@ export class SocketService {
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
       ...socketReconnectOptions(),
+      transports: ['websocket'],
     };
 
     const extraHeaders = this.buildTunnelHeaders();
@@ -121,6 +124,7 @@ export class SocketService {
       if (this.pendingAutoRejoin && !this.manualJoinInFlight) {
         this.autoRejoinFromStorage();
         this.pendingAutoRejoin = false;
+        this.sound.play('ui_confirm');
       }
     });
 
@@ -302,6 +306,12 @@ export class SocketService {
 
     this.socket.emit('submitVote', roomId, { voter, target: targetId });
     return true;
+  }
+
+  setPlayerReady(playerId: string, isReady: boolean): void {
+    const roomId = localStorage.getItem('roomCode');
+    if (!this.socket?.connected || !roomId) return;
+    this.socket.emit('setPlayerReady', roomId, { playerId, isReady });
   }
 
   submitChat(text: string, channel: 'public' | 'dead' | 'hacker' = 'public'): boolean {

@@ -39,7 +39,7 @@ async function bootstrap(): Promise<void> {
   const server = http.createServer(app);
   initSockets(server as http.Server);
 
-  server.listen(PORT, () => {
+  server.listen(PORT, "0.0.0.0", () => {
     logger.info(`Game-realtime listening on port ${PORT}`, {
       persistence: isMongoEnabled() ? 'mongodb' : 'json',
       mongoUri: isMongoEnabled() ? MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@') : undefined,

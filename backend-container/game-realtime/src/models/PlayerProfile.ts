@@ -23,6 +23,8 @@ export interface PlayerProfile {
   isBot?: boolean;
   /** Vínculo a cuenta `users` cuando el jugador inició sesión. */
   userId?: string;
+  /** Indicador de si el jugador ha confirmado estar listo en el lobby. */
+  isReady?: boolean;
 }
 
 /** Instancia mutable de jugador en runtime. */
@@ -40,6 +42,7 @@ export class Player implements PlayerProfile {
   isBot?: boolean;
   /** Vínculo a cuenta `users` cuando el jugador inició sesión. */
   userId?: string;
+  isReady?: boolean;
   /** 'transport' = caída de socket; 'voluntary' = salió con leaveRoom. */
   lastDisconnectReason?: 'voluntary' | 'transport';
 

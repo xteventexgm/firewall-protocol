@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  Input,
   OnDestroy,
   ViewChild,
 } from '@angular/core';
@@ -29,6 +30,7 @@ interface Particle {
 })
 export class HomeAtmosphereComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas') canvasRef?: ElementRef<HTMLCanvasElement>;
+  @Input() isNight = false;
 
   private frame?: number;
   private particles: Particle[] = [];
@@ -107,14 +109,16 @@ export class HomeAtmosphereComponent implements AfterViewInit, OnDestroy {
           }
         }
 
+        const [r, g, b] = this.isNight ? [0, 255, 136] : [0, 240, 255];
+        
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 240, 255, ${p.alpha})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.alpha})`;
         ctx.fill();
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size * 2.2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 240, 255, ${p.alpha * 0.15})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${p.alpha * 0.15})`;
         ctx.fill();
       }
 

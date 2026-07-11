@@ -109,6 +109,7 @@ export function getActiveRoomStatus(roomId: string, playerId?: string): {
   phase: string | null;
   playerCount: number;
   connectedCount: number;
+  maxPlayers?: number;
   canJoin: boolean;
   canReconnect: boolean;
 } {
@@ -117,6 +118,7 @@ export function getActiveRoomStatus(roomId: string, playerId?: string): {
     return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
   }
   const phase = data.phase ?? null;
+  const maxPlayers = data.maxPlayers;
   const players = data.players ?? [];
   const playerCount = players.length;
   const connectedCount = players.filter((p: { isConnected?: boolean }) => p.isConnected !== false).length;
@@ -124,7 +126,7 @@ export function getActiveRoomStatus(roomId: string, playerId?: string): {
   const inProgress = phase && phase !== 'LOBBY' && phase !== 'FIN';
   const playerKnown = !playerId || (data.players ?? []).some((p: { id: string }) => p.id === playerId);
   const canReconnect = !!inProgress && playerKnown;
-  return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
+  return { exists: true, phase, playerCount, connectedCount, maxPlayers, canJoin, canReconnect };
 }
 
 /** Carga JSON activo, o partida archivada en finishgame/ si ya terminó. */

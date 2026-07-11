@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import {
   Component,
   EventEmitter,
@@ -17,11 +18,12 @@ import {
 } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
 import { GameSoundService } from '../../core/services/game-sound.service';
+import { estimateTeamComposition, TeamComposition } from '../../core/utils/balance.utils';
 
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, LucideAngularModule],
   templateUrl: './lobby.component.html',
   styleUrl: './lobby.component.scss',
   host: {
@@ -56,9 +58,16 @@ export class LobbyComponent implements OnChanges {
   autoAdvance = false;
   nightMinutes = 1.5;
   dayMinutes = 2;
+  voteMinutes = 1.5;
+  minigamesEnabled = true;
+
+  isConfigModalOpen = false;
+  configModalMode: 'create' | 'edit' = 'create';
 
   constructor(private readonly gameSound: GameSoundService) {}
 
+  showCopyToast = false;
+  showShareToast = false;
   qrDataUrl = '';
   selectedMaxPlayers = MIN_PLAYERS_TO_START;
   homeTab: 'create' | 'rooms' = 'create';
@@ -86,8 +95,26 @@ export class LobbyComponent implements OnChanges {
     return (
       !this.gameOverActive &&
       this.playerCount >= this.minPlayers &&
+      this.state?.phase === 'LOBBY' &&
+      this.readyPercentage >= 80
+    );
+  }
+
+  get canForceStart(): boolean {
+    return (
+      !this.gameOverActive &&
+      this.playerCount >= this.minPlayers &&
       this.state?.phase === 'LOBBY'
     );
+  }
+
+  get readyCount(): number {
+    return this.state?.players.filter((p) => p.isReady || p.isBot).length ?? 0;
+  }
+
+  get readyPercentage(): number {
+    if (this.playerCount === 0) return 0;
+    return (this.readyCount / this.playerCount) * 100;
   }
 
   get botCount(): number {
@@ -144,6 +171,22 @@ export class LobbyComponent implements OnChanges {
     return this.state ? phaseLabel(this.state.phase) : 'Sin sala activa';
   }
 
+  get teamComposition(): TeamComposition {
+    return estimateTeamComposition(this.playerCount);
+  }
+
+  get teamCompositionSegments() {
+    const comp = this.teamComposition;
+    const totalCap = this.capacity || 1;
+    return {
+      systemPct: (comp.system / totalCap) * 100,
+      blackHatPct: (comp.blackHat / totalCap) * 100,
+      chaoticPct: (comp.chaotic / totalCap) * 100,
+      emptyPct: (Math.max(0, totalCap - this.playerCount) / totalCap) * 100,
+      minMarkerPct: (this.minPlayers / totalCap) * 100
+    };
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['inRoom']?.currentValue === false && changes['inRoom']?.previousValue === true) {
       this.homeTab = this.savedRooms.length > 0 ? 'rooms' : 'create';
@@ -163,23 +206,88 @@ export class LobbyComponent implements OnChanges {
     this.toggleSound.emit();
   }
 
+  async copyRoomCode() {
+    if (!this.roomCode) return;
+    try {
+      await navigator.clipboard.writeText(this.roomCode);
+      this.gameSound.playUi('confirm');
+      this.showCopyToast = true;
+      setTimeout(() => this.showCopyToast = false, 2000);
+    } catch {
+      console.error('Error copying code');
+    }
+  }
+
+  async shareRoomLink() {
+    if (!this.roomCode) return;
+    const text = `Únete a mi partida de Firewall Protocol. Código de sala: ${this.roomCode}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Firewall Protocol',
+          text: text,
+        });
+      } else {
+        await navigator.clipboard.writeText(text);
+        this.gameSound.playUi('confirm');
+        this.showShareToast = true;
+        setTimeout(() => this.showShareToast = false, 2000);
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Error sharing link', e);
+      }
+    }
+  }
+
+  openConfigModal(mode: 'create' | 'edit'): void {
+    this.gameSound.playUi('click');
+    this.configModalMode = mode;
+    this.isConfigModalOpen = true;
+  }
+
+  closeConfigModal(): void {
+    this.gameSound.playUi('click');
+    this.isConfigModalOpen = false;
+  }
+
+  onConfirmConfig(): void {
+    this.gameSound.playUi('confirm');
+    this.isConfigModalOpen = false;
+    
+    if (this.configModalMode === 'create') {
+      this.createLobby.emit(this.selectedMaxPlayers);
+      // Wait for room to be created before sending config
+      setTimeout(() => this.onApplyPhaseConfig(), 500);
+    } else {
+      this.onApplyPhaseConfig();
+    }
+  }
+
   onApplyPhaseConfig(): void {
+    this.setPhaseConfig.emit({
+      autoAdvance: this.autoAdvance,
+      nightDurationMs: Math.round(this.nightMinutes * 60_000),
+      dayDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.voteMinutes * 60_000),
+      minigamesEnabled: this.minigamesEnabled,
+    });
+  }
+
+  onCreateLobby(): void {
+    // Redirigido a openConfigModal('create')
+    this.openConfigModal('create');
+  }
+
+  onStartGame(): void {
     this.gameSound.playUi('confirm');
     this.setPhaseConfig.emit({
       autoAdvance: this.autoAdvance,
       nightDurationMs: Math.round(this.nightMinutes * 60_000),
       dayDurationMs: Math.round(this.dayMinutes * 60_000),
-      voteDurationMs: Math.round(this.dayMinutes * 60_000),
+      voteDurationMs: Math.round(this.voteMinutes * 60_000),
+      minigamesEnabled: this.minigamesEnabled,
     });
-  }
-
-  onCreateLobby(): void {
-    this.gameSound.playUi('confirm');
-    this.createLobby.emit(this.selectedMaxPlayers);
-  }
-
-  onStartGame(): void {
-    this.gameSound.playUi('confirm');
     this.startGame.emit();
   }
 

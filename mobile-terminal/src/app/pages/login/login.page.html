@@ -1,4 +1,33 @@
 <ion-content class="login-content scroll-page" [scrollY]="false">
+  <!-- Boot Sequence Overlay -->
+  <div *ngIf="showBootSequence" class="boot-overlay premium-boot" (click)="skipBootSequence()">
+    <div class="boot-scanline"></div>
+    <div class="boot-vignette"></div>
+    
+    <div class="terminal-boot-text" *ngIf="bootStep === 1">
+      KERNEL INIT...<br/>
+      MOUNTING VFS... [OK]<br/>
+      LOADING MODULES...<br/>
+      AUTH SERVICE... ONLINE<br/>
+      ESTABLISHING SECURE CONNECTION...
+    </div>
+
+    <div class="boot-content" *ngIf="bootStep >= 2">
+      <div class="logo-wrapper">
+        <img src="assets/icon.png" class="boot-logo" alt="Logo" [class.glitch]="bootStep >= 2" />
+        <div class="logo-hologram"></div>
+      </div>
+      
+      <div class="boot-text-container" *ngIf="bootStep >= 3">
+        <h1 class="boot-title">{{ displayedBootText }}<span class="cursor" *ngIf="bootStep === 3">_</span></h1>
+        <p class="boot-subtitle" *ngIf="bootStep >= 4">{{ displayedSubText }}<span class="cursor" *ngIf="bootStep === 4">_</span></p>
+        <p class="boot-decrypt" *ngIf="bootStep >= 5">{{ displayedDecryptText }}<span class="cursor">_</span></p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="boot-flash-overlay" [class.active]="bootFlash"></div>
+
   <app-home-atmosphere />
 
   <app-account-panel
@@ -7,10 +36,11 @@
     [initialAuthMode]="accountPanelAuthMode"
     (closed)="onAccountPanelClosed()"
     (authChanged)="onAuthChanged()"
+    (openTutorial)="showTutorial = true; onAccountPanelClosed()"
   />
 
-  <div class="page-scroll login-page">
-    <div class="login-shell">
+  <div class="page-scroll login-page" [class.form-ready]="formReady" [class.form-ready-instant]="formReadyInstant">
+    <div class="login-shell" [class.is-transitioning]="transitioning">
       <button
         type="button"
         class="account-fab"
@@ -18,7 +48,7 @@
         [attr.aria-label]="isLoggedIn ? 'Ver perfil' : 'Iniciar sesión'"
       >
         <img *ngIf="accountAvatarUrl as av" [src]="av" alt="" class="account-fab-img" />
-        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true">👤</span>
+        <span *ngIf="!accountAvatarUrl" class="account-fab-icon" aria-hidden="true"><lucide-icon name="user" class="inline-icon"></lucide-icon></span>
         <span *ngIf="isLoggedIn && !accountAvatarUrl" class="account-fab-dot"></span>
       </button>
 
@@ -105,14 +135,34 @@
             <label class="field-label">Código de sala</label>
             <input
               type="text"
-              [(ngModel)]="roomCode"
+              [ngModel]="roomCode"
+              (ngModelChange)="onRoomCodeChange($event)"
               (keyup.enter)="goToAliasStep()"
-              class="terminal-input code-input"
+              class="terminal-input code-input state-{{ roomValidationState }}"
               placeholder="FIRE-XXXX"
               [disabled]="connecting || scanning"
               autocomplete="off"
               autocapitalize="characters"
+              maxlength="9"
             />
+            <p class="validation-message" [ngClass]="'message-' + roomValidationState" *ngIf="roomValidationMessage">
+              {{ roomValidationMessage }}
+            </p>
+          </div>
+
+          <div class="recent-rooms-container" *ngIf="recentRooms.length > 0 && !validatingRoom && !connecting && !scanning && step === 'room'">
+            <div class="recent-rooms-scroll">
+              <button
+                type="button"
+                *ngFor="let room of recentRooms"
+                class="recent-room-chip"
+                (click)="selectRecentRoom(room.roomId)"
+              >
+                <span class="recent-room-code">{{ room.roomId }}</span>
+                <span class="recent-room-time">· {{ timeAgo(room.timestamp) }}</span>
+                <span class="recent-room-remove" (click)="$event.stopPropagation(); removeRecentRoom(room.roomId)" aria-label="Eliminar"><lucide-icon name="x"></lucide-icon></span>
+              </button>
+            </div>
           </div>
 
           <button
@@ -168,7 +218,7 @@
         </section>
 
         <div *ngIf="errorMessage" class="error-banner">
-          <span>⚠</span> {{ errorMessage }}
+          <lucide-icon name="alert-triangle" class="inline-icon"></lucide-icon> {{ errorMessage }}
         </div>
       </div>
 
@@ -181,5 +231,10 @@
   <app-lobby-closed-overlay
     *ngIf="showLobbyClosedOverlay"
     (dismissed)="onLobbyClosedDismiss()"
+  />
+
+  <app-tutorial-slider
+    *ngIf="showTutorial"
+    (dismissed)="onTutorialDismissed()"
   />
 </ion-content>

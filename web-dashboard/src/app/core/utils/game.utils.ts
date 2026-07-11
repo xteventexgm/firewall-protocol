@@ -28,6 +28,8 @@ export function sanitizeGameState(raw: any): PublicGameState {
     avatarUrl: p.avatarUrl ?? undefined,
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
+    isReady: p.isReady,
+    isBot: p.isBot === true,
     silenced: p.silenced === true,
     role: p.role ?? undefined,
     team: p.team ?? undefined,

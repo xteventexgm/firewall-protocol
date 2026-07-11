@@ -62,3 +62,10 @@
   from { stroke-opacity: 0; }
   to { stroke-opacity: 0.75; }
 }
+
+/* M27: Vote Animation Particle */
+.vote-laser-particle {
+  fill: #ffffff;
+  filter: drop-shadow(0 0 6px #00ffcc) drop-shadow(0 0 10px #00ffcc);
+  pointer-events: none;
+}

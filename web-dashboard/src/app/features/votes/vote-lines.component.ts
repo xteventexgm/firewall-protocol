@@ -39,6 +39,7 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
   @Input() phase: GamePhase = 'LOBBY';
   @Input() highlightTrace: VoteTrace | null = null;
   @Input() voteTied = false;
+  @Input() layoutNodes: NodePosition[] = [];
 
   @ViewChild('container', { static: true }) container!: ElementRef<HTMLElement>;
 
@@ -158,3 +159,5 @@ export class VoteLinesComponent implements OnChanges, AfterViewInit {
       .filter((l): l is VoteLine => l !== null);
   }
 }
+
+

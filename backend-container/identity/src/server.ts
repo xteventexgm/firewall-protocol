@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
     console.warn('[identity] MONGO_URI no configurado — auth deshabilitado hasta configurar MongoDB.');
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, "0.0.0.0", () => {
     logger.info(`Identity service listening on port ${PORT}`, {
       mongodb: isMongoEnabled() ? 'enabled' : 'disabled',
     });

@@ -1,4 +1,4 @@
-﻿:host {
+:host {
   display: block;
   width: 300px;
   min-width: 280px;
@@ -24,7 +24,7 @@
   max-height: 94vh;
 }
 
-// 笏笏笏 Home shell: hero fijo + tabs + panel con scroll 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+// ─── Home shell: hero fijo + tabs + panel con scroll ───────────────────────────
 
 .home-shell {
   display: flex;
@@ -96,7 +96,7 @@
   background: rgba(13, 21, 32, 0.8);
   cursor: pointer;
   font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--duration-fast) var(--ease-out-back), box-shadow var(--duration-fast) var(--ease-out-back);
 
   &:hover {
     border-color: #00f0ff;
@@ -174,7 +174,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.2s, background 0.2s;
+  transition: color var(--duration-fast) var(--ease-out-back), background var(--duration-fast) var(--ease-out-back);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -264,7 +264,7 @@
   border-radius: 10px;
   background: rgba(5, 10, 18, 0.85);
   border: 1px solid rgba(26, 58, 74, 0.95);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--duration-fast) var(--ease-out-back), box-shadow var(--duration-fast) var(--ease-out-back);
 
   &:hover {
     border-color: rgba(0, 240, 255, 0.35);
@@ -309,7 +309,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition: background var(--duration-fast) var(--ease-out-back), box-shadow var(--duration-fast) var(--ease-out-back);
 
   &:not(:disabled):hover {
     background: rgba(0, 240, 255, 0.14);
@@ -408,7 +408,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--duration-fast) var(--ease-out-back), box-shadow var(--duration-fast) var(--ease-out-back);
 
   &:focus {
     outline: none;
@@ -443,7 +443,7 @@
   background: linear-gradient(135deg, #006677 0%, #00a8c4 50%, #006677 100%);
   background-size: 200% 200%;
   animation: cta-shimmer 4s ease infinite;
-  transition: transform 0.15s, box-shadow 0.2s;
+  transition: transform 0.15s, box-shadow var(--duration-fast) var(--ease-out-back);
 
   &:not(:disabled):hover {
     transform: translateY(-1px);
@@ -495,7 +495,7 @@
   background: rgba(255, 45, 85, 0.08);
   color: #ff8a9a;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) var(--ease-out-back);
 
   &:hover {
     border-color: #ff2d55;
@@ -509,7 +509,7 @@
   50% { background-position: 100% 50%; }
 }
 
-// 笏笏笏 Sidebar en sala 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+// ─── Sidebar en sala ───────────────────────────────────────────────────────────
 
 .lobby-panel {
   border-radius: 8px;
@@ -588,7 +588,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) var(--ease-out-back);
 
   &:disabled {
     opacity: 0.35;
@@ -717,7 +717,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color var(--duration-fast) var(--ease-out-back);
   &:focus {
     border-color: #00f0ff;
   }
@@ -736,3 +736,60 @@
     background: rgba(0, 240, 255, 0.1);
   }
 }
+
+/* Custom range slider styling */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--color-cyber-border);
+  border-radius: 3px;
+  outline: none;
+  margin: 10px 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-cyber-accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--color-cyber-accent);
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+input[type=range]:disabled {
+  background: var(--color-cyber-panel);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+input[type=range]:disabled::-webkit-slider-thumb {
+  background: var(--color-cyber-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* For Firefox */
+input[type=range]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-cyber-accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--color-cyber-accent);
+  border: none;
+}
+input[type=range]:disabled::-moz-range-thumb {
+  background: var(--color-cyber-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+
+
+
+

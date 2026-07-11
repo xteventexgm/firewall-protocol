@@ -6,6 +6,8 @@
 export const environment = {
   production: false,
   /** URL base del backend (HTTP + Socket.io). Ej: http://localhost:3000 */
-  apiUrl: 'https://firewall-protocol.onrender.com',
+  //apiUrl: 'https://tunnel-fw.onrender.com',
+  apiUrl: 'https://firewall-protocol.shares.zrok.io',
+  //apiUrl: 'http://localhost:3000',
   socketNamespace: '/game',
 };

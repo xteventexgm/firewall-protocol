@@ -1,0 +1,111 @@
+<div class="tutorial-overlay">
+  <div class="tutorial-container">
+    <div class="tutorial-header">
+      <h2 class="tutorial-title">Bienvenido a Firewall Protocol</h2>
+      <button class="skip-btn" (click)="finish()">Saltar <lucide-icon name="skip-forward" class="icon-sm"></lucide-icon></button>
+    </div>
+
+    <div class="slides-wrapper" #scrollContainer>
+      
+      <!-- Slide 0: Concepto -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap app-icon-wrap cyber-glow-neutral">
+            <img src="assets/icon.png" alt="Firewall Protocol Icon" class="app-icon-img" />
+          </div>
+          <h3 class="slide-heading">¿Qué es Firewall Protocol?</h3>
+          <p class="slide-text">
+            Es un juego de deducción social y guerra cibernética. Eres un nodo conectado a un servidor remoto, pero algunos de los conectados son hackers encubiertos. Tu misión es sobrevivir y descubrir en quién confiar.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 1: System -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap cyber-glow-system">
+            <lucide-icon name="shield-check" class="slide-icon"></lucide-icon>
+          </div>
+          <h3 class="slide-heading team-system">Equipo SYSTEM</h3>
+          <p class="slide-text">
+            <strong>Objetivo:</strong> Identificar y eliminar a todos los hackers.<br><br>
+            La mayoría de los jugadores son parte de la seguridad del sistema. Deberás usar tus habilidades únicas (roles) para obtener información y organizarte con los demás durante el día.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 2: Black Hat -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap cyber-glow-hacker">
+            <lucide-icon name="skull" class="slide-icon"></lucide-icon>
+          </div>
+          <h3 class="slide-heading team-hacker">Equipo BLACK HAT</h3>
+          <p class="slide-text">
+            <strong>Objetivo:</strong> Infectar el sistema logrando que la cantidad de hackers sea igual o mayor que los del System.<br><br>
+            Son una minoría infiltrada que se conoce entre sí. Cada noche elegirán un objetivo para eliminarlo. El engaño es su mejor arma.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 3: Caóticos -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap cyber-glow-chaos">
+            <lucide-icon name="shuffle" class="slide-icon"></lucide-icon>
+          </div>
+          <h3 class="slide-heading team-chaos">Equipo CAÓTICOS</h3>
+          <p class="slide-text">
+            <strong>Objetivo:</strong> Varía según el rol. Juegan solos.<br><br>
+            Algunos roles no son ni System ni Black Hat. Sus metas son únicas: desde intentar ser expulsados a propósito, hasta sobrevivir hasta el final de la partida para robar la victoria.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 4: El Ciclo -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap cyber-glow-neutral">
+            <lucide-icon name="repeat" class="slide-icon"></lucide-icon>
+          </div>
+          <h3 class="slide-heading">El Ciclo de Juego</h3>
+          <p class="slide-text cycle-text">
+            <lucide-icon name="moon" class="inline-icon"></lucide-icon> <strong>NOCHE:</strong> Ocurren eliminaciones y habilidades en secreto.<br><br>
+            <lucide-icon name="sun" class="inline-icon"></lucide-icon> <strong>DÍA:</strong> Debate abierto sobre qué ocurrió.<br><br>
+            <lucide-icon name="vote" class="inline-icon"></lucide-icon> <strong>VOTACIÓN:</strong> Vota para expulsar a un sospechoso.<br><br>
+            <lucide-icon name="search" class="inline-icon"></lucide-icon> <strong>VERIFICACIÓN:</strong> Se revela la identidad del expulsado.
+          </p>
+        </div>
+      </div>
+
+      <!-- Slide 5: Terminal -->
+      <div class="slide">
+        <div class="slide-content-wrapper">
+          <div class="slide-icon-wrap cyber-glow-neutral">
+            <lucide-icon name="smartphone" class="slide-icon"></lucide-icon>
+          </div>
+          <h3 class="slide-heading">Tu Terminal</h3>
+          <p class="slide-text">
+            El dashboard del servidor es donde verás el estado de todos. <strong>Usa tu teléfono</strong> (este dispositivo) de manera privada para elegir objetivos durante la noche y votar por sospechosos durante el día.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="tutorial-footer">
+      <div class="dots-indicator">
+        <span class="dot" *ngFor="let slide of slides; let i = index" [class.active]="currentSlide === i"></span>
+      </div>
+      <div class="footer-actions">
+        <button class="nav-btn prev-btn" (click)="prevSlide()" [class.hidden]="currentSlide === 0">
+          <lucide-icon name="chevron-left"></lucide-icon>
+        </button>
+        <button class="nav-btn next-btn" (click)="nextSlide()">
+          <span>{{ currentSlide === slides.length - 1 ? 'Entendido' : 'Siguiente' }}</span>
+          <lucide-icon *ngIf="currentSlide < slides.length - 1" name="chevron-right" class="icon-sm"></lucide-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -104,7 +104,10 @@ export function getNightActionType(role: string | undefined, variant?: string): 
   return ROLE_NIGHT_ACTION[role] ?? null;
 }
 
-export function needsSecondaryTarget(role: string | undefined): boolean {
+export function needsSecondaryTarget(role: string | undefined, actionType?: string): boolean {
+  if (actionType) {
+    return actionType === 'bgp_swap' || actionType === 'phisher_redirect' || actionType === 'mitm_hijack' || actionType === 'chaos_route';
+  }
   return role === 'Enrutador BGP' || role === 'Phisher' || role === 'Proxy MitM' || role === 'Router del Caos';
 }
 
@@ -159,7 +162,13 @@ export const WHITE_NOISE_MESSAGES = [
   'Sensor perimetral en modo parpadeo. Falsa alarma o intrusión.',
 ];
 
-export function getSecondaryTargetLabel(role: string | undefined): string {
+export function getSecondaryTargetLabel(role: string | undefined, actionType?: string): string {
+  if (actionType) {
+    if (actionType === 'bgp_swap') return 'Nodo destino (intercambio)';
+    if (actionType === 'chaos_route') return 'Nodo colateral (desvío de ataques)';
+    if (actionType === 'phisher_redirect') return 'Redirigir voto diurno hacia';
+    if (actionType === 'mitm_hijack') return 'Forzar voto hacker hacia';
+  }
   if (role === 'Enrutador BGP') return 'Nodo destino (intercambio)';
   if (role === 'Router del Caos') return 'Nodo colateral (desvío de ataques)';
   if (role === 'Phisher') return 'Redirigir voto diurno hacia';

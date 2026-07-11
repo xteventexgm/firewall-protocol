@@ -84,6 +84,7 @@ export class GameSocketService implements OnDestroy {
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
       ...socketReconnectOptions(),
+      transports: ['websocket'],
     };
 
     const extraHeaders = this.buildTunnelHeaders();

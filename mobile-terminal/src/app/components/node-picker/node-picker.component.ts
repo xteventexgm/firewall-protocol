@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { TargetOption } from '../../core/models/game-state.model';
 import { environment } from '../../../environments/environment';
+import { GameSoundService } from '../../services/game-sound.service';
 
 @Component({
   selector: 'app-node-picker',
@@ -11,6 +12,8 @@ import { environment } from '../../../environments/environment';
   styleUrl: './node-picker.component.scss',
 })
 export class NodePickerComponent {
+  private sound = inject(GameSoundService);
+
   @Input() options: TargetOption[] = [];
   @Input() selectedId = '';
   @Input() placeholder = 'Seleccionar nodo';
@@ -30,6 +33,7 @@ export class NodePickerComponent {
 
   select(id: string): void {
     if (this.disabled) return;
+    this.sound.play('ui_click');
     this.selectedId = id;
     this.selectedIdChange.emit(id);
   }

@@ -1,6 +1,7 @@
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, ViewWillEnter } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SocketService } from '../../services/socket/socket.service';
@@ -9,6 +10,7 @@ import { formatServerErrorForToast, parseServerErrorMessage } from '../../core/u
 import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overlay/lobby-closed-overlay.component';
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import { AccountPanelComponent } from '../../components/account-panel/account-panel.component';
+import { TutorialSliderComponent } from '../../components/tutorial-slider/tutorial-slider.component';
 import { GameSoundService } from '../../services/game-sound.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
@@ -18,7 +20,13 @@ import {
   setStoredApiUrl,
 } from '../../core/utils/api-base.utils';
 import { environment } from '../../../environments/environment';
-import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
+import { Subscription, filter, take, timeout, catchError, of, Subject, debounceTime } from 'rxjs';
+
+export interface RecentRoom {
+  roomId: string;
+  timestamp: number;
+}
+
 
 @Component({
   selector: 'app-login',
@@ -32,9 +40,12 @@ import { Subscription, filter, take, timeout, catchError, of } from 'rxjs';
     LobbyClosedOverlayComponent,
     HomeAtmosphereComponent,
     AccountPanelComponent,
+    TutorialSliderComponent,
+    LucideAngularModule
   ],
 })
-export class LoginPage implements OnInit, OnDestroy {
+export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
+  showTutorial = false;
   roomCode = '';
   playerName = '';
   connecting = false;
@@ -50,6 +61,27 @@ export class LoginPage implements OnInit, OnDestroy {
   accountAvatarUrl: string | null = null;
   showServerConfig = false;
   serverUrlInput = '';
+
+  // Boot sequence variables
+  showBootSequence = false;
+  bootStep = 0;
+  displayedBootText = '';
+  displayedSubText = '';
+  displayedDecryptText = '';
+  fullBootText = 'FIREWALL PROTOCOL';
+  bootFlash = false;
+  formReady = false;
+  formReadyInstant = false;
+  
+  roomValidationState: 'idle' | 'checking' | 'valid' | 'invalid' = 'idle';
+  roomValidationMessage = '';
+  recentRooms: RecentRoom[] = [];
+  animState: 0 | 1 | 2 = 0;
+  private readonly RECONNECT_DELAY = 1200;
+  transitioning = false;
+  private roomCodeSubject = new Subject<string>();
+  
+  private bootTimeouts: any[] = [];
 
   private subs = new Subscription();
 
@@ -85,6 +117,14 @@ export class LoginPage implements OnInit, OnDestroy {
         }
       }),
     );
+    
+    this.subs.add(
+      this.roomCodeSubject.pipe(
+        debounceTime(500)
+      ).subscribe((code) => {
+        void this.validateRoomCode(code);
+      })
+    );
   }
 
   ngOnInit(): void {
@@ -107,10 +147,57 @@ export class LoginPage implements OnInit, OnDestroy {
       void this.showToast(formatServerErrorForToast(`error (${joinError})`), 'warning');
     }
 
+    this.checkBootSequence();
+
     this.socketService.connect();
     void this.checkPendingReconnect();
     void this.refreshAccountAvatar();
+    this.loadRecentRooms();
     if (this.isLoggedIn) void this.bootstrapAccountSession();
+  }
+
+  onTutorialDismissed(): void {
+    this.showTutorial = false;
+    // ensure the flag is set just in case the component didn't set it (though it does)
+    localStorage.setItem('has_seen_tutorial', 'true');
+  }
+
+  loadRecentRooms(): void {
+    try {
+      const stored = localStorage.getItem('recent_rooms_firewall');
+      if (stored) {
+        this.recentRooms = JSON.parse(stored);
+      }
+    } catch {
+      this.recentRooms = [];
+    }
+  }
+
+  saveRecentRoom(roomId: string): void {
+    const newRoom: RecentRoom = { roomId, timestamp: Date.now() };
+    const filtered = this.recentRooms.filter(r => r.roomId !== roomId);
+    this.recentRooms = [newRoom, ...filtered].slice(0, 5);
+    localStorage.setItem('recent_rooms_firewall', JSON.stringify(this.recentRooms));
+  }
+
+  removeRecentRoom(roomId: string): void {
+    this.recentRooms = this.recentRooms.filter(r => r.roomId !== roomId);
+    localStorage.setItem('recent_rooms_firewall', JSON.stringify(this.recentRooms));
+  }
+
+  selectRecentRoom(roomId: string): void {
+    this.onRoomCodeChange(roomId);
+  }
+
+  timeAgo(timestamp: number): string {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'hace un momento';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `hace ${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `hace ${days}d`;
   }
 
   private async bootstrapAccountSession(): Promise<void> {
@@ -140,6 +227,88 @@ export class LoginPage implements OnInit, OnDestroy {
     }
     const blob = await this.authService.loadAvatarBlobUrl(user.avatarUrl);
     this.accountAvatarUrl = blob ?? this.authService.getAvatarBlobUrl();
+  }
+
+  private checkBootSequence(): void {
+    const played = sessionStorage.getItem('boot_played');
+    if (played) {
+      this.formReadyInstant = true;
+      if (!localStorage.getItem('has_seen_tutorial')) {
+        this.showTutorial = true;
+      }
+    } else {
+      this.startBootSequence();
+    }
+  }
+
+  private startBootSequence(): void {
+    this.showBootSequence = true;
+    this.bootStep = 1; // 0s: Pantalla negra, scanline, boot text terminal
+    
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 2; // 1.5s: Aparece Logo con efecto premium y holograma
+    }, 1500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 3; // 3.0s: Typewriter título
+      this.typeWriterEffect(this.fullBootText, 'displayedBootText', 1200);
+    }, 3000));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 4; // 4.5s: Typewriter subtítulo
+      this.typeWriterEffect('[ SYSTEM INITIALIZED ]', 'displayedSubText', 500);
+    }, 4500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 5; // 5.2s: Decrypting payload text
+      this.typeWriterEffect('DECRYPTING PAYLOAD... 100%', 'displayedDecryptText', 600);
+    }, 5200));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.bootStep = 6; // 6.5s: Flash final cyan/verde
+      this.bootFlash = true;
+    }, 6500));
+
+    this.bootTimeouts.push(setTimeout(() => {
+      this.skipBootSequence(); // 7.2s: Fin de secuencia
+    }, 7200));
+  }
+
+  private typeWriterEffect(text: string, targetProp: 'displayedBootText' | 'displayedSubText' | 'displayedDecryptText', duration: number): void {
+    let index = 0;
+    this[targetProp] = '';
+    
+    const intervalTime = duration / text.length;
+    const interval = setInterval(() => {
+      if (!this.showBootSequence) {
+        clearInterval(interval);
+        return;
+      }
+      
+      this[targetProp] += text[index];
+      
+      index++;
+      if (index === text.length) {
+        clearInterval(interval);
+      }
+    }, intervalTime);
+    this.bootTimeouts.push(interval);
+  }
+
+  skipBootSequence(): void {
+    if (!this.showBootSequence) return;
+    this.bootTimeouts.forEach(t => clearTimeout(t));
+    this.bootTimeouts = [];
+    this.showBootSequence = false;
+    this.bootFlash = false;
+    this.formReady = true;
+    sessionStorage.setItem('boot_played', 'true');
+    
+    if (!localStorage.getItem('has_seen_tutorial')) {
+      setTimeout(() => {
+        this.showTutorial = true;
+      }, 500); // slight delay after boot finishes for smooth transition
+    }
   }
 
   get isLoggedIn(): boolean {
@@ -224,6 +393,12 @@ export class LoginPage implements OnInit, OnDestroy {
     this.subs.unsubscribe();
   }
 
+  ionViewWillEnter(): void {
+    this.transitioning = false;
+    this.connecting = false;
+    this.scanning = false;
+  }
+
   get canProceedToAlias(): boolean {
     return !!this.roomCode.trim();
   }
@@ -270,9 +445,76 @@ export class LoginPage implements OnInit, OnDestroy {
     }
   }
 
+  onRoomCodeChange(val: string): void {
+    let cleaned = val.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    
+    if (cleaned && !cleaned.startsWith('FIRE-') && cleaned.length > 0) {
+      const prefix = 'FIRE-';
+      if (!prefix.startsWith(cleaned)) {
+        cleaned = 'FIRE-' + cleaned.replace(/FIRE-/g, '');
+      }
+    }
+    
+    if (cleaned.length > 9) {
+      cleaned = cleaned.substring(0, 9);
+    }
+    
+    if (cleaned === 'FIRE') {
+      cleaned = 'FIRE-';
+    }
+
+    this.roomCode = cleaned;
+    
+    if (cleaned.length === 9) {
+      this.roomValidationState = 'checking';
+      this.roomValidationMessage = 'Buscando...';
+      this.roomCodeSubject.next(cleaned);
+    } else {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+      this.roomCodeSubject.next('');
+    }
+  }
+
+  private async validateRoomCode(code: string): Promise<void> {
+    if (!code || code.length < 9) {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+      return;
+    }
+    
+    try {
+      const status = await fetchRoomStatus(code);
+      if (isRoomStatusUnavailable(status)) {
+        this.roomValidationState = 'idle';
+        this.roomValidationMessage = '';
+        return;
+      }
+      
+      if (!status.exists) {
+        this.roomValidationState = 'invalid';
+        this.roomValidationMessage = '✕ Sala no existe';
+        this.removeRecentRoom(code);
+      } else if (status.phase === 'FIN') {
+        this.roomValidationState = 'invalid';
+        this.roomValidationMessage = '✕ Partida finalizada';
+      } else {
+        this.roomValidationState = 'valid';
+        const count = status.connectedCount ?? status.playerCount ?? 0;
+        const max = status.maxPlayers ?? 10;
+        this.roomValidationMessage = `✓ Sala encontrada · ${count}/${max}`;
+      }
+    } catch {
+      this.roomValidationState = 'idle';
+      this.roomValidationMessage = '';
+    }
+  }
+
   backToRoomStep(): void {
     this.step = 'room';
     this.errorMessage = '';
+    this.roomValidationState = 'idle';
+    this.roomValidationMessage = '';
   }
 
   async scanQr(): Promise<void> {
@@ -414,7 +656,11 @@ export class LoginPage implements OnInit, OnDestroy {
             next: () => {
               this.connecting = false;
               void this.gameSound.unlockAudio();
-              this.router.navigate(['/dashboard']);
+              this.saveRecentRoom(this.roomCode.toUpperCase());
+              this.transitioning = true;
+              setTimeout(() => {
+                this.router.navigate(['/dashboard']);
+              }, 800);
             },
             error: () => {
               this.connecting = false;

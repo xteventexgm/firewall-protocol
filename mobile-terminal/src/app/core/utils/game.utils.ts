@@ -26,6 +26,8 @@ export function sanitizeRoomState(raw: any): PlayerRoomState {
     avatarUrl: p.avatarUrl ?? undefined,
     isAlive: p.isAlive !== false,
     isConnected: p.isConnected !== false,
+    isReady: p.isReady,
+    isBot: p.isBot === true,
     silenced: isPlayerSilenced(p, dayNumber),
     infected: !!p.metadata?.infection,
     frozen: p.frozen === true,

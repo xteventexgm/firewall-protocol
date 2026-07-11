@@ -5,11 +5,11 @@
   [class.system-night-standby]="isSystemNightStandby"
   [attr.data-phase]="gamePhase"
   [attr.data-team-theme]="teamTheme">
-  <app-home-atmosphere *ngIf="!isPlayerDead && !showGameOver" />
+  <app-home-atmosphere *ngIf="!isPlayerDead && !showGameOver" [isNight]="isNightPhase" />
 
   <div class="page-scroll terminal-page" *ngIf="!isPlayerDead && !showGameOver">
   <div class="terminal-outer">
-  <div class="terminal-shell" [class.interference-shake]="interferenceShake" [class.in-game]="isInGamePhase">
+  <div class="terminal-shell" [class.interference-shake]="interferenceShake" [class.death-shake]="deathShake" [class.mini-shake]="miniShake" [class.in-game]="isInGamePhase" [attr.data-infection]="infectionSeverity">
 
     <header class="room-hero" [class.compact]="isInGamePhase">
       <div class="room-hero-top">
@@ -19,7 +19,7 @@
         </div>
         <div class="hero-actions">
           <button type="button" class="icon-btn" (click)="toggleSound()" [title]="soundMuted ? 'Modo discreto — activar sonido' : 'Silenciar terminal'">
-            {{ soundMuted ? '🔇' : '🔊' }}
+            <lucide-icon [name]="soundMuted ? 'volume-x' : 'volume-2'" class="inline-icon"></lucide-icon>
           </button>
           <button type="button" class="exit-room-btn" (click)="exitRoomCompletely()" title="Salir de la sala">
             Salir
@@ -32,7 +32,9 @@
           <img src="assets/icon.png" alt="" class="room-app-icon" width="56" height="56" />
         </div>
         <div class="room-brand-text">
-          <span class="room-eyebrow">{{ roomCode }} · D{{ dayNumber }} N{{ nightNumber }}</span>
+          <button type="button" class="room-eyebrow tap-to-copy" (click)="copyRoomCode()" aria-label="Copiar código de sala">
+            {{ roomCode }} <span class="copy-icon">⎘</span> · D{{ dayNumber }} N{{ nightNumber }}
+          </button>
           <h1 class="room-player-name">{{ playerName }}</h1>
           <span class="phase-pill" [attr.data-phase]="gamePhase">{{ phaseLabelText }}</span>
         </div>
@@ -119,8 +121,20 @@
         <p class="pending-cred-sub">
           {{ gamePhase === 'REPARTO'
             ? 'El host está repartiendo credenciales de acceso a cada nodo.'
-            : 'Tu rol se revelará cuando el host inicie la partida.' }}
+            : 'Confirma que estás listo para que el host inicie la partida.' }}
         </p>
+
+        <div *ngIf="isLobbyPhase" class="ready-action-wrap" style="margin-top: 1rem;">
+          <button
+            type="button"
+            class="action-btn"
+            [style.background]="amIReady ? 'var(--ion-color-success, #2dd36f)' : ''"
+            [style.color]="amIReady ? '#000' : ''"
+            (click)="toggleReady()"
+          >
+            {{ amIReady ? 'CANCELAR (NO LISTO)' : 'MARCAR COMO LISTO' }}
+          </button>
+        </div>
       </section>
 
       <section class="panel role-panel role-panel-compact" *ngIf="showRolePanel">
@@ -177,7 +191,7 @@
           <span class="lobby-nodes-label">Nodos conectados</span>
           <ul class="lobby-node-chips">
             <li
-              *ngFor="let p of players"
+              *ngFor="let p of players; trackBy: trackByPlayerId"
               class="lobby-node-chip"
               [class.self]="p.id === myPlayerId"
               [class.offline]="p.isConnected === false">
@@ -197,6 +211,13 @@
             <li>~1 Black Hat cada {{ playersPerBlackHat }} jugadores</li>
             <li>~1 rol caótico cada {{ playersPerChaotic }} jugadores</li>
             <li>El resto del equipo Sistema (Antivirus, Analista…)</li>
+          </ul>
+        </div>
+
+        <div class="lobby-balance-card" *ngIf="lobbySummaryText.length > 0">
+          <span class="lobby-balance-title">Reglas de la Sala</span>
+          <ul class="lobby-balance">
+            <li *ngFor="let rule of lobbySummaryText">{{ rule }}</li>
           </ul>
         </div>
       </section>
@@ -220,7 +241,7 @@
 
       <!-- NOCHE con acción -->
       <div *ngIf="isNightPhase && !isNightActionMinimized" class="night-action-static-container">
-        <section class="panel action-panel night static-window">
+        <section class="panel action-panel night static-window" [attr.data-timer-state]="timerState">
           <div class="panel-header-static">
             <span class="panel-title-static">Terminal de Acción Nocturna</span>
             <span class="panel-minimize" (click)="minimizeNightAction()">[Minimizar]</span>
@@ -297,32 +318,54 @@
       </section>
 
       <!-- VOTACIÓN -->
-      <section *ngIf="isVotePhase" class="panel action-panel vote">
+      <section *ngIf="isVotePhase" class="panel action-panel vote" [attr.data-timer-state]="timerState" [class.ceremony-active]="voteCeremonyActive">
         <h3 class="panel-title">Emitir ban de IP</h3>
         <p class="panel-sub">Selecciona el nodo sospechoso para expulsar de la red.</p>
 
-        <label class="field-label">Objetivo</label>
         <app-node-picker
           [options]="aliveTargets"
           [(selectedId)]="selectedTarget"
-          placeholder="-- Seleccionar sospechoso --"
+          placeholder="-- Seleccionar nodo destino --"
+          class="vote-picker"
+          [class.node-ceremony-flash]="voteCeremonyActive"
         ></app-node-picker>
 
-        <button
-          (click)="executeVote()"
-          [disabled]="!selectedTarget"
-          class="terminal-btn primary">
-          Confirmar voto
-        </button>
+        <div class="panel-actions">
+          <button
+            (click)="executeVote()"
+            [disabled]="!selectedTarget || voteCeremonyActive"
+            class="terminal-btn primary vote-btn"
+            [class.btn-ceremony-flash]="voteCeremonyActive">
+            Confirmar voto
+            <div class="vote-wave" *ngIf="voteCeremonyActive"></div>
+          </button>
 
-        <button
-          (click)="executeSkipVote()"
-          class="terminal-btn ghost">
-          Abstenerse (no expulsar)
-        </button>
+          <button
+            (click)="executeSkipVote()"
+            class="terminal-btn ghost"
+            [disabled]="voteCeremonyActive">
+            Abstenerse (Saltar)
+          </button>
+        </div>
 
         <p *ngIf="voteTiedMessage" class="vote-tied-msg">{{ voteTiedMessage }}</p>
-        <p *ngIf="myVoteConfirmed" class="vote-confirmed">✓ Voto confirmado por el servidor</p>
+        <p *ngIf="myVoteConfirmed" class="vote-confirmed">
+          <span class="typewriter-text">✓ Voto confirmado por el servidor</span>
+        </p>
+
+        <!-- M23: Vote Progress -->
+        <div class="vote-progress-container">
+          <div class="vote-progress-header">
+            <span class="vote-progress-label">Progreso de red</span>
+            <span class="vote-progress-count">{{ votesEmitted }} / {{ totalVoters }}</span>
+          </div>
+          <div class="vote-progress-bar-bg" [class.majority-reached]="majorityReached">
+            <div class="vote-progress-bar-fill" [style.width.%]="voteProgressPercent"></div>
+          </div>
+          <p class="vote-majority-text" *ngIf="majorityReached">
+            ¡Mayoría alcanzada! Procesando...
+          </p>
+        </div>
 
         <ng-container *ngIf="canEmergencyPatch">
           <hr class="section-divider" />
@@ -331,10 +374,10 @@
           <label class="field-label">Jugador a anular</label>
           <app-node-picker
             [options]="aliveTargets"
-            [(selectedId)]="selectedTarget"
+            [(selectedId)]="selectedEmergencyTarget"
             placeholder="-- Jugador a anular --"
           ></app-node-picker>
-          <button (click)="executeEmergencyPatch()" [disabled]="!selectedTarget" class="terminal-btn warn">
+          <button (click)="executeEmergencyPatch()" [disabled]="!selectedEmergencyTarget" class="terminal-btn warn">
             Aplicar parche
           </button>
           <div *ngIf="showPatchConfirm" class="patch-confirm">
@@ -380,10 +423,13 @@
         </div>
         <h3 class="report-headline">{{ nightActionReport.headline }}</h3>
         <ul class="report-details">
-          <li *ngFor="let line of nightActionReport.details">{{ line }}</li>
+          <li *ngFor="let line of nightActionReport.details">
+              <lucide-icon *ngIf="getReportIcon(line)" [name]="getReportIcon(line)!" class="inline-icon report-icon" [class.alert]="getReportIcon(line) === 'alert-triangle'"></lucide-icon>
+              <span>{{ getReportText(line) }}</span>
+            </li>
         </ul>
         <p *ngIf="nightActionReport.status === 'pending'" class="report-pending">
-          ⏳ Pendiente de resolución al amanecer
+          <lucide-icon name="moon" class="inline-icon"></lucide-icon> Pendiente de resolución al amanecer
         </p>
       </section>
 
@@ -463,9 +509,14 @@
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
         <ul class="chat-list chat-list-tall">
-          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
-            <span class="chat-author">{{ m.playerName }}:</span>
-            <span class="chat-text">{{ m.text }}</span>
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [class.chat-system]="m.playerId === 'SYSTEM'" [attr.data-channel]="m.channel">
+            <ng-container *ngIf="m.playerId !== 'SYSTEM'">
+              <span class="chat-author">{{ m.playerName }}:</span>
+              <span class="chat-text">{{ m.text }}</span>
+            </ng-container>
+            <ng-container *ngIf="m.playerId === 'SYSTEM'">
+              <span class="chat-text-system" [innerHTML]="m.text"></span>
+            </ng-container>
           </li>
           <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
         </ul>
@@ -518,9 +569,14 @@
         </div>
         <p *ngIf="chatChannelOptions.length === 1" class="chat-channel-badge">{{ chatChannelOptions[0].label }}</p>
         <ul class="chat-list">
-          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
-            <span class="chat-author">{{ m.playerName }}:</span>
-            <span class="chat-text">{{ m.text }}</span>
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [class.chat-system]="m.playerId === 'SYSTEM'" [attr.data-channel]="m.channel">
+            <ng-container *ngIf="m.playerId !== 'SYSTEM'">
+              <span class="chat-author">{{ m.playerName }}:</span>
+              <span class="chat-text">{{ m.text }}</span>
+            </ng-container>
+            <ng-container *ngIf="m.playerId === 'SYSTEM'">
+              <span class="chat-text-system" [innerHTML]="m.text"></span>
+            </ng-container>
           </li>
           <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
         </ul>
@@ -645,20 +701,22 @@
       <p class="node-death-kicker">ALERTA DE RED</p>
       <h2 class="node-death-headline">{{ nodeDeathAlert.headline }}</h2>
       <div class="node-death-names">
-        <span class="node-death-name" *ngFor="let p of nodeDeathAlert.players">
-          {{ p.name }}
-          <span class="node-death-role" *ngIf="p.role">[{{ p.role }}]</span>
-        </span>
+        <div class="node-death-player-block" *ngFor="let p of nodeDeathAlert.players">
+          <span class="node-death-name">{{ p.name }}</span>
+          <span class="node-death-role" *ngIf="p.role">{{ p.role }}</span>
+        </div>
       </div>
       <p class="node-death-sub">{{ nodeDeathAlert.subtitle }}</p>
       <div class="node-death-bar" aria-hidden="true">
         <span class="node-death-bar-fill"></span>
       </div>
     </div>
+    
+    <div class="death-flash-overlay" *ngIf="showDeathFlash"></div>
   </div>
 
   <!-- Overlay: eliminado -->
-  <div *ngIf="gamePhase === 'ELIMINATED' && !showGameOver" class="fullscreen-overlay eliminated">
+  <div *ngIf="gamePhase === 'ELIMINATED' && !showGameOver" class="fullscreen-overlay eliminated" [attr.data-death-reason]="myDeathReason">
     <div class="eliminated-border" aria-hidden="true"></div>
     <div class="overlay-content">
       <h1 class="overlay-title">SISTEMA CAÍDO</h1>
@@ -679,9 +737,14 @@
       <section class="dead-chat-panel">
         <p class="chat-channel-badge">Chat de espectadores (eliminados)</p>
         <ul class="chat-list">
-          <li *ngFor="let m of visibleChatMessages" class="chat-item" [attr.data-channel]="m.channel">
-            <span class="chat-author">{{ m.playerName }}:</span>
-            <span class="chat-text">{{ m.text }}</span>
+          <li *ngFor="let m of visibleChatMessages" class="chat-item" [class.chat-system]="m.playerId === 'SYSTEM'" [attr.data-channel]="m.channel">
+            <ng-container *ngIf="m.playerId !== 'SYSTEM'">
+              <span class="chat-author">{{ m.playerName }}:</span>
+              <span class="chat-text">{{ m.text }}</span>
+            </ng-container>
+            <ng-container *ngIf="m.playerId === 'SYSTEM'">
+              <span class="chat-text-system" [innerHTML]="m.text"></span>
+            </ng-container>
           </li>
           <li *ngIf="visibleChatMessages.length === 0" class="chat-empty">Sin mensajes aún</li>
         </ul>
@@ -700,41 +763,56 @@
     </div>
   </div>
 
+  <!-- Overlay: Game Over -->
   <div
     *ngIf="showGameOver && gameOverView"
     class="fullscreen-overlay"
     [class.gameover-win]="gameOverView.didWin"
     [class.gameover-loss]="!gameOverView.didWin">
-    <div class="overlay-content">
-      <p class="winner-label">{{ gameOverView.headline }}</p>
-      <p class="winner-side">{{ gameOverView.winnerKicker }}</p>
-      <div class="winner-divider" [class.loss]="!gameOverView.didWin"></div>
-      <h1 class="winner-team" [class.loss]="!gameOverView.didWin">{{ gameOverView.winningSideLabel }}</h1>
-      <p class="gameover-personal" [class.win]="gameOverView.didWin" [class.loss]="!gameOverView.didWin">
-        {{ gameOverView.personalResult }}
-      </p>
-      <p class="overlay-sub">{{ gameOverView.message }}</p>
+    <div class="overlay-content gameover-stagger">
+      
+      @if (gameOverStep >= 0) {
+        <h1 class="gameover-big-headline animate-personal" [class.win]="gameOverView.didWin" [class.loss]="!gameOverView.didWin">
+          {{ gameOverView.headline }}
+        </h1>
+      }
 
-      <section *ngFor="let reveal of gameOverView.reveals" class="reveal-panel">
-        <h4 class="reveal-title">{{ reveal.title }}</h4>
-        <ul class="reveal-list">
-          <li *ngFor="let item of reveal.items">{{ item }}</li>
-        </ul>
-      </section>
+      @if (gameOverStep >= 1) {
+        <div class="winner-reveal fade-in-up">
+          <p class="winner-side">{{ gameOverView.winnerKicker }}</p>
+          <h1 class="winner-team" [class.loss]="!gameOverView.didWin">{{ gameOverView.winningSideLabel }}</h1>
+          <p class="gameover-personal" [class.win]="gameOverView.didWin" [class.loss]="!gameOverView.didWin">
+            {{ gameOverView.personalResult }}
+          </p>
+          <div class="winner-divider" [class.loss]="!gameOverView.didWin"></div>
+          <p class="overlay-sub">{{ gameOverView.message }}</p>
+    
+          <section *ngFor="let reveal of gameOverView.reveals" class="reveal-panel">
+            <h4 class="reveal-title">{{ reveal.title }}</h4>
+            <ul class="reveal-list">
+              <li *ngFor="let item of reveal.items">{{ item }}</li>
+            </ul>
+          </section>
+        </div>
+      }
 
-      <section *ngIf="gameStats.length" class="reveal-panel stats-panel">
-        <h4 class="reveal-title">Estadísticas</h4>
-        <ul class="reveal-list">
-          <li *ngFor="let s of gameStats">{{ s.label }}: {{ s.value }}</li>
-        </ul>
-      </section>
-
-      <button
-        class="terminal-btn return-btn"
-        [class.loss]="!gameOverView.didWin"
-        (click)="returnToLogin()">
-        Volver al login
-      </button>
+      @if (gameOverStep >= 2) {
+        <div class="stats-reveal fade-in-up">
+          <section *ngIf="gameStats.length" class="reveal-panel stats-panel">
+            <h4 class="reveal-title">Estadísticas</h4>
+            <ul class="reveal-list">
+              <li *ngFor="let s of gameStats">{{ s.label }}: {{ s.value }}</li>
+            </ul>
+          </section>
+    
+          <button
+            class="terminal-btn return-btn"
+            [class.loss]="!gameOverView.didWin"
+            (click)="exitRoomCompletely()">
+            Volver al inicio
+          </button>
+        </div>
+      }
     </div>
   </div>
 

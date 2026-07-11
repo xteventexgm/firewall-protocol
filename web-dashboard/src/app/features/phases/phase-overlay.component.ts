@@ -1,3 +1,4 @@
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { GamePhase, IncidentDisplay, PublicPlayer } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';

@@ -18,4 +18,11 @@ export const SOUND_FILES: Record<string, string | string[]> = {
   skill_success: `${SFX_BASE}/ui/button-confirm.mp3`,
   skill_fail: `${SFX_BASE}/ui/toast-warning.mp3`,
   defeat: `${SFX_BASE}/victory/defeat.mp3`,
+  ui_click: `${SFX_BASE}/ui/ui-click.mp3`,
+  ui_confirm: `${SFX_BASE}/ui/ui-confirm.mp3`,
+  scan_safe: `${SFX_BASE}/phase/scan-safe.mp3`,
+  scan_malicious: `${SFX_BASE}/phase/scan-malicious.mp3`,
+  vote_tie: `${SFX_BASE}/combat/vote-tie.mp3`,
+  timer_warning: `${SFX_BASE}/ui/timer-warning.mp3`,
 };
+

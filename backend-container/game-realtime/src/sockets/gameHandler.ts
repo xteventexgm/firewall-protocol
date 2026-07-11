@@ -110,6 +110,35 @@ export default function registerGameHandlers(socket: Socket) {
     }
   });
 
+  socket.on('setPlayerReady', (roomId: string, payload: { playerId: string; isReady: boolean }) => {
+    try {
+      logger.info(`[setPlayerReady] called by ${socket.id} with roomId=${roomId} payload=`, payload);
+      const code = roomId.trim().toUpperCase();
+      const authErr = assertSocketActor(socket, payload?.playerId, code);
+      if (authErr) { 
+        logger.error(`[setPlayerReady] auth error: ${authErr}`);
+        socket.emit('error', authErr); 
+        return; 
+      }
+      const room = RoomManager.getRoom(code);
+      if (!room) { 
+        logger.error(`[setPlayerReady] room not found: ${code}`);
+        socket.emit('error', 'Sala no encontrada'); 
+        return; 
+      }
+      const result = room.setPlayerReady(payload.playerId, payload.isReady);
+      if (!result.ok) {
+        logger.error(`[setPlayerReady] result not ok: ${result.reason}`);
+        socket.emit('error', result.reason);
+      } else {
+        logger.info(`[setPlayerReady] success for ${payload.playerId}`);
+      }
+    } catch (err: any) {
+      logger.error(`[setPlayerReady] exception: ${err.message}`);
+      socket.emit('error', err.message || String(err));
+    }
+  });
+
   socket.on('startGame', (_roomId: string) => {
     logger.warn('[mobile] startGame rechazado — solo el dashboard puede iniciar');
     socket.emit(

@@ -76,6 +76,8 @@ export interface PublicPlayerState {
   infected?: boolean;
   /** Visible en dashboard cuando el jugador está eliminado o la partida terminó. */
   role?: RoleId;
+  /** Indicador de si el jugador está listo en el lobby. */
+  isReady?: boolean;
 }
 
 /** Resumen de amenaza al iniciar partida (dashboard TV + briefing móvil día 1). */
@@ -113,6 +115,7 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  minigamesEnabled?: boolean;
   /** Modo QA: avance automático hasta FIN cuando hay bots (solo dev). */
   botQaAutoRun?: boolean;
 }

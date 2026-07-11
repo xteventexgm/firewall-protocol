@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { Subscription, catchError, of, take, timeout } from 'rxjs';
 import { GameSocketService } from './core/services/game-socket.service';
 import { GameSoundService } from './core/services/game-sound.service';
@@ -63,8 +63,10 @@ import {
   styleUrl: './app.scss',
 })
 export class App implements OnInit, OnDestroy {
-  private readonly gameSocket = inject(GameSocketService);
-  private readonly gameSound = inject(GameSoundService);
+  @ViewChild(TopologyComponent) topology!: TopologyComponent;
+
+  gameSocket = inject(GameSocketService);
+  gameSound = inject(GameSoundService);
   private subs: Subscription[] = [];
   private statusTimeout: ReturnType<typeof setTimeout> | null = null;
   private nightPanelTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -78,6 +80,7 @@ export class App implements OnInit, OnDestroy {
   reconnecting = false;
   incidents: IncidentDisplay[] = [];
   glitchPlayerIds: string[] = [];
+  pendingDeathIds: string[] = [];
   showIncidentReport = false;
   incidentNightNumber = 0;
   errorMessage = '';
@@ -142,7 +145,40 @@ export class App implements OnInit, OnDestroy {
       this.gameSocket.connected$.subscribe((c) => (this.connected = c)),
       this.gameSocket.reconnecting$.subscribe((r) => (this.reconnecting = r)),
       this.gameSocket.roomState$.subscribe((s) => {
-        this.state = s;
+        if (!s) return;
+        
+        if (this.state) {
+          const newlyDeadIds = s.players
+            .filter(newP => {
+              const oldP = this.state!.players.find(p => p.id === newP.id);
+              return oldP?.isAlive && !newP.isAlive;
+            })
+            .map(p => p.id);
+            
+          if (newlyDeadIds.length > 0) {
+            this.pendingDeathIds = [...new Set([...this.pendingDeathIds, ...newlyDeadIds])];
+            
+            // Retrasar 600ms la muerte visual para dar tiempo al pulso y animación (M27, M28)
+            setTimeout(() => {
+              this.pendingDeathIds = this.pendingDeathIds.filter(id => !newlyDeadIds.includes(id));
+              if (this.state) {
+                // Forzar re-render con los jugadores ya muertos
+                this.state = { ...this.state };
+              }
+            }, 600);
+          }
+        }
+
+        if (this.pendingDeathIds.length > 0) {
+          const patchedPlayers = s.players.map(p => {
+            if (this.pendingDeathIds.includes(p.id)) return { ...p, isAlive: true };
+            return p;
+          });
+          this.state = { ...s, players: patchedPlayers };
+        } else {
+          this.state = s;
+        }
+
         if (s && this.inRoom && !this.roomCode) this.roomCode = s.roomId;
         if (s?.phase && s.phase !== this.lastPhase) {
           this.applyPhaseAmbient(s.phase);
@@ -186,27 +222,42 @@ export class App implements OnInit, OnDestroy {
         this.incidents = incidents;
         this.incidentNightNumber = nightNumber;
         const ids = incidents.map((i) => i.playerId);
-        this.patchPlayersAlive(ids, false);
+        
         this.beginEliminationAnimation(ids);
         this.queueNodeDeathAlerts(ids, 'night_kill');
-        this.showIncidentReport = incidents.length > 0;
+        
+        // Incident report overlay sale DESPUÉS del nodeDeathAlert
+        // nodeDeathAlert toma 1600ms en aparecer + 4200ms de duración = 5800ms
+        setTimeout(() => {
+          this.showIncidentReport = incidents.length > 0;
+        }, 5800);
+
         setTimeout(() => {
           this.showIncidentReport = false;
           this.glitchPlayerIds = [];
           this.incidentNightNumber = 0;
-        }, 8_000);
+        }, 11_000);
       }),
-      this.gameSocket.gameOver$.subscribe((payload) => {
-        if (!this.inRoom) return;
-        this.gameSound.play(
-          payload.soloWinner ? 'game_over_solo' : payload.winner === 'black_hat' ? 'game_over_hacker' : 'game_over_system',
-        );
-        this.gameOverSummary = buildGameOverSummaryFromPayload(payload, this.state);
-        if (this.state?.gameStats) {
-          this.gameOverSummary = { ...this.gameOverSummary, stats: this.state.gameStats };
-        }
-        this.showGameOver = true;
-        if (this.roomCode) removeRoom(this.roomCode);
+        this.gameSocket.gameOver$.subscribe((payload) => {
+          if (!this.inRoom) return;
+          this.gameSound.play(
+            payload.soloWinner ? 'game_over_solo' : payload.winner === 'black_hat' ? 'game_over_hacker' : 'game_over_system',
+          );
+          this.gameOverSummary = buildGameOverSummaryFromPayload(payload, this.state);
+          if (this.state?.gameStats) {
+            this.gameOverSummary = { ...this.gameOverSummary, stats: this.state.gameStats };
+          }
+          
+          if (this.topology) {
+            this.topology.triggerEventPulse('victory');
+            setTimeout(() => {
+              this.showGameOver = true;
+            }, 1600); // Esperar que terminen las animaciones VFX antes del Game Over
+          } else {
+            this.showGameOver = true;
+          }
+
+          if (this.roomCode) removeRoom(this.roomCode);
         this.savedRooms = loadSavedRooms();
         if (this.state && this.state.phase !== 'FIN') {
           this.state = {
@@ -248,6 +299,7 @@ export class App implements OnInit, OnDestroy {
           candidates: candidateNames,
           skipVotes: payload.skipVotes ?? 0,
         });
+        this.gameSound.play('vote_tie');
       }),
       this.gameSocket.nightResolved$.subscribe(({ resolution }) => {
         if (!this.inRoom || this.gameOverActive) return;
@@ -631,6 +683,7 @@ export class App implements OnInit, OnDestroy {
     this.incidents = [];
     this.showIncidentReport = false;
     this.glitchPlayerIds = [];
+    this.pendingDeathIds = [];
     this.incidentNightNumber = 0;
     this.voteTiedMessage = '';
     this.statusMessage = '';
@@ -698,7 +751,7 @@ export class App implements OnInit, OnDestroy {
   private queueNodeDeathAlerts(playerIds: string[], reason: string, explicitRole?: string): void {
     const playersData = playerIds.map((id) => {
       const player = this.state?.players.find(p => p.id === id);
-      return { name: player?.name ?? id, role: explicitRole ?? player?.role };
+      return { id, name: player?.name ?? id, role: explicitRole ?? player?.role };
     });
     const alert = buildNodeDeathAlert(playersData, reason);
     if (!alert) return;
@@ -722,19 +775,30 @@ export class App implements OnInit, OnDestroy {
     if (!this.nodeDeathAlert) return;
 
     this.nodeDeathAlertExiting = false;
-    this.nodeDeathAlertVisible = true;
 
-    this.deathAlertTimer = setTimeout(() => {
-      this.nodeDeathAlertExiting = true;
-      this.deathAlertExitTimer = setTimeout(() => {
-        this.nodeDeathAlertVisible = false;
-        this.nodeDeathAlert = null;
-        this.nodeDeathAlertExiting = false;
-        this.deathAlertTimer = null;
-        this.deathAlertExitTimer = null;
-        this.pumpNodeDeathAlertQueue();
-      }, 420);
-    }, App.DEATH_ALERT_MS);
+    // Disparar pulso en topología
+    let pulseType: 'kill' | 'vote' = this.nodeDeathAlert.reason === 'vote' ? 'vote' : 'kill';
+    let targetId = this.nodeDeathAlert.players[0]?.id;
+    if (this.topology) {
+      this.topology.triggerEventPulse(pulseType, targetId);
+    }
+
+    // Retrasar modal para que no tape el pulso ni las animaciones (M27, M28)
+    setTimeout(() => {
+      this.nodeDeathAlertVisible = true;
+
+      this.deathAlertTimer = setTimeout(() => {
+        this.nodeDeathAlertExiting = true;
+        this.deathAlertExitTimer = setTimeout(() => {
+          this.nodeDeathAlertVisible = false;
+          this.nodeDeathAlert = null;
+          this.nodeDeathAlertExiting = false;
+          this.deathAlertTimer = null;
+          this.deathAlertExitTimer = null;
+          this.pumpNodeDeathAlertQueue();
+        }, 420);
+      }, App.DEATH_ALERT_MS);
+    }, 1600); // 1600ms de retraso para que las animaciones respiren
   }
 
   private clearNodeDeathAlerts(): void {

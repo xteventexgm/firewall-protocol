@@ -46,6 +46,7 @@ function computeRoomStatus(data: Record<string, unknown> | null, playerId?: stri
 		return { exists: false, phase: null, playerCount: 0, connectedCount: 0, canJoin: false, canReconnect: false };
 	}
 	const phase = (data.phase as string) ?? null;
+	const maxPlayers = (data.maxPlayers as number) ?? undefined;
 	const players = (data.players as Array<{ id: string; isConnected?: boolean }>) ?? [];
 	const playerCount = players.length;
 	const connectedCount = players.filter((p) => p.isConnected !== false).length;
@@ -53,7 +54,7 @@ function computeRoomStatus(data: Record<string, unknown> | null, playerId?: stri
 	const inProgress = Boolean(phase && phase !== 'LOBBY' && phase !== 'FIN');
 	const playerKnown = !playerId || players.some((p) => p.id === playerId);
 	const canReconnect = inProgress && playerKnown;
-	return { exists: true, phase, playerCount, connectedCount, canJoin, canReconnect };
+	return { exists: true, phase, playerCount, connectedCount, maxPlayers, canJoin, canReconnect };
 }
 
 export function createMongoDBAdapter(): DBAdapter & { warmCache(): Promise<void> } {

@@ -24,6 +24,8 @@ export interface PublicPlayer {
   role?: string;
   /** Revelado en fase FIN (game over). */
   team?: Team;
+  /** Si el jugador está listo en la sala. */
+  isReady?: boolean;
 }
 
 export interface SessionThreatBrief {
@@ -85,6 +87,7 @@ export interface PhaseConfig {
   nightDurationMs: number;
   dayDurationMs: number;
   voteDurationMs: number;
+  minigamesEnabled?: boolean;
   botQaAutoRun?: boolean;
 }
 

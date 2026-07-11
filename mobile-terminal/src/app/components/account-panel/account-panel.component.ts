@@ -1,7 +1,8 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LucideAngularModule } from 'lucide-angular';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { Camera } from '@capacitor/camera';
@@ -12,6 +13,7 @@ import {
   passwordIssueMessage,
   validatePassword,
 } from '../../core/utils/password-policy.utils';
+import { EncyclopediaModalComponent } from '../encyclopedia-modal/encyclopedia-modal.component';
 
 type PanelView = 'auth' | 'profile';
 type ProfileSubView = 'overview' | 'edit' | 'history' | 'history-detail';
@@ -20,7 +22,7 @@ type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 @Component({
   selector: 'app-account-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule],
+  imports: [CommonModule, FormsModule, IonicModule, LucideAngularModule],
   templateUrl: './account-panel.component.html',
   styleUrls: ['./account-panel.component.scss'],
 })
@@ -29,6 +31,7 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Input() initialAuthMode: AuthMode | null = null;
   @Output() closed = new EventEmitter<void>();
   @Output() authChanged = new EventEmitter<void>();
+  @Output() openTutorial = new EventEmitter<void>();
 
   readonly passwordHint = PASSWORD_HINT;
 
@@ -71,7 +74,12 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
   deleteAccountSuccess = '';
   private subs = new Subscription();
 
-  constructor(private authService: AuthService, private router: Router, private cdr: ChangeDetectorRef) {
+  constructor(
+    private authService: AuthService, 
+    private router: Router, 
+    private cdr: ChangeDetectorRef,
+    private modalCtrl: ModalController
+  ) {
     this.subs.add(
       this.authService.profileUpdated$.subscribe((user) => {
         this.applyUserToProfile(user);
@@ -254,6 +262,16 @@ export class AccountPanelComponent implements OnInit, OnChanges, OnDestroy {
     this.deleteAccountAck = false;
     this.deleteAccountMessage = '';
     this.deleteAccountSuccess = '';
+  }
+
+  async openEncyclopedia() {
+    const modal = await this.modalCtrl.create({
+      component: EncyclopediaModalComponent,
+      cssClass: 'premium-modal',
+      animated: true,
+      mode: 'ios'
+    });
+    return await modal.present();
   }
 
   async requestDeleteAccountCode(): Promise<void> {

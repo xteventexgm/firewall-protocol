@@ -144,6 +144,7 @@ export function createBotPlayer(index: number): Player {
   const p = new Player(id, name);
   p.isBot = true;
   p.isConnected = true;
+  p.isReady = true;
   return p;
 }
 

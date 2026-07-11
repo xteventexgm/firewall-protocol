@@ -21,7 +21,8 @@
         </p>
       </div>
       <div class="achievement-status">
-        <span *ngIf="unlockedIds.has(ach.id)" class="status-badge unlocked">DESBLOQUEADO</span>
+        <span *ngIf="newIds.has(ach.id)" class="status-badge new-badge">NUEVO</span>
+        <span *ngIf="unlockedIds.has(ach.id) && !newIds.has(ach.id)" class="status-badge unlocked">DESBLOQUEADO</span>
         <span *ngIf="!unlockedIds.has(ach.id)" class="status-badge locked">BLOQUEADO</span>
       </div>
     </div>

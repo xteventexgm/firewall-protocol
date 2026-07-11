@@ -24,6 +24,19 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 }
 
+:root {
+  /* Animation Timing Tokens (M08) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  
+  --duration-fast: 300ms;
+  --duration-normal: 450ms;
+  --duration-slow: 600ms;
+  --duration-modal: 700ms;
+}
+
 @import "@ionic/angular/css/core.css";
 
 /* Basic CSS for apps built with Ionic */

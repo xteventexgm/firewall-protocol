@@ -1,0 +1,287 @@
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(4, 12, 18, 0.7);
+  backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.tutorial-container {
+  background: linear-gradient(180deg, rgba(13, 21, 32, 0.9) 0%, rgba(5, 10, 18, 0.95) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  height: 82vh;
+  max-height: 650px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.tutorial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+  .tutorial-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+    letter-spacing: -0.01em;
+  }
+
+  .skip-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+
+    &:hover, &:active {
+      color: white;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .icon-sm {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.slides-wrapper {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.slide {
+  flex: 0 0 100%;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  overflow-y: auto;
+}
+
+.slide-content-wrapper {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.slide-icon-wrap {
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+  background: rgba(0, 0, 0, 0.2);
+  
+  .slide-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    ::ng-deep svg {
+      width: 44px !important;
+      height: 44px !important;
+    }
+  }
+
+  &.app-icon-wrap {
+    background: transparent;
+    border: none;
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.3);
+    
+    .app-icon-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      object-fit: cover;
+    }
+  }
+  
+  &.cyber-glow-neutral:not(.app-icon-wrap) {
+    box-shadow: 0 0 40px rgba(0, 240, 255, 0.15);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    color: var(--color-cyber-accent);
+  }
+  &.cyber-glow-system {
+    box-shadow: 0 0 40px rgba(0, 255, 170, 0.15);
+    border: 1px solid rgba(0, 255, 170, 0.3);
+    color: var(--color-team-system);
+  }
+  &.cyber-glow-hacker {
+    box-shadow: 0 0 40px rgba(255, 50, 50, 0.15);
+    border: 1px solid rgba(255, 50, 50, 0.3);
+    color: var(--color-team-hacker);
+  }
+  &.cyber-glow-chaos {
+    box-shadow: 0 0 40px rgba(255, 150, 0, 0.15);
+    border: 1px solid rgba(255, 150, 0, 0.3);
+    color: var(--color-team-chaos);
+  }
+}
+
+.slide-heading {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 0 1rem;
+  color: white;
+  letter-spacing: -0.02em;
+
+  &.team-system { color: var(--color-team-system); text-shadow: 0 0 10px rgba(0, 255, 170, 0.4); }
+  &.team-hacker { color: var(--color-team-hacker); text-shadow: 0 0 10px rgba(255, 50, 50, 0.4); }
+  &.team-chaos { color: var(--color-team-chaos); text-shadow: 0 0 10px rgba(255, 150, 0, 0.4); }
+}
+
+.slide-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+  
+  strong {
+    color: white;
+    font-weight: 600;
+  }
+
+  &.cycle-text {
+    text-align: left;
+    display: inline-block;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    
+    .inline-icon {
+      width: 20px;
+      height: 20px;
+      vertical-align: text-bottom;
+      margin-right: 0.5rem;
+      color: var(--color-cyber-accent);
+    }
+  }
+}
+
+.tutorial-footer {
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dots-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    &.active {
+      background: var(--color-cyber-accent);
+      width: 24px;
+      border-radius: 4px;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+    }
+  }
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 52px;
+    border-radius: 14px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+  
+  .prev-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    width: 52px;
+    flex-shrink: 0;
+    
+    &:active {
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(0.95);
+    }
+  }
+  
+  .next-btn {
+    flex: 1;
+    margin-left: 1rem;
+    background: #00f0ff;
+    border: none;
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    
+    .icon-sm {
+      width: 20px;
+      height: 20px;
+    }
+    
+    &:active {
+      transform: scale(0.98);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    }
+  }
+}
