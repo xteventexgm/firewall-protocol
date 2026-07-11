@@ -11,6 +11,7 @@ import { LobbyClosedOverlayComponent } from '../../components/lobby-closed-overl
 import { HomeAtmosphereComponent } from '../../components/home-atmosphere/home-atmosphere.component';
 import { AccountPanelComponent } from '../../components/account-panel/account-panel.component';
 import { TutorialSliderComponent } from '../../components/tutorial-slider/tutorial-slider.component';
+import { EncyclopediaModalComponent } from '../../components/encyclopedia-modal/encyclopedia-modal.component';
 import { GameSoundService } from '../../services/game-sound.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { fetchRoomStatus, isRoomStatusUnavailable } from '../../core/utils/room-status.utils';
@@ -41,11 +42,13 @@ export interface RecentRoom {
     HomeAtmosphereComponent,
     AccountPanelComponent,
     TutorialSliderComponent,
+    EncyclopediaModalComponent,
     LucideAngularModule
   ],
 })
 export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
   showTutorial = false;
+  showEncyclopedia = false;
   roomCode = '';
   playerName = '';
   connecting = false;

@@ -37,7 +37,10 @@
     (closed)="onAccountPanelClosed()"
     (authChanged)="onAuthChanged()"
     (openTutorial)="showTutorial = true; onAccountPanelClosed()"
+    (openEncyclopediaEvent)="showEncyclopedia = true; onAccountPanelClosed()"
   />
+
+  <app-encyclopedia-modal *ngIf="showEncyclopedia" (closeEncyclopedia)="showEncyclopedia = false"></app-encyclopedia-modal>
 
   <div class="page-scroll login-page" [class.form-ready]="formReady" [class.form-ready-instant]="formReadyInstant">
     <div class="login-shell" [class.is-transitioning]="transitioning">
