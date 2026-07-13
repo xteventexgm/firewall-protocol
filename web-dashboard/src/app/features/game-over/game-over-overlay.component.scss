@@ -288,7 +288,10 @@
 /* M24: Game Over Animations */
 .protocolo-finalizado {
   font-family: 'Space Mono', monospace;
-  font-size: 4rem;
+  font-size: clamp(2rem, 5vw, 4rem);
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
   color: var(--color-cyber-accent, #00f0ff);
   text-shadow: 0 0 20px var(--color-cyber-accent);
   position: absolute;

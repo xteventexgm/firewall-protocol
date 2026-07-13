@@ -858,4 +858,23 @@
     (dismissed)="onLobbyClosedDismiss()"
   />
 
+  <div *ngIf="showTargetPicker" class="fullscreen-overlay action-picker-overlay">
+    <div class="overlay-content target-picker-card">
+      <h3 class="picker-title">Selecciona objetivo</h3>
+      <p class="picker-subtitle">Para: {{ targetPickerPrefix }}</p>
+      
+      <div class="terminal-list">
+        <button *ngFor="let target of aliveTargets"
+                class="terminal-list-item picker-item"
+                (click)="onTargetSelected(target)">
+          {{ target.name }}
+        </button>
+      </div>
+      
+      <button class="terminal-btn outline picker-cancel" (click)="onTargetSelected(null)">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
 </ion-content>
