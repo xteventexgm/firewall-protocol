@@ -1492,14 +1492,14 @@
 
 @keyframes fade-to-red-dead {
   0% {
-    filter: drop-shadow(0 0 15px #ff0000) brightness(4.0);
+    filter: drop-shadow(0 0 15px #ff0000);
   }
   20% {
-    filter: drop-shadow(0 0 30px #ff0000) brightness(6.0);
+    filter: drop-shadow(0 0 30px #ff0000);
     transform: scale(1.1);
   }
   100% {
-    filter: drop-shadow(0 0 5px #ff0000) brightness(2.0);
+    filter: drop-shadow(0 0 5px #ff0000);
     transform: scale(1);
   }
 }
