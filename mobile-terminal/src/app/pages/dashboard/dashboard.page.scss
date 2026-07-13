@@ -3040,3 +3040,48 @@ ion-select.terminal-select,
   letter-spacing: 0;
 }
 
+.target-picker-card {
+  padding: 1.5rem;
+  background: var(--color-cyber-bg);
+  border: 1px solid var(--color-cyber-accent);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+  max-width: 400px;
+  width: 90%;
+  margin: 0 auto;
+
+  .picker-title {
+    color: var(--color-cyber-accent);
+    font-size: 1.2rem;
+    margin: 0 0 0.5rem;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .picker-subtitle {
+    color: #c8e6f0;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+  }
+
+  .picker-item {
+    text-align: center;
+    background: rgba(0, 240, 255, 0.05);
+    &:active {
+      background: rgba(0, 240, 255, 0.2);
+    }
+  }
+
+  .picker-cancel {
+    margin-top: 1rem;
+    width: 100%;
+  }
+}
+
+.action-picker-overlay {
+  z-index: 9999;
+  background: rgba(2, 5, 8, 0.85);
+  backdrop-filter: blur(8px);
+}

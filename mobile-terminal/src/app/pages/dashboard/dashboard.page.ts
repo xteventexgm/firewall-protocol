@@ -1463,29 +1463,24 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  showTargetPicker = false;
+  targetPickerPrefix = '';
+
   sendReaction(text: string, targetPlayerId?: string) {
     this.socketService.submitChat(text, 'public', 'reaction', targetPlayerId);
   }
 
   async openTargetActionSheet(prefix: string) {
-    const buttons = this.aliveTargets.map(target => ({
-      text: target.name,
-      handler: () => {
-        this.sendReaction(`${prefix}: ${target.name}`, target.id);
-      }
-    }));
+    if (this.aliveTargets.length === 0) return;
+    this.targetPickerPrefix = prefix;
+    this.showTargetPicker = true;
+  }
 
-    buttons.push({
-      text: 'Cancelar',
-      role: 'cancel',
-      handler: () => {}
-    } as any);
-
-    const actionSheet = await this.actionSheetCtrl.create({
-      header: `Selecciona objetivo para: ${prefix}`,
-      buttons
-    });
-    await actionSheet.present();
+  onTargetSelected(target: any) {
+    this.showTargetPicker = false;
+    if (target) {
+      this.sendReaction(`${this.targetPickerPrefix}: ${target.name}`, target.id);
+    }
   }
 
   get showRolePanel(): boolean {
