@@ -952,6 +952,17 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   private triggerInterferenceBurst(x: number, y: number): void {
+    const el = this.svgContainer?.nativeElement;
+    if (el) {
+      el.style.setProperty('--cx', `${this.width / 2}px`);
+      el.style.setProperty('--cy', `${this.height / 2}px`);
+      el.style.setProperty('--zx', `${x}px`);
+      el.style.setProperty('--zy', `${y}px`);
+      el.classList.remove('ban-zoom-burst');
+      void el.offsetWidth;
+      el.classList.add('ban-zoom-burst');
+    }
+
     for (let i = 0; i < 18; i++) {
       const angle = (Math.PI * 2 * i) / 18 + Math.random() * 0.5;
       this.particles.push({

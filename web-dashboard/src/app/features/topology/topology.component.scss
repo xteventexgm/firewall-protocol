@@ -1108,25 +1108,29 @@
 
 @keyframes node-ban-sequence {
   0% {
-    transform: scale(1);
-  }
-  15% {
-    transform: scale(1.12) translate(2px, -1px);
-  }
-  30% {
-    transform: scale(0.95) translate(-3px, 2px);
-  }
-  45% {
-    transform: scale(1.06) translate(2px, 1px);
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 5px #ff2d55);
   }
   60% {
-    transform: scale(0.88);
     opacity: 0.85;
+    filter: brightness(1.5) drop-shadow(0 0 15px #ff2d55);
   }
   100% {
-    transform: scale(0.92);
     opacity: 0.75;
+    filter: brightness(1) drop-shadow(0 0 5px #ff2d55);
   }
+}
+
+.ban-zoom-burst {
+  animation: ban-zoom 1.5s var(--ease-in-out-quint) forwards;
+  transform-origin: 0 0;
+}
+
+@keyframes ban-zoom {
+  0% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(calc(var(--cx) - var(--zx) * 1.5), calc(var(--cy) - var(--zy) * 1.5)) scale(1.5); }
+  80% { transform: translate(calc(var(--cx) - var(--zx) * 1.5), calc(var(--cy) - var(--zy) * 1.5)) scale(1.5); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
 @keyframes ban-inner-flash {
@@ -1492,14 +1496,14 @@
 
 @keyframes fade-to-red-dead {
   0% {
-    filter: drop-shadow(0 0 15px #ff0000) brightness(4.0);
+    filter: drop-shadow(0 0 15px #ff0000);
   }
   20% {
-    filter: drop-shadow(0 0 30px #ff0000) brightness(6.0);
+    filter: drop-shadow(0 0 30px #ff0000);
     transform: scale(1.1);
   }
   100% {
-    filter: drop-shadow(0 0 5px #ff0000) brightness(2.0);
+    filter: drop-shadow(0 0 5px #ff0000);
     transform: scale(1);
   }
 }

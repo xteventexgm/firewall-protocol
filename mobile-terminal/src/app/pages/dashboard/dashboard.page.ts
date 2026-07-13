@@ -373,6 +373,17 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  async showNotificationToast(msg: string) {
+    const toast = await this.toastCtrl.create({
+      message: '🔔 ' + msg,
+      duration: 4000,
+      position: 'top',
+      color: 'dark',
+      cssClass: 'cyber-toast',
+    });
+    await toast.present();
+  }
+
   ionViewWillEnter(): void {
     this.roomCode = localStorage.getItem('roomCode') ?? '';
     this.myPlayerId = localStorage.getItem('myPlayerId') ?? '';
@@ -668,6 +679,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                 body: 'Ejecuta tu acción nocturna en la red.',
               }]
             });
+            this.showNotificationToast('Es tu turno: Ejecuta tu acción nocturna en la red.');
           }
           this.topologyOpen = false;
           this.selectedTarget = '';
@@ -691,6 +703,7 @@ export class DashboardPage implements OnInit, OnDestroy {
               body: 'La auditoría ha terminado. Elige a quién expulsar de la red.',
             }]
           });
+          this.showNotificationToast('Fase de votación: Elige a quién expulsar de la red.');
         }
         if (t.to === 'VERIFICACION' && !amDead) {
           this.setStatus('Verificando integridad del sistema…', 'info');

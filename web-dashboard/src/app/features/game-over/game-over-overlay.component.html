@@ -1,8 +1,8 @@
-<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
+Ôªø<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
   
   @if (currentStep === 0) {
-    <div class="protocolo-finalizado glitch-text" data-text="PROTOCOLO FINALIZADO">
-      PROTOCOLO FINALIZADO
+    <div class="protocolo-finalizado glitch-text" [attr.data-text]="protocolText">
+      {{ protocolText }}
     </div>
   }
 
@@ -84,7 +84,7 @@
               (click)="onExportReplay()"
               [disabled]="exportingReplay"
             >
-              {{ exportingReplay ? 'ExportandoÅc' : 'Descargar replay JSON' }}
+              {{ exportingReplay ? 'Exportando‚Ä¶' : 'Descargar replay JSON' }}
             </button>
             <button
               type="button"
@@ -92,7 +92,7 @@
               (click)="onExportSessionLog()"
               [disabled]="exportingSessionLog"
             >
-              {{ exportingSessionLog ? 'ExportandoÅc' : 'Descargar registro .log' }}
+              {{ exportingSessionLog ? 'Exportando‚Ä¶' : 'Descargar registro .log' }}
             </button>
           }
         </div>
@@ -100,3 +100,4 @@
     </div>
   }
 </div>
+
