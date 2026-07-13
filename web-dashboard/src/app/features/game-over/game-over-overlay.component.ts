@@ -34,6 +34,14 @@ export class GameOverOverlayComponent implements OnInit, OnDestroy {
     this.timers.forEach(t => clearTimeout(t));
   }
 
+  get protocolText(): string {
+    switch (this.summary.outcome) {
+      case 'win': return 'AMENAZA NEUTRALIZADA';
+      case 'loss': return 'SISTEMA COMPROMETIDO';
+      default: return 'PROTOCOLO FINALIZADO';
+    }
+  }
+
   onExitRoom(): void {
     this.exitRoom.emit();
   }

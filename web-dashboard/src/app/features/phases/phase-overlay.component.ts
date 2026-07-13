@@ -1,4 +1,4 @@
-import { LucideAngularModule } from 'lucide-angular';
+﻿import { LucideAngularModule } from 'lucide-angular';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { GamePhase, IncidentDisplay, PublicPlayer } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
@@ -34,20 +34,20 @@ export class PhaseOverlayComponent implements OnChanges {
         this.triggerBootSequence();
       }
       this.prevPhase = this.phase;
-      this.showNightOverlay = this.phase === 'NOCHE';
+      if (!this.blockPhaseOverlays) { this.showNightOverlay = this.phase === 'NOCHE'; }
       if (this.phase === 'DIA' && !changes['phaseFlash'] && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
     }
 
     if (changes['phaseFlash'] && this.phaseFlash) {
-      this.showNightOverlay = this.phaseFlash === 'NOCHE';
+      if (!this.blockPhaseOverlays) { this.showNightOverlay = this.phaseFlash === 'NOCHE'; }
       if (this.phaseFlash === 'DIA' && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
     }
 
-    // Si el aviso quedó bloqueado por animación de muerte, mostrarlo al desbloquear.
+    // Si el aviso quedﾃｳ bloqueado por animaciﾃｳn de muerte, mostrarlo al desbloquear.
     if (changes['blockPhaseOverlays'] && !this.blockPhaseOverlays) {
       this.syncNightOverlayIfNeeded();
     }
@@ -80,11 +80,11 @@ export class PhaseOverlayComponent implements OnChanges {
   private triggerBootSequence(): void {
     clearTimeout(this.bootTimer);
     this.bootLines = [
-      '> FIREWALL PROTOCOL v2.0 — boot sequence',
+      '> FIREWALL PROTOCOL v2.0 窶・boot sequence',
       '> Verificando integridad de nodos... OK',
       '> Reparto de credenciales... OK',
-      '> SIEM en línea — modo debate activo',
-      '> Día 1 iniciado. Buena suerte.',
+      '> SIEM en lﾃｭnea 窶・modo debate activo',
+      '> Dﾃｭa 1 iniciado. Buena suerte.',
     ];
     this.showBootSequence = true;
     this.bootTimer = setTimeout(() => {
@@ -93,3 +93,5 @@ export class PhaseOverlayComponent implements OnChanges {
     }, 4200);
   }
 }
+
+
