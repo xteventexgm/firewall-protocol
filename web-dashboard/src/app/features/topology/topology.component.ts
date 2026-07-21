@@ -763,12 +763,10 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     const node = this.nodes.find((n) => n.id === id);
     if (!node) return;
 
-    this.banAnimationIds.add(id);
     this.flowPhaseByLink.delete(id);
     this.linkPulseIds.add(id);
     this.pulseStartedAt.set(id, performance.now());
     this.linkHandshakeMsById.set(id, TopologyComponent.LEAVE_MS);
-    this.triggerInterferenceBurst(node.x, node.y);
     this.refreshHubLinks();
     this.cdr.markForCheck();
 

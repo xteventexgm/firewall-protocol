@@ -1465,6 +1465,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   showTargetPicker = false;
   targetPickerPrefix = '';
+  chatSelectedTarget = '';
 
   sendReaction(text: string, targetPlayerId?: string) {
     this.socketService.submitChat(text, 'public', 'reaction', targetPlayerId);
@@ -1473,14 +1474,19 @@ export class DashboardPage implements OnInit, OnDestroy {
   async openTargetActionSheet(prefix: string) {
     if (this.aliveTargets.length === 0) return;
     this.targetPickerPrefix = prefix;
+    this.chatSelectedTarget = '';
     this.showTargetPicker = true;
   }
 
-  onTargetSelected(target: any) {
+  onTargetSelected(targetId?: string | null) {
     this.showTargetPicker = false;
-    if (target) {
-      this.sendReaction(`${this.targetPickerPrefix}: ${target.name}`, target.id);
+    if (targetId) {
+      const target = this.aliveTargets.find(t => t.id === targetId);
+      if (target) {
+        this.sendReaction(`${this.targetPickerPrefix}: ${target.name}`, target.id);
+      }
     }
+    this.chatSelectedTarget = '';
   }
 
   get showRolePanel(): boolean {
