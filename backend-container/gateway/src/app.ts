@@ -16,6 +16,7 @@ const CORS_HEADERS = [
   'X-User-Id',
   'ngrok-skip-browser-warning',
   'Bypass-Tunnel-Reminder',
+  'skip_zrok_interstitial',
 ] as const;
 
 app.use((req, res, next) => {

@@ -84,7 +84,6 @@ export class GameSocketService implements OnDestroy {
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
       ...socketReconnectOptions(),
-      transports: ['websocket'],
     };
 
     const extraHeaders = this.buildTunnelHeaders();
@@ -278,11 +277,14 @@ export class GameSocketService implements OnDestroy {
   private buildTunnelHeaders(): Record<string, string> {
     const host = environment.apiUrl.toLowerCase();
     const headers: Record<string, string> = {};
-    if (host.includes('ngrok')) {
+    if (host.includes('ngrok') || host.includes('zrok')) {
       headers['ngrok-skip-browser-warning'] = '69420';
     }
-    if (host.includes('loca.lt') || host.includes('localtunnel')) {
+    if (host.includes('loca.lt') || host.includes('localtunnel') || host.includes('zrok')) {
       headers['Bypass-Tunnel-Reminder'] = 'true';
+    }
+    if (host.includes('zrok')) {
+      headers['skip_zrok_interstitial'] = 'true';
     }
     return headers;
   }

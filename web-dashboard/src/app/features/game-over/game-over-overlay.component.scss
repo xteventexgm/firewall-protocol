@@ -1,4 +1,4 @@
-.gameover-overlay {
+﻿.gameover-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -290,6 +290,7 @@
   font-family: 'Space Mono', monospace;
   font-size: clamp(2rem, 5vw, 4rem);
   white-space: nowrap;
+  letter-spacing: -1px;
   width: 100%;
   text-align: center;
   color: var(--color-cyber-accent, #00f0ff);
@@ -377,3 +378,4 @@
   0% { transform: scale(1); }
   100% { transform: scale(1.05); }
 }
+
