@@ -1,4 +1,4 @@
-import { LucideAngularModule } from 'lucide-angular';
+﻿import { LucideAngularModule } from 'lucide-angular';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ViewWillEnter } from '@ionic/angular';
@@ -21,7 +21,7 @@ import {
   setStoredApiUrl,
 } from '../../core/utils/api-base.utils';
 import { environment } from '../../../environments/environment';
-import { Subscription, filter, take, timeout, catchError, of, Subject, debounceTime } from 'rxjs';
+import { Subscription, filter, take, timeout, catchError, of, Subject, debounceTime , EMPTY } from 'rxjs';
 
 export interface RecentRoom {
   roomId: string;
@@ -683,7 +683,11 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
           });
 
         const errSub = this.socketService.error$
-          .pipe(take(1), timeout(6000))
+          .pipe(
+            take(1),
+            timeout(6000),
+            catchError(() => EMPTY) // Ignorar el timeout (es bueno que no haya errores)
+          )
           .subscribe((msg) => {
             this.connecting = false;
             const { code } = parseServerErrorMessage(msg);
@@ -749,3 +753,5 @@ export class LoginPage implements OnInit, OnDestroy, ViewWillEnter {
     await toast.present();
   }
 }
+
+
