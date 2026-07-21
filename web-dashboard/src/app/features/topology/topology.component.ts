@@ -114,6 +114,10 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   // Devuelve la URL pública del avatar basándose en el ID del jugador
   getAvatarUrl(player: PublicPlayer): string {
+    if (this.avatarBlobUrls.has(player.id)) {
+      const blobUrl = this.avatarBlobUrls.get(player.id);
+      if (blobUrl) return blobUrl;
+    }
 
     const base = environment.apiUrl.replace(/\/$/, '');
     if (player.avatarUrl) {
@@ -131,7 +135,6 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
   }
 
   handleAvatarError(playerId: string, event?: Event): void {
-    console.error(`[Avatar] Failed to load avatar for player ${playerId}. Event:`, event);
     this.avatarErrors.add(playerId);
   }
 
@@ -254,12 +257,13 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
         if (url) {
           // Si es ngrok y no es una imagen externa, usamos fetch para saltar la página de advertencia.
           // Para todo lo demás (Render, local, o URLs externas), usamos la URL directa.
-          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev')) {
+          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev') || url.includes('zrok')) {
             this.avatarBlobUrls.set(p.id, '');
             fetch(url, {
               headers: {
                 'ngrok-skip-browser-warning': 'true',
-                'Bypass-Tunnel-Reminder': 'true'
+                'Bypass-Tunnel-Reminder': 'true',
+                'skip_zrok_interstitial': 'true'
               }
             }).then(res => {
               if (!res.ok) throw new Error();

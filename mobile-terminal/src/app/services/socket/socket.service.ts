@@ -104,7 +104,6 @@ export class SocketService {
     const url = this.buildSocketUrl();
     const socketOptions: Parameters<typeof io>[1] = {
       ...socketReconnectOptions(),
-      transports: ['polling', 'websocket'],
     };
 
     const extraHeaders = this.buildTunnelHeaders();
