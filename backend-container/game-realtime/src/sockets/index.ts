@@ -28,6 +28,7 @@ export function initSockets(server: http.Server) {
         'X-User-Id',
         'ngrok-skip-browser-warning',
         'Bypass-Tunnel-Reminder',
+        'skip_zrok_interstitial',
       ],
     },
     allowEIO3: true,

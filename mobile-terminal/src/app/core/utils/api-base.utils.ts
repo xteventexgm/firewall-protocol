@@ -16,10 +16,14 @@ export function setStoredApiUrl(url: string): void {
 
 function isTunnelHost(host: string): boolean {
   const h = host.toLowerCase();
-  return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel');
+  return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel') || h.includes('zrok');
 }
 
+<<<<<<< HEAD
+/** URL base del backend. Prioridad: localStorage → environment → ajuste LAN. */
+=======
 /** URL base del backend. Prioridad: localStorage �� environment �� ajuste LAN. */
+>>>>>>> 1d5c15697f8af0c935e2d92c4d486134e8e38aa3
 export function resolveApiBase(): string {
   let base = (getStoredApiUrl() || environment.apiUrl).replace(/\/$/, '');
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`;

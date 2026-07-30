@@ -34,8 +34,15 @@ export async function fetchRoomStatus(
   const code = roomId.toUpperCase().trim();
   const query = playerId ? `?playerId=${encodeURIComponent(playerId)}` : '';
   const headers: Record<string, string> = {};
-  if (base.toLowerCase().includes('ngrok')) {
+  const lowerBase = base.toLowerCase();
+  if (lowerBase.includes('ngrok') || lowerBase.includes('zrok')) {
     headers['ngrok-skip-browser-warning'] = '69420';
+  }
+  if (lowerBase.includes('loca.lt') || lowerBase.includes('localtunnel') || lowerBase.includes('zrok')) {
+    headers['Bypass-Tunnel-Reminder'] = 'true';
+  }
+  if (lowerBase.includes('zrok')) {
+    headers['skip_zrok_interstitial'] = 'true';
   }
 
   const maxRetries = 3;
