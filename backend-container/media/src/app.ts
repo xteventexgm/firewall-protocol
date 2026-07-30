@@ -18,7 +18,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-User-Id, ngrok-skip-browser-warning, Bypass-Tunnel-Reminder',
+    'Content-Type, Authorization, X-User-Id, ngrok-skip-browser-warning, Bypass-Tunnel-Reminder, skip_zrok_interstitial',
   );
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);

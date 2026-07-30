@@ -16,10 +16,10 @@ export function setStoredApiUrl(url: string): void {
 
 function isTunnelHost(host: string): boolean {
   const h = host.toLowerCase();
-  return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel');
+  return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel') || h.includes('zrok');
 }
 
-/** URL base del backend. Prioridad: localStorage Å® environment Å® ajuste LAN. */
+/** URL base del backend. Prioridad: localStorage ‚Üí environment ‚Üí ajuste LAN. */
 export function resolveApiBase(): string {
   let base = (getStoredApiUrl() || environment.apiUrl).replace(/\/$/, '');
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
@@ -46,9 +46,12 @@ export function resolveApiBase(): string {
 export function apiTunnelHeaders(): Record<string, string> {
   const base = resolveApiBase().toLowerCase();
   const headers: Record<string, string> = {};
-  if (base.includes('ngrok')) headers['ngrok-skip-browser-warning'] = '69420';
-  if (base.includes('loca.lt') || base.includes('localtunnel')) {
+  if (base.includes('ngrok') || base.includes('zrok')) headers['ngrok-skip-browser-warning'] = '69420';
+  if (base.includes('loca.lt') || base.includes('localtunnel') || base.includes('zrok')) {
     headers['Bypass-Tunnel-Reminder'] = 'true';
+  }
+  if (base.includes('zrok')) {
+    headers['skip_zrok_interstitial'] = 'true';
   }
   return headers;
 }

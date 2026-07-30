@@ -254,12 +254,13 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
         if (url) {
           // Si es ngrok y no es una imagen externa, usamos fetch para saltar la página de advertencia.
           // Para todo lo demás (Render, local, o URLs externas), usamos la URL directa.
-          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev')) {
+          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev') || url.includes('zrok')) {
             this.avatarBlobUrls.set(p.id, '');
             fetch(url, {
               headers: {
                 'ngrok-skip-browser-warning': 'true',
-                'Bypass-Tunnel-Reminder': 'true'
+                'Bypass-Tunnel-Reminder': 'true',
+                'skip_zrok_interstitial': 'true'
               }
             }).then(res => {
               if (!res.ok) throw new Error();
