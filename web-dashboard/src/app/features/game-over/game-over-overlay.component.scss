@@ -1,4 +1,4 @@
-﻿.gameover-overlay {
+.gameover-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -299,7 +299,6 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  animation: noise-anim-2 2s infinite linear alternate-reverse;
 }
 
 .glitch-text::before, .glitch-text::after {

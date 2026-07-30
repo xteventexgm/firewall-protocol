@@ -86,7 +86,7 @@ function resolveHackerConsensus(
     }
   }
 
-  if (best && bestCount > hackerCount / 2) return best;
+  if (best && bestCount > 0) return best;
   return null;
 }
 
