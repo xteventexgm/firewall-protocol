@@ -29,13 +29,13 @@ const CARDINAL_ANGLES = [-Math.PI / 2, 0, Math.PI / 2, Math.PI] as const;
 /** 4–6 jugadores: estrella clásica; 7+ estrella extendida. */
 const CLASSIC_STAR_MAX = 6;
 /** Apertura del abanico de 3 hojas por rama (rad). */
-const FAN_SPREAD = 0.82;
-const NODE_MARGIN = 46;
+const FAN_SPREAD = 0.98;
+const NODE_MARGIN = 56;
 
 /** Escala radial base (fracción del viewport). */
-const CLASSIC_RING = 0.46;
-const PRIMARY_RING = 0.52;
-const BRANCH_DIST = 0.48;
+const CLASSIC_RING = 0.53;
+const PRIMARY_RING = 0.59;
+const BRANCH_DIST = 0.55;
 /** No comprimir por debajo del viewport: siempre escala para que quepan todos los nodos. */
 const SAFE_TOP = 68;
 const SAFE_BOTTOM = 72;

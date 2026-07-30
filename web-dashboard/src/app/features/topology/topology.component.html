@@ -196,7 +196,9 @@
       <text [attr.y]="nodeMetrics.statusY" text-anchor="middle" class="node-status"
         [class.node-spawn-label]="isSpawning(node.id)" [class.dead]="!node.player.isAlive"
         [class.offline]="node.player.isAlive && !node.player.isConnected"
-        [class.silenced]="node.player.silenced && node.player.isAlive">{{ label }}</text>
+        [class.silenced]="node.player.silenced && node.player.isAlive"
+        [class.frozen]="node.player.frozen && node.player.isAlive"
+        [class.infected]="node.player.infected && node.player.isAlive">{{ label }}</text>
       }
 
       @if (showRole(node.player)) {

@@ -307,7 +307,7 @@ export class GameStateModel implements GameState {
     return rest;
   }
 
-  private playerToPlain(p: Player) {
+  private playerToPlain(p: Player, frozenIds?: Set<string>) {
     return {
       id: p.id,
       name: p.name,
@@ -322,6 +322,9 @@ export class GameStateModel implements GameState {
       metadata: p.metadata,
       isBot: p.isBot === true,
       userId: p.userId,
+      silenced: isSilenced(p, this.dayNumber),
+      infected: p.isAlive && isInfected(p),
+      frozen: frozenIds ? frozenIds.has(p.id) : false,
     };
   }
 

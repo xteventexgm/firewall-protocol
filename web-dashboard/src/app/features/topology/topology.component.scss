@@ -926,6 +926,16 @@
     &.silenced {
       fill: #ffd000;
     }
+
+    &.frozen {
+      fill: #00f0ff;
+      filter: drop-shadow(0 0 4px #00f0ff);
+    }
+
+    &.infected {
+      fill: #ff2d55;
+      filter: drop-shadow(0 0 4px #ff2d55);
+    }
   }
 
   .node-pulse-ring {
@@ -1126,10 +1136,7 @@
 }
 
 @keyframes ban-zoom {
-  0% { transform: translate(0, 0) scale(1); }
-  20% { transform: translate(calc(var(--cx) - var(--zx) * 1.5), calc(var(--cy) - var(--zy) * 1.5)) scale(1.5); }
-  80% { transform: translate(calc(var(--cx) - var(--zx) * 1.5), calc(var(--cy) - var(--zy) * 1.5)) scale(1.5); }
-  100% { transform: translate(0, 0) scale(1); }
+  0%, 100% { transform: translate(0, 0) scale(1); }
 }
 
 @keyframes ban-inner-flash {
@@ -1226,11 +1233,11 @@
 }
 
 @keyframes node-interference {
-  0% { opacity: 1; transform: translate(0, 0) scale(1); }
-  25% { opacity: 0.35; transform: translate(-3px, 2px) scale(1.04); }
-  50% { opacity: 0.9; transform: translate(3px, -2px) scale(0.96); }
-  75% { opacity: 0.4; transform: translate(-2px, -3px) scale(1.02); }
-  100% { opacity: 0.85; transform: translate(0, 0) scale(1); }
+  0% { opacity: 1; }
+  25% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+  75% { opacity: 0.5; }
+  100% { opacity: 0.85; }
 }
 
 @keyframes spawn-flash {
@@ -1450,22 +1457,22 @@
 }
 
 .pulse-kill {
-  animation: topology-pulse-kill 300ms ease-in-out;
+  animation: topology-pulse-kill 400ms ease-in-out;
 }
 
 @keyframes topology-pulse-kill {
-  0% { transform: scale(1.0); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1.0); }
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.2) drop-shadow(0 0 12px #ff2d5544); }
+  100% { filter: brightness(1); }
 }
 
 .pulse-vote {
-  animation: topology-pulse-vote 500ms ease-out;
+  animation: topology-pulse-vote 400ms ease-out;
 }
 
 @keyframes topology-pulse-vote {
-  0% { transform: scale(1.03); }
-  100% { transform: scale(1.0); }
+  0% { filter: brightness(1.25) drop-shadow(0 0 15px #ff2d5544); }
+  100% { filter: brightness(1); }
 }
 
 .pulse-victory {

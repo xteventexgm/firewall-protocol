@@ -202,6 +202,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   nightProgress: NightProgress | null = null;
   minigameChallenge: MinigameChallenge | null = null;
   minigamePending = false;
+  showMinigameModal = false;
   minigameFeedbackType: 'none' | 'success' | 'error' = 'none';
   minigameFeedbackMessage = '';
   interferenceShake = false;
@@ -447,6 +448,16 @@ export class DashboardPage implements OnInit, OnDestroy {
         } else if (state.phase === 'LOBBY' || state.phase === 'REPARTO') {
           if (this.gamePhase !== state.phase) {
             this.isNightActionMinimized = false;
+            if (state.phase === 'LOBBY') {
+              this.chatMessages = [];
+              this.nightActionReport = null;
+              this.nightHistory = [];
+              this.myDeathReason = '';
+              this.showIncidentReport = false;
+              this.incidentNames = [];
+              this.roleListLines = [];
+              this.challengeAnswer = null;
+            }
           }
           this.gamePhase = state.phase;
           this.showGameOver = false;
@@ -659,6 +670,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
         this.lastPhase = t.to;
         this.minigameChallenge = null;
+        this.showMinigameModal = false;
         this.challengeAnswer = null;
         this.minigamePending = false;
         this.minigameFeedbackType = 'none';
@@ -848,6 +860,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.subs.add(
       this.socketService.minigameChallenge$.subscribe((c) => {
         this.minigameChallenge = c;
+        this.showMinigameModal = !!c;
         this.minigamePending = false;
         this.minigameFeedbackType = 'none';
         this.minigameFeedbackMessage = '';
@@ -859,32 +872,31 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.minigamePending = false;
         if (payload.result === 'success') {
           this.challengeAnswer = this.pendingMinigameAnswer;
-          this.minigameChallenge = null;
-          this.minigameFeedbackType = 'none';
-          this.minigameFeedbackMessage = '';
-          this.setStatus(payload.successHint ?? 'Reto superado  Eacción con precisión máxima', 'success');
+          this.minigameFeedbackType = 'success';
+          this.minigameFeedbackMessage = payload.successHint ?? '✔ ¡Correcto! Precisión máxima configurada.';
+          this.setStatus(payload.successHint ?? 'Reto superado — acción con precisión máxima', 'success');
           this.gameSound.playAccepted();
-          return;
-        }
-        if (payload.result === 'failed') {
+        } else if (payload.result === 'failed') {
           this.challengeAnswer = null;
-          this.minigameChallenge = null;
-          this.minigameFeedbackType = 'none';
-          this.minigameFeedbackMessage = '';
+          this.minigameFeedbackType = 'error';
+          this.minigameFeedbackMessage = payload.failHint ?? '✖ Respuesta incorrecta. Precisión reducida.';
           this.triggerInterferenceShake();
           this.setStatus(payload.failHint ?? 'Respuesta incorrecta. Reto omitido.', 'error');
-          return;
-        }
-        if (payload.result === 'skipped' || payload.result === 'expired') {
+        } else {
           this.challengeAnswer = null;
-          this.minigameChallenge = null;
-          this.minigameFeedbackType = 'none';
-          this.minigameFeedbackMessage = '';
+          this.minigameFeedbackType = 'error';
+          this.minigameFeedbackMessage = payload.failHint ?? (payload.result === 'expired' ? '⏳ Tiempo agotado.' : 'Reto omitido.');
           this.setStatus(
-            payload.failHint ?? (payload.result === 'expired' ? 'Tiempo agotado  Eacción degradada' : 'Reto omitido  Eacción degradada'),
+            payload.failHint ?? (payload.result === 'expired' ? 'Tiempo agotado — acción degradada' : 'Reto omitido — acción degradada'),
             'warn',
           );
         }
+        setTimeout(() => {
+          this.showMinigameModal = false;
+          this.minigameChallenge = null;
+          this.minigameFeedbackType = 'none';
+          this.minigameFeedbackMessage = '';
+        }, 2200);
       }),
     );
 
@@ -1654,6 +1666,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (!this.minigameChallenge || this.minigamePending) return;
     this.pendingMinigameAnswer = answer;
     this.minigamePending = true;
+    this.showMinigameModal = false;
     this.minigameFeedbackType = 'none';
     this.minigameFeedbackMessage = '';
     this.socketService.submitMinigameAnswer(this.minigameChallenge.token, answer);
@@ -1662,6 +1675,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   onChallengeSkipped(): void {
     if (!this.minigameChallenge || this.minigamePending) return;
     this.minigamePending = true;
+    this.showMinigameModal = false;
     this.socketService.skipMinigame(this.minigameChallenge.token);
   }
 
@@ -1675,21 +1689,14 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   private triggerDeathShake(): void {
-    this.deathShake = true;
     this.showDeathFlash = true;
-    setTimeout(() => {
-      this.deathShake = false;
-    }, 300);
     setTimeout(() => {
       this.showDeathFlash = false;
     }, 150);
   }
 
   private triggerMiniShake(): void {
-    this.miniShake = true;
-    setTimeout(() => {
-      this.miniShake = false;
-    }, 150);
+    // Sin sacudida (desactivado por UX)
   }
 
   private transitionToEliminated(): void {

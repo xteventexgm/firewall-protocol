@@ -64,7 +64,7 @@ export enum RoleName {
 const SYSTEM_WIN =
   'Victoria del Sistema: 0 hackers vivos, 0 caóticos vivos y al menos 1 defensor System en pie.';
 const BLACK_HAT_WIN =
-  'Victoria Black Hat: 0 jugadores System vivos; si quedan caóticos, debes superarlos en número (hackers > caóticos).';
+  'Victoria Black Hat: 0 jugadores System vivos y 0 caóticos vivos en la red.';
 
 export interface Role {
   id: RoleName;
