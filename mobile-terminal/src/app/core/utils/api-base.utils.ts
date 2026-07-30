@@ -1,4 +1,4 @@
-﻿import { environment } from '../../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 export const API_URL_STORAGE_KEY = 'fp_apiUrl';
 
@@ -19,11 +19,7 @@ function isTunnelHost(host: string): boolean {
   return h.includes('ngrok') || h.includes('loca.lt') || h.includes('localtunnel') || h.includes('zrok');
 }
 
-<<<<<<< HEAD
 /** URL base del backend. Prioridad: localStorage → environment → ajuste LAN. */
-=======
-/** URL base del backend. Prioridad: localStorage �� environment �� ajuste LAN. */
->>>>>>> 1d5c15697f8af0c935e2d92c4d486134e8e38aa3
 export function resolveApiBase(): string {
   let base = (getStoredApiUrl() || environment.apiUrl).replace(/\/$/, '');
   if (!/^https?:\/\//i.test(base)) base = `https://${base}`;

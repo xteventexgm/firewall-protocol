@@ -1,8 +1,8 @@
-﻿<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
+<div class="gameover-overlay" [attr.data-outcome]="summary.outcome ?? 'neutral'">
   
   @if (currentStep === 0) {
-    <div class="protocolo-finalizado glitch-text" [attr.data-text]="protocolText">
-      {{ protocolText }}
+    <div class="protocolo-finalizado">
+      {{ displayedProtocolText }}
     </div>
   }
 

@@ -1,4 +1,4 @@
-﻿import { LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule } from 'lucide-angular';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { GamePhase, IncidentDisplay, PublicPlayer } from '../../core/models/game-state.model';
 import { phaseLabel } from '../../core/utils/game.utils';
@@ -29,25 +29,30 @@ export class PhaseOverlayComponent implements OnChanges {
   private bootTimer?: ReturnType<typeof setTimeout>;
 
   ngOnChanges(changes: SimpleChanges): void {
+    const isNight = this.phase === 'NOCHE';
+    if (!isNight) {
+      this.showNightOverlay = false;
+    } else if (!this.blockPhaseOverlays) {
+      this.showNightOverlay = true;
+    }
+
     if (changes['phase']) {
       if (this.phase === 'DIA' && this.prevPhase === 'REPARTO' && this.dayNumber > 1) {
         this.triggerBootSequence();
       }
       this.prevPhase = this.phase;
-      if (!this.blockPhaseOverlays) { this.showNightOverlay = this.phase === 'NOCHE'; }
       if (this.phase === 'DIA' && !changes['phaseFlash'] && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
     }
 
     if (changes['phaseFlash'] && this.phaseFlash) {
-      if (!this.blockPhaseOverlays) { this.showNightOverlay = this.phaseFlash === 'NOCHE'; }
       if (this.phaseFlash === 'DIA' && !this.blockPhaseOverlays) {
         this.triggerDawnFlash();
       }
     }
 
-    // Si el aviso quedﾃｳ bloqueado por animaciﾃｳn de muerte, mostrarlo al desbloquear.
+    // Si el aviso quedó bloqueado por animación de muerte, mostrarlo al desbloquear.
     if (changes['blockPhaseOverlays'] && !this.blockPhaseOverlays) {
       this.syncNightOverlayIfNeeded();
     }
@@ -58,9 +63,7 @@ export class PhaseOverlayComponent implements OnChanges {
   }
 
   private syncNightOverlayIfNeeded(): void {
-    if (this.phase === 'NOCHE' || this.phaseFlash === 'NOCHE') {
-      this.showNightOverlay = true;
-    }
+    this.showNightOverlay = this.phase === 'NOCHE';
   }
 
   phaseLabel = phaseLabel;
