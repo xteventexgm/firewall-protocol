@@ -1059,7 +1059,6 @@
   }
 
   &.node-dead {
-    animation: fade-to-red-dead 1.5s ease-out forwards;
     .node-hex-outer { stroke: #ff2d5533; }
     .node-hex-inner {
       stroke: #ff2d55;
@@ -1499,12 +1498,10 @@
     filter: drop-shadow(0 0 15px #ff0000);
   }
   20% {
-    filter: drop-shadow(0 0 30px #ff0000);
-    transform: scale(1.1);
+    filter: drop-shadow(0 0 30px #ff0000) brightness(1.5);
   }
   100% {
     filter: drop-shadow(0 0 5px #ff0000);
-    transform: scale(1);
   }
 }
 

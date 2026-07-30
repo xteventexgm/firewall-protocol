@@ -863,13 +863,12 @@
       <h3 class="picker-title">Selecciona objetivo</h3>
       <p class="picker-subtitle">Para: {{ targetPickerPrefix }}</p>
       
-      <div class="terminal-list">
-        <button *ngFor="let target of aliveTargets"
-                class="terminal-list-item picker-item"
-                (click)="onTargetSelected(target)">
-          {{ target.name }}
-        </button>
-      </div>
+      <app-node-picker
+        [options]="aliveTargets"
+        [(selectedId)]="chatSelectedTarget"
+        placeholder="-- Seleccionar nodo destino --"
+        (selectedIdChange)="onTargetSelected($event)"
+      ></app-node-picker>
       
       <button class="terminal-btn outline picker-cancel" (click)="onTargetSelected(null)">
         Cancelar
