@@ -26,6 +26,8 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
+  (socket as Socket).setTimeout(0);
+  (socket as Socket).setKeepAlive(true, 10000);
   logger.debug('WebSocket upgrade → game-realtime', { path });
   gameRealtimeSocketProxy.upgrade(req, socket as Socket, head);
 });

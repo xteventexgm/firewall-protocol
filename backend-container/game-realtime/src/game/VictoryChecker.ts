@@ -115,8 +115,8 @@ function checkTeamWin(state: GameStateModel): WinResult {
     return { over: true, type: 'team', winner: Team.SYSTEM };
   }
 
-  // Black Hat: infraestructura caída; domina caóticos si aún quedan
-  if (S === 0 && H >= 1 && (C === 0 || H > C)) {
+  // Black Hat: infraestructura caída; sin caóticos amenazando (o caóticos eliminados)
+  if (S === 0 && C === 0 && H >= 1) {
     return { over: true, type: 'team', winner: Team.BLACK_HAT };
   }
 

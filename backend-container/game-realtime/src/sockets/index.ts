@@ -32,6 +32,9 @@ export function initSockets(server: http.Server) {
       ],
     },
     allowEIO3: true,
+    pingTimeout: 60_000,
+    pingInterval: 25_000,
+    connectTimeout: 45_000,
   });
   const gameNs: Namespace = io.of('/game');
   const dashboardNs: Namespace = io.of('/dashboard');

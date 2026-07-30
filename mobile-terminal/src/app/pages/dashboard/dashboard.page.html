@@ -247,17 +247,21 @@
             <span class="panel-minimize" (click)="minimizeNightAction()">[Minimizar]</span>
           </div>
 
-          <app-text-challenge
-            *ngIf="minigameChallenge && !isTrollNight"
-            [challenge]="minigameChallenge"
-            [pending]="minigamePending"
-            [feedbackType]="minigameFeedbackType"
-            [feedbackMessage]="minigameFeedbackMessage"
-            (answered)="onChallengeAnswered($event)"
-            (skip)="onChallengeSkipped()">
-          </app-text-challenge>
-
-          <p class="night-step-label" *ngIf="minigameChallenge && !isTrollNight">Paso 2 · Comando Maestro</p>
+          <div *ngIf="minigameChallenge && !isTrollNight && !challengeAnswer" class="minigame-trigger-card" (click)="showMinigameModal = true">
+            <div class="minigame-trigger-info">
+              <span class="minigame-trigger-tag">⚡ RETO NOCTURNO</span>
+              <span class="minigame-trigger-desc">Toca para abrir el desafío de precisión</span>
+            </div>
+            <button type="button" class="terminal-btn primary minigame-trigger-btn" (click)="showMinigameModal = true">
+              Responder
+            </button>
+          </div>
+          <div *ngIf="challengeAnswer" class="minigame-trigger-card answered">
+            <div class="minigame-trigger-info">
+              <span class="minigame-trigger-tag">✔ RETO RESPONDIDO</span>
+              <span class="minigame-trigger-desc">Precisión máxima configurada</span>
+            </div>
+          </div>
           <h3 class="panel-title">{{ nightActionLabel }}</h3>
 
           <ng-container *ngIf="isTrollNight">
@@ -502,14 +506,16 @@
             </span>
             <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
             <span class="node-name">{{ p.name }}</span>
-            <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
-            <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
-              <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
-            </ng-container>
-            <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
-            <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
-            <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
-            <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+            <span class="node-tags-wrap">
+              <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
+              <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
+                <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
+              </ng-container>
+              <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+              <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
+              <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
+              <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+            </span>
           </li>
         </ul>
       </section>
@@ -572,14 +578,16 @@
           <span class="node-hex-icon" aria-hidden="true">{{ p.name.charAt(0).toUpperCase() }}</span>
           <span class="node-status" [class.online]="p.isConnected !== false" [class.offline]="p.isConnected === false"></span>
           <span class="node-name">{{ p.name }}</span>
-          <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
-          <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
-            <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
-          </ng-container>
-          <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
-          <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
-          <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
-          <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+          <span class="node-tags-wrap">
+            <span *ngIf="p.id === myPlayerId" class="node-tag">TÚ</span>
+            <ng-container *ngIf="getPlayerNodeBadge(p) as badge">
+              <span class="node-tag" [ngClass]="badge.cssClass">{{ badge.label }}</span>
+            </ng-container>
+            <span *ngIf="p.silenced" class="node-tag silenced">SILENCIADO</span>
+            <span *ngIf="p.frozen" class="node-tag frozen">CONGELADO</span>
+            <span *ngIf="deadPlayerRole(p) as deadRole" class="node-tag revealed">{{ deadRole }}</span>
+            <span *ngIf="!p.isAlive" class="node-tag dead">CAÍDO</span>
+          </span>
         </li>
       </ul>
     </section>
@@ -857,6 +865,27 @@
     [reason]="lobbyClosedReason"
     (dismissed)="onLobbyClosedDismiss()"
   />
+
+  <!-- Overlay: Minijuego Nocturno -->
+  <div *ngIf="showMinigameModal && minigameChallenge && !isTrollNight" class="fullscreen-overlay action-picker-overlay">
+    <div class="overlay-content target-picker-card">
+      <h3 class="picker-title">⚡ Desafío Nocturno</h3>
+      <p class="picker-subtitle">Responde correctamente para precisión máxima en tu acción</p>
+      
+      <app-text-challenge
+        [challenge]="minigameChallenge"
+        [pending]="minigamePending"
+        [feedbackType]="minigameFeedbackType"
+        [feedbackMessage]="minigameFeedbackMessage"
+        (answered)="onChallengeAnswered($event)"
+        (skip)="onChallengeSkipped()">
+      </app-text-challenge>
+      
+      <button class="terminal-btn outline picker-cancel" style="margin-top: 1.25rem;" (click)="showMinigameModal = false">
+        Minimizar Reto
+      </button>
+    </div>
+  </div>
 
   <div *ngIf="showTargetPicker" class="fullscreen-overlay action-picker-overlay">
     <div class="overlay-content target-picker-card">

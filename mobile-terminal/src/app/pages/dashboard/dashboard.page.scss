@@ -1275,11 +1275,30 @@ ion-select.terminal-select,
   &.offline { background: #64748b; }
 }
 
-.node-name { flex: 1; }
+.node-name {
+  flex: 1 1 auto;
+  min-width: 70px;
+  max-width: 50%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-left: auto;
+  max-width: 50%;
+}
 
 .node-tag {
-  font-size: 0.6rem;
-  padding: 0.1rem 0.35rem;
+  font-size: 0.55rem;
+  padding: 0.1rem 0.3rem;
+  line-height: 1.2;
+  flex-shrink: 0;
   border-radius: 3px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1653,9 +1672,8 @@ ion-select.terminal-select,
 }
 
 @keyframes glitch {
-  0%, 100% { transform: translate(0); }
-  25% { transform: translate(-2px, 1px); }
-  75% { transform: translate(2px, -1px); }
+  0%, 100% { transform: none; opacity: 1; }
+  50% { transform: none; opacity: 0.6; filter: brightness(1.4); }
 }
 
 .pulse-glow {
@@ -2270,6 +2288,46 @@ ion-select.terminal-select,
 
 .node-list-open {
   max-height: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+
+  .node-item {
+    background: rgba(0, 240, 255, 0.05);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-radius: 8px;
+    padding: 0.45rem 0.5rem;
+    min-height: 48px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+
+    &.self {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: #00f0ff;
+    }
+
+    &.dead {
+      background: rgba(239, 68, 68, 0.05);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    .node-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 85px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .node-tag {
+      font-size: 0.6rem;
+      padding: 0.1rem 0.35rem;
+      margin-left: auto;
+    }
+  }
 }
 
 .chat-panel-full {
@@ -2698,11 +2756,6 @@ ion-select.terminal-select,
 }
 @keyframes death-shake {
   0%, 100% { transform: translate(0, 0); }
-  10% { transform: translate(-6px, 4px); }
-  30% { transform: translate(5px, -6px); }
-  50% { transform: translate(-5px, 5px); }
-  70% { transform: translate(6px, -4px); }
-  90% { transform: translate(-3px, 3px); }
 }
 .terminal-shell.mini-shake {
   animation: mini-shake 0.15s linear;
@@ -3113,6 +3166,67 @@ ion-select.terminal-select,
     background-color: rgba(0, 240, 255, 0.15);
     border-color: #00f0ff;
     color: #00f0ff;
+  }
+}
+
+/* M29: Minigame trigger banner in night panel */
+.minigame-trigger-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.1);
+
+  &:hover, &:active {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: #00f0ff;
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+  }
+
+  &.answered {
+    background: rgba(0, 255, 136, 0.15);
+    border: 2px solid #00ff88;
+    box-shadow: 0 0 16px rgba(0, 255, 136, 0.35);
+    cursor: default;
+
+    .minigame-trigger-tag {
+      color: #00ff88;
+      font-size: 0.95rem;
+      text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+    }
+  }
+
+  .minigame-trigger-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .minigame-trigger-tag {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #00f0ff;
+    letter-spacing: 0.5px;
+  }
+
+  .minigame-trigger-desc {
+    font-size: 0.75rem;
+    color: #c8e6f0;
+    opacity: 0.85;
+  }
+
+  .minigame-trigger-btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    white-space: nowrap;
   }
 }
 

@@ -69,7 +69,7 @@ function defaultRoleForTeam(team: Team): RoleName {
   assert(result.over && result.type === 'team' && result.winner === Team.SYSTEM, '0H 2S 0C — system gana');
 }
 
-// Black Hat needs S=0 and H>C if chaotics remain
+// Black Hat needs S=0 and C=0 during normal play if chaotics remain
 {
   const state = makeState([
     { id: 'h1', team: Team.BLACK_HAT },
@@ -79,7 +79,7 @@ function defaultRoleForTeam(team: Team): RoleName {
     { id: 'c3', team: Team.CHAOTIC },
   ]);
   const result = checkAnyWin(state);
-  assert(!result.over, '2H 0S 3C — hackers no dominan caóticos');
+  assert(!result.over, '2H 0S 3C — partida continúa para permitir competir a caóticos');
 }
 
 {
@@ -90,7 +90,17 @@ function defaultRoleForTeam(team: Team): RoleName {
     { id: 'c1', team: Team.CHAOTIC },
   ]);
   const result = checkAnyWin(state);
-  assert(result.over && result.type === 'team' && result.winner === Team.BLACK_HAT, '3H 0S 1C — black hat gana');
+  assert(!result.over, '3H 0S 1C — partida continúa si quedan caóticos vivos');
+}
+
+{
+  const state = makeState([
+    { id: 'h1', team: Team.BLACK_HAT },
+    { id: 'h2', team: Team.BLACK_HAT },
+    { id: 'h3', team: Team.BLACK_HAT },
+  ]);
+  const result = checkAnyWin(state);
+  assert(result.over && result.type === 'team' && result.winner === Team.BLACK_HAT, '3H 0S 0C — black hat gana');
 }
 
 // Old rule would have ended 5H vs 4S — new rule continues

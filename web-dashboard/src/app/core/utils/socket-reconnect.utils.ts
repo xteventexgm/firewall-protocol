@@ -11,8 +11,8 @@ export function socketReconnectOptions(): {
     transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 2_000,
-    reconnectionDelayMax: 10_000,
-    timeout: 15_000,
+    reconnectionDelay: 1_000,
+    reconnectionDelayMax: 5_000,
+    timeout: 45_000,
   };
 }

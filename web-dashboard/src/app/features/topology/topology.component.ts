@@ -253,11 +253,13 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.state) return;
     this.state.players.forEach(p => {
       if (p.avatarUrl && !this.avatarBlobUrls.has(p.id)) {
-        const url = this.resolveAvatarUrl(p.avatarUrl);
+        let cleanUrl = p.avatarUrl;
+        if (cleanUrl.startsWith('/api/auth/avatars/')) {
+          cleanUrl = cleanUrl.replace('/api/auth/avatars/', '/api/media/avatars/');
+        }
+        const url = this.resolveAvatarUrl(cleanUrl);
         if (url) {
-          // Si es ngrok y no es una imagen externa, usamos fetch para saltar la página de advertencia.
-          // Para todo lo demás (Render, local, o URLs externas), usamos la URL directa.
-          if (url.includes('ngrok-free.app') || url.includes('ngrok.io') || url.includes('ngrok-free.dev') || url.includes('zrok')) {
+          if (url.includes('ngrok') || url.includes('zrok') || url.includes('localhost') || url.includes('192.168.') || url.includes('127.0.0.1')) {
             this.avatarBlobUrls.set(p.id, '');
             fetch(url, {
               headers: {
@@ -271,13 +273,14 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
             }).then(blob => {
               const blobUrl = URL.createObjectURL(blob);
               this.avatarBlobUrls.set(p.id, blobUrl);
+              this.avatarErrors.delete(p.id);
               this.cdr.markForCheck();
             }).catch(() => {
               this.avatarBlobUrls.delete(p.id);
             });
           } else {
-            // URL normal o de Render, se asigna directo para no romper CORS en imágenes externas
             this.avatarBlobUrls.set(p.id, url);
+            this.avatarErrors.delete(p.id);
           }
         }
       }
@@ -1408,20 +1411,20 @@ export class TopologyComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   get nodeMetrics() {
     return {
-      outer: 45,
-      inner: 34,
-      initialSize: 22,
-      nameSize: 14,
-      statusSize: 11,
-      roleSize: 11,
-      nameY: 60,
-      statusY: -38,
-      roleY: -56,
-      pulseR: 48,
-      linkInset: 47,
+      outer: 38,
+      inner: 28,
+      initialSize: 18,
+      nameSize: 13,
+      statusSize: 10,
+      roleSize: 10,
+      nameY: 52,
+      statusY: -33,
+      roleY: -48,
+      pulseR: 41,
+      linkInset: 40,
       /** Borde del disco del hub donde enchufan los cables (coincide con .hub-plate). */
       hubPortRadius: 55,
-      primaryInset: 42,
+      primaryInset: 36,
     };
   }
 

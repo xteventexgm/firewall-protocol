@@ -103,6 +103,8 @@ const gameRealtimeSocketProxy = createProxyMiddleware({
   target: GAME_REALTIME_URL,
   changeOrigin: true,
   ws: true,
+  proxyTimeout: 0,
+  timeout: 0,
   pathFilter: (pathname) => isSocketIoTraffic(pathname),
   on: proxyLog('game-realtime/socket'),
 });

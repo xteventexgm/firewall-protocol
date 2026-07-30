@@ -792,7 +792,7 @@ export class App implements OnInit, OnDestroy {
       this.topology.triggerEventPulse(pulseType, targetId);
     }
 
-    // Retrasar modal para que no tape el pulso ni las animaciones (M27, M28)
+    // Retraso mínimo para mostrar el modal inmediatamente al eliminar un jugador
     setTimeout(() => {
       this.nodeDeathAlertVisible = true;
 
@@ -807,7 +807,7 @@ export class App implements OnInit, OnDestroy {
           this.pumpNodeDeathAlertQueue();
         }, 420);
       }, App.DEATH_ALERT_MS);
-    }, 1600); // 1600ms de retraso para que las animaciones respiren
+    }, 200);
   }
 
   private clearNodeDeathAlerts(): void {
