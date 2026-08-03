@@ -19,6 +19,7 @@ import {
   SMTP_PASS,
   SMTP_PORT,
   SMTP_SECURE,
+  SMTP_TLS_REJECT_UNAUTHORIZED,
   SMTP_USER,
 } from '../config/env';
 import { resolveBrandIconPath } from '../utils/brandAssets';
@@ -41,6 +42,9 @@ function getTransporter(): Transporter | null {
       port: SMTP_PORT,
       secure: SMTP_SECURE,
       auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+      tls: {
+        rejectUnauthorized: SMTP_TLS_REJECT_UNAUTHORIZED,
+      },
     });
   }
   return transporter;
