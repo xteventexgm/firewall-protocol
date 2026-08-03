@@ -63,6 +63,8 @@ export const SMTP_SECURE = process.env.SMTP_SECURE === 'true' || process.env.SMT
 export const SMTP_USER = (process.env.SMTP_USER || '').trim();
 export const SMTP_PASS = (process.env.SMTP_PASS || '').trim();
 export const SMTP_FROM = (process.env.SMTP_FROM || SMTP_USER || '').trim();
+export const SMTP_TLS_REJECT_UNAUTHORIZED =
+  process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false' && process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== '0';
 
 /** Si true, bloquea login hasta verificar correo */
 export const REQUIRE_EMAIL_VERIFICATION =
