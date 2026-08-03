@@ -10,9 +10,10 @@ Sincronizado con el código en `backend-server/` (junio 2026).
 
 - Diseño de base de datos, colecciones, campos e índices.
 - Migración desde JSON en disco (`data/games/`) vía `DBAdapter`.
-- **Fuera de alcance por ahora:** login de usuario en móvil, JWT y cuentas (sección reservada al final).
+- **Gestión de Identidad y Cuentas:** Totalmente implementado en el microservicio `identity` (`backend-container/identity`) con colecciones dedicadas (`users`, `auth_sessions`, `email_tokens`, `game_participations`).
+- **Catálogo CRUD Completo:** Ver nueva sección **§15** para el catálogo detallado de todas las operaciones CRUD existentes por servicio.
 
-**Principio operativo:** MongoDB **no es obligatorio** para jugar. Si `MONGO_URI` no está configurado, el servidor sigue usando JSON (`dbSyncService`). El juego actual funciona con `joinRoom(roomId, playerId, name)` sin cuenta.
+**Principio operativo:** MongoDB **no es obligatorio** para jugar localmente en `game-realtime`. Si `MONGO_URI` no está configurado, el servidor usa almacenamiento JSON (`JsonAdapter`). El juego soporta tanto invitados (`joinRoom` con `myPlayerId`) como cuentas registradas autenticadas con JWT.
 
 ---
 
@@ -21,10 +22,11 @@ Sincronizado con el código en `backend-server/` (junio 2026).
 | Concepto | Valor |
 |----------|-------|
 | **Motor** | MongoDB 6+ |
-| **Nombre de la BD** | `firewall_protocol` |
+| **Nombre de la BD (Juego)** | `firewall_protocol` (`game-realtime`) |
+| **Nombre de la BD (Identidad)** | `firewall_identity` (`identity`) |
 | **URI de ejemplo** | `mongodb://localhost:27017/firewall_protocol` |
-| **Variable de entorno** | `MONGO_URI` (ver `backend-server/.env.example`) |
-| **Adaptador** | `backend-server/src/config/database.ts` → `DBAdapter` |
+| **Variable de entorno** | `MONGO_URI` (ver `.env.example` en cada servicio) |
+| **Adaptadores** | `MongoDBAdapter.ts` (`game-realtime`) / Mongoose + nativo (`identity`) |
 
 En MongoDB las “tablas” son **colecciones**. Este documento usa ambos términos: *colección* = unidad en MongoDB; *tabla* = equivalente relacional.
 
@@ -32,14 +34,15 @@ En MongoDB las “tablas” son **colecciones**. Este documento usa ambos térmi
 
 ## 2. Mapa de colecciones
 
-| Colección | Propósito | Prioridad | Fuente en código |
-|-----------|-----------|-----------|------------------|
-| `games` | Estado de partida activa y archivada | **P0 — obligatoria** | `GameStateModel.toPlain()` |
-| `roles` | Catálogo de 44 roles, textos y acciones | **P1 — recomendada** | `roles.types.ts`, `roleInfo.ts` |
-| `session_logs` | Registro legible post-partida (.log) | **P2 — opcional** | `GameSessionLogService.ts` |
-| `users` | Cuentas de jugador | **P3 — futuro** | `auth/jwt.pending.ts` |
-| `auth_sessions` | Refresh tokens | **P3 — futuro** | `auth/jwt.pending.ts` |
-| `game_participations` | Historial por jugador/cuenta | **P3 — futuro** | Derivado al archivar |
+| Colección | Base de Datos / Servicio | Propósito | Estado / Prioridad | Fuente en código |
+|-----------|--------------------------|-----------|--------------------|------------------|
+| `games` | `firewall_protocol` (`game-realtime`) | Estado de partida activa y archivada | **P0 — implementada** | `MongoDBAdapter.ts`, `JsonAdapter.ts` |
+| `roles` | `firewall_protocol` (`game-realtime`) | Catálogo de 44 roles, textos y acciones | **P1 — implementada** | `scripts/setup-mongodb.ts`, `seed-roles.ts` |
+| `session_logs` | `firewall_protocol` (`game-realtime`) | Registro legible post-partida (.log) | **P1 — implementada** | `GameSessionLogService.ts` |
+| `users` | `firewall_identity` (`identity`) | Cuentas de jugador y estadísticas | **P0 — implementada** | `UserService.ts` |
+| `auth_sessions` | `firewall_identity` (`identity`) | Refresh tokens de sesión JWT | **P1 — implementada** | `AuthSessionService.ts` |
+| `email_tokens` | `firewall_identity` (`identity`) | Tokens de verificación y reset clave | **P1 — implementada** | `EmailTokenService.ts` |
+| `game_participations` | `firewall_identity` (`identity`) | Historial y stats por partida/jugador | **P0 — implementada** | `GameParticipationService.ts` |
 
 ---
 
@@ -642,4 +645,87 @@ El gameplay **no depende** del seed de `roles` mientras el backend siga importan
 
 ---
 
-*Última revisión: Steven Zambrano — código en `backend-server`, 44 roles, fases `GamePhase`, persistencia MongoDB con fallback JSON vía `DBAdapter`.*
+## 15. Catálogo de Operaciones CRUD Existentes y Capas de Persistencia (Agosto 2026)
+
+Esta sección documenta el mapa exhaustivo de **operaciones CRUD reales implementadas en el código fuente** de los microservicios en `backend-container/` (`game-realtime`, `identity` y `media`), especificando la colección, método, tipo de operación y datos que manipulan.
+
+### 15.1 Microservicio `game-realtime` (Base de datos: `firewall_protocol`)
+
+Todas las operaciones de estado de partida utilizan el contrato `DBAdapter` (`backend-container/game-realtime/src/config/database.types.ts`), concretado en `MongoDBAdapter.ts` (MongoDB) o `JsonAdapter.ts` (archivos en disco).
+
+| Colección | Método del Adaptador / Servicio | Operación CRUD | Implementación en Código | Propósito de Negocio |
+|-----------|---------------------------------|----------------|--------------------------|----------------------|
+| `games` | `save(roomId, state)` | **Create / Update (Upsert)** | `replaceOne({ _id: roomId }, doc, { upsert: true })` | Guarda o actualiza transaccionalmente el árbol completo `GameState` de una sala (`players`, `votes`, `actionQueue`, `phase`). |
+| `games` | `load(roomId)` | **Read** | `findOne({ _id: roomId })` | Recupera el documento en curso de una sala por su código (`_id`). |
+| `games` | `loadOrArchive(roomId)` / `loadOrArchiveAsync` | **Read (Fallback)** | Carga de `active` → fallback a `finishgame` / `deletegame` | Permite consultar partidas vivas o históricas archivadas. |
+| `games` | `list()` | **Read** | `find({ archiveCategory: 'active' }, { projection: { _id: 1 } })` | Lista los identificadores (`_id`) de todas las salas en curso. |
+| `games` | `getStatus(roomId, playerId?)` | **Read (Proyección Ligera)** | Proyección `findOne(..., { projection: ... })` | Consulta rápida y eficiente de fase, conteo de jugadores y elegibilidad de reconexión sin cargar logs ni historiales pesados. |
+| `games` | `delete(roomId)` | **Delete** | `deleteOne({ _id: roomId })` | Borrado físico de un documento de sala. |
+| `games` | `archive(roomId, category, extra)` | **Update / Archive** | `updateOne({ _id: roomId }, { $set: { archiveCategory, archivedAt, ...extra } })` | Transiciona una partida terminada a categoría `finishgame` o `deletegame` y registra la marca temporal `archivedAt`. |
+| `session_logs` | `saveSessionLog(roomId, logText)` | **Create / Upsert** | `GameSessionLogService.ts` → `replaceOne({ _id: roomId }, ...)` | Persiste el registro de auditoría `.log` en texto plano legible por humanos al archivar la partida. |
+| `session_logs` | `readSessionLog(roomId)` / `readSessionLogAsync` | **Read** | `findOne({ _id: roomId })` | Extrae el historial de eventos textuales de una partida finalizada. |
+| `roles` | `seedRoles()` | **Create / Upsert** | `scripts/setup-mongodb.ts` / `seed-roles.ts` | Pobla o sincroniza en la colección los 44 roles definidos en `ROLE_CATALOG` y `roleInfo.ts`. |
+
+---
+
+### 15.2 Microservicio `identity` (Base de datos: `firewall_identity`)
+
+Gestionado con driver nativo de MongoDB en `backend-container/identity/src/services/`. Contiene la lógica transaccional de usuarios, autenticación, tokens y el registro individual de partidas jugadas.
+
+#### 15.2.1 Colección `users` (`UserService.ts`)
+* **Create (`createUser`)**: Crea un documento de usuario con `authProvider: 'local' | 'google' | 'guest_linked'`, `username`, `email` (opcional), `passwordHash`, `stats` inicializadas a cero y arreglo de logros.
+* **Read (Consultas unitarias y listas)**:
+  * `findUserById(id)`, `findUserByEmail(email)`, `findUserByGuestId(guestId)`, `findUserByUsername(username)`.
+  * `listUsers(page, limit, search)`: Consulta paginada y filtrado por expresión regular insensible a mayúsculas.
+  * `getExtendedProfile(userId)`: Devuelve el perfil público sanitizado con ratio de victorias por bando (`stats.winsByTeam`), conteo de trofeos MVP y rachas.
+* **Update (Modificaciones y Métricas)**:
+  * `updateUser(id, partialData)`: Actualiza campos de perfil (`username`, `avatarUrl`, `preferredLocale`).
+  * `updateUserPassword(id, hashedPassword)`: Cambio de contraseña verificado por política.
+  * `markEmailVerified(id)`: Marca `emailVerified = true`.
+  * `linkGuestToAccount(guestId, userId)`: Incorpora `guestId` a `linkedGuestIds` y consolida el historial previo del invitado en la cuenta autenticada.
+  * `updateGameStats(userId, statsDelta)`: Ejecuta `$inc` atómico sobre `stats.gamesPlayed`, `stats.winsByTeam.[team]`, `stats.mvpCount` y `$set` sobre las rachas de victoria (`currentStreak`, `maxStreak`).
+* **Delete (`deleteUser`)**: Realiza la baja de cuenta (coordinada en cascada).
+
+#### 15.2.2 Colección `auth_sessions` (`AuthSessionService.ts`)
+* **Create (`createSession`)**: Registra un refresh token encriptado con fecha de expiración, IP y User-Agent (`deviceInfo`).
+* **Read (`findSessionByToken`, `getUserSessions`)**: Verifica si una sesión JWT sigue activa o lista todas las sesiones abiertas de una cuenta.
+* **Delete / Revoke (`revokeSession`, `revokeAllUserSessions`, `deleteExpiredSessions`)**: Revocación puntual al cerrar sesión, revocación total (ej. cambio de clave) y purga programada de sesiones caducadas.
+
+#### 15.2.3 Colección `email_tokens` (`EmailTokenService.ts`)
+* **Create (`createToken`)**: Genera un token aleatorio con expiración para `verify_email` o `reset_password`.
+* **Read / Validate / Delete (`verifyAndConsumeToken`)**: Busca un token válido y no expirado; al consumirlo con éxito, lo **elimina atómicamente** de la colección para evitar la reutilización.
+* **Delete (`deleteUserTokens`)**: Limpia tokens pendientes para un usuario.
+
+#### 15.2.4 Colección `game_participations` (`GameParticipationService.ts`)
+* **Create (Lote por Sala — `recordGameParticipations(roomId, state)`)**:
+  * Invocado cuando termina una partida (`FIN`).
+  * Recorre todos los jugadores (`state.players`), determina si ganaron analizando `state.winner` y `state.soloWinner`, verifica quién obtuvo el MVP (`state.gameStats.mvpPlayerId`) e inserta documentos individuales en `game_participations`.
+  * En el mismo proceso, invoca automáticamente `UserService.updateGameStats` para actualizar las métricas en `users`.
+* **Create (Individual — `recordParticipation(...)`)**: Crea un registro de participación aislado si se requiere por integración externa.
+* **Read (`getUserHistory(userId, limit, offset)`)**: Consulta paginada del historial de partidas jugadas, ordenada cronológicamente por `finishedAt DESC`.
+* **Read (`getUserStats(userId)`)**: Ejecuta un pipeline de agregación (`$group`, `$sum`) sobre `game_participations` para calcular en BD las victorias por rol, bando y total de MVPs acumulados.
+
+#### 15.2.5 Servicio de Borrado en Cascada (`AccountDeletionService.ts`)
+* **Delete (`deleteUserAccount(userId)`)**:
+  * Ejecuta una transacción o limpieza ordenada: borra el documento en `users`, elimina todas sus sesiones en `auth_sessions`, revoca sus `email_tokens` y disocia su ID de los registros históricos en `game_participations`.
+
+---
+
+### 15.3 Microservicio `media` (Base de datos / Almacenamiento de Avatares)
+* **Create / Update**: Subida de archivos binarios de imagen (`POST /media/avatars`) y reemplazo automático de avatares antiguos.
+* **Read**: Servido HTTP del archivo estático (`GET /media/avatars/:filename`).
+
+---
+
+### 15.4 Flujo de Datos Relevantes e Interconexión CRUD
+1. **Fase de Juego Activo (`game-realtime`)**:
+   * Cuando un cliente móvil se une con `myPlayerId` (UUID o identificador de invitado), su estado temporal (`role`, `team`, `isAlive`, `metadata`) se manipula con lecturas/escrituras en memoria y se persiste continuamente mediante `save(roomId, state)` en la colección `games` de `firewall_protocol`.
+2. **Cierre de Partida y Migración al Histórico**:
+   * Al emitir `FIN`, `game-realtime` invoca `archiveGameState()`, que cambia el atributo `archiveCategory` a `finishgame` y guarda un resumen técnico (.log) en `session_logs`.
+   * Paralelamente, el servicio `identity` consume el estado final e invoca `recordGameParticipations`, creando las entradas en `game_participations` y actualizando en una sola transacción lógica los contadores de `stats` en la colección `users`.
+3. **Conversión de Invitado a Usuario Registrado**:
+   * Si un usuario juega inicialmente como invitado (`usr_guest...`) y luego crea una cuenta, `linkGuestToAccount` relaciona su `guestPlayerId` preexistente con su nuevo `_id` de usuario, preservando intacto su historial en `game_participations`.
+
+---
+
+*Última revisión: Steven Zambrano — Código actualizado con arquitectura de microservicios en `backend-container/` (`game-realtime`, `identity`, `media`), 44 roles, persistencia en MongoDB (`firewall_protocol` y `firewall_identity`) con fallback JSON en disco.*
